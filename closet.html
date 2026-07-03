@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Closet - ReStyle</title>
+  <link rel="stylesheet" href="closet.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+
+<body>
+
+<header class="topbar">
+  <div class="logo">Re<span>Style</span></div>
+
+  <nav>
+    <a href="Welcome Page.html">Home</a>
+    <a href="closet.html" class="active">My Closet</a>
+    <a href="#">Marketplace</a>
+    <a href="#">Outfit Builder</a>
+    <a href="#">ReStyle Studio</a>
+  </nav>
+
+  <button class="logout-btn" id="logoutBtn">Logout</button>
+</header>
+
+<main class="layout">
+
+  <section class="hero">
+    <div>
+      <p class="welcome-text" id="welcomeText">Welcome back</p>
+      <h1>My <span>Closet</span></h1>
+      <p>Every great outfit starts with a great wardrobe ♡</p>
+
+      <div class="hero-buttons">
+        <button class="add-btn" id="openModalBtn">
+          <i class="fa-solid fa-plus"></i>
+          Add Item
+        </button>
+
+        <button class="build-btn">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+          Build Outfit
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="category-row">
+    <button class="filter-btn active" data-category="All">
+      <i class="fa-solid fa-border-all"></i>
+      <span>All</span>
+    </button>
+
+    <button class="filter-btn" data-category="Tops">
+      <i class="fa-solid fa-shirt"></i>
+      <span>Tops</span>
+    </button>
+
+    <button class="filter-btn" data-category="Bottoms">
+      <i class="fa-solid fa-person"></i>
+      <span>Bottoms</span>
+    </button>
+
+    <button class="filter-btn" data-category="Dresses">
+      <i class="fa-solid fa-person-dress"></i>
+      <span>Dresses</span>
+    </button>
+
+    <button class="filter-btn" data-category="Shoes">
+      <i class="fa-solid fa-shoe-prints"></i>
+      <span>Shoes</span>
+    </button>
+
+    <button class="filter-btn" data-category="Bags">
+      <i class="fa-solid fa-bag-shopping"></i>
+      <span>Bags</span>
+    </button>
+
+    <button class="filter-btn" data-category="Accessories">
+      <i class="fa-regular fa-gem"></i>
+      <span>Accessories</span>
+    </button>
+  </section>
+
+  <section class="main-content">
+
+    <div class="collection">
+      <div class="collection-header">
+        <h2>Your Collection</h2>
+
+        <div class="stats">
+          <div>
+            <strong id="itemsCount">0</strong>
+            <span>Items</span>
+          </div>
+
+          <div>
+            <strong id="favoritesCount">0</strong>
+            <span>Favorites</span>
+          </div>
+
+          <div>
+            <strong>6</strong>
+            <span>Categories</span>
+          </div>
+        </div>
+      </div>
+
+      <section class="closet-grid" id="closetGrid">
+        <div class="empty-state">
+          <i class="fa-solid fa-shirt"></i>
+          <h3>Your wardrobe is waiting...</h3>
+          <p>Add your first item and start building your style.</p>
+          <button id="emptyAddBtn">Add First Item</button>
+        </div>
+      </section>
+    </div>
+
+    <aside class="side-panel">
+      <div class="side-card">
+        <h3>Your Stats</h3>
+
+        <div class="side-stat">
+          <i class="fa-solid fa-shirt"></i>
+          <div>
+            <strong id="sideItemsCount">0</strong>
+            <span>Total Items</span>
+          </div>
+        </div>
+
+        <div class="side-stat">
+          <i class="fa-regular fa-heart"></i>
+          <div>
+            <strong id="sideFavoritesCount">0</strong>
+            <span>Favorites</span>
+          </div>
+        </div>
+
+        <div class="side-stat">
+          <i class="fa-solid fa-layer-group"></i>
+          <div>
+            <strong>6</strong>
+            <span>Categories</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="style-card">
+        <h3>Style Tip ✨</h3>
+        <p>Mix soft colors with one statement piece for a clean, classy look.</p>
+      </div>
+    </aside>
+
+  </section>
+
+</main>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <button class="close-btn" id="closeModalBtn">
+      <i class="fa-solid fa-xmark"></i>
+    </button>
+
+    <h2>Add New Item <span>♡</span></h2>
+    <p class="modal-subtitle">Upload your item and add the details.</p>
+
+    <form id="itemForm">
+
+      <label class="upload-area">
+        <input type="file" id="itemImage" accept="image/*">
+        <i class="fa-solid fa-cloud-arrow-up"></i>
+        <strong>Upload Image</strong>
+        <small>PNG, JPG up to 10MB</small>
+      </label>
+
+      <label>Item Name</label>
+      <input type="text" id="itemName" placeholder="Example: White Shirt">
+
+      <label>Category</label>
+      <select id="itemCategory">
+        <option value="Tops">Tops</option>
+        <option value="Bottoms">Bottoms</option>
+        <option value="Dresses">Dresses</option>
+        <option value="Shoes">Shoes</option>
+        <option value="Bags">Bags</option>
+        <option value="Accessories">Accessories</option>
+      </select>
+
+      <label>Color</label>
+      <input type="text" id="itemColor" placeholder="Example: White">
+
+      <div class="form-row">
+        <div>
+          <label>Season</label>
+          <select id="itemSeason">
+            <option value="All Season">All Season</option>
+            <option value="Summer">Summer</option>
+            <option value="Winter">Winter</option>
+            <option value="Spring">Spring</option>
+            <option value="Fall">Fall</option>
+          </select>
+        </div>
+
+        <div>
+          <label>Style</label>
+          <select id="itemStyle">
+            <option value="Casual">Casual</option>
+            <option value="Classic">Classic</option>
+            <option value="Elegant">Elegant</option>
+            <option value="Sporty">Sporty</option>
+            <option value="Streetwear">Streetwear</option>
+          </select>
+        </div>
+      </div>
+
+      <button type="submit" class="save-btn">
+        <i class="fa-solid fa-bag-shopping"></i>
+        Save Item
+      </button>
+
+    </form>
+  </div>
+</div>
+
+<script src="closet.js"></script>
+</body>
+</html>

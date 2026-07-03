@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - ReStyle</title>
+    <link rel="stylesheet" href="register.css">
+</head>
+
+<body>
+
+<div class="register-page">
+
+    <a href="Welcome Page.html" class="back-home">← Back to Home</a>
+
+    <div class="register-card">
+
+        <div class="brand">
+            <svg class="hanger" viewBox="0 0 120 80">
+                <path d="M60 20 C60 8 78 8 78 22 C78 33 60 33 60 45" />
+                <path d="M60 45 L18 70" />
+                <path d="M60 45 L102 70" />
+                <path d="M18 70 L102 70" />
+                <text x="60" y="24" text-anchor="middle">♥</text>
+            </svg>
+
+            <h2>ReStyle</h2>
+            <p>Redefine your style. Your way.</p>
+        </div>
+        <label class="language-label">
+            Preferred Language
+        </label>
+        
+        <select id="language">
+            <option value="en">English</option>
+            <option value="he">Hebrew</option>
+        </select>
+
+        <h1>Create Account</h1>
+        <p class="subtitle">Join ReStyle and start building your smart wardrobe</p>
+
+        <form id="registerForm" novalidate>
+
+            <div class="name-row">
+                <div>
+                    <input type="text" id="firstName" placeholder="First Name">
+                    <p id="firstNameError" class="error-message"></p>
+                </div>
+
+                <div>
+                    <input type="text" id="lastName" placeholder="Last Name">
+                    <p id="lastNameError" class="error-message"></p>
+                </div>
+            </div>
+
+            <input type="email" id="email" placeholder="Email">
+            <p id="emailError" class="error-message"></p>
+
+            <input type="password" id="password" placeholder="Password">
+            <p id="passwordError" class="error-message"></p>
+
+            <input type="password" id="confirmPassword" placeholder="Confirm Password">
+            <p id="confirmPasswordError" class="error-message"></p>
+
+            <label class="upload-box">
+                <span>Upload Profile Picture (Optional)</span>
+                <input type="file" accept="image/*">
+            </label>
+
+            <button type="submit" class="register-btn">Create Account</button>
+
+            <div class="divider">
+                <span>OR</span>
+            </div>
+
+            <button type="button" class="google-btn">
+                <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/google/google-original.svg" alt="Google">
+                Continue with Google
+            </button>
+
+        </form>
+
+        <div class="login-link">
+            Already have an account?
+            <a href="login.html">Login</a>
+        </div>
+
+    </div>
+
+</div>
+<script src="register.js"></script>
+</body>
+</html>
+</body>
+</html>
