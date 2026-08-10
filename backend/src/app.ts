@@ -1,11 +1,14 @@
 import express from "express";
 import cors from "cors";
 import User from "./models/User.ts";
+import itemRoutes from "./routes/itemRoutes.ts";
 
 const app = express();
 
 app.use(cors());
 app.use(express.json());
+
+app.use("/api/items", itemRoutes);
 
 app.get("/", (req, res) => {
   res.send("ReStyle API is running");
@@ -13,7 +16,14 @@ app.get("/", (req, res) => {
 
 app.post("/api/auth/register", async (req, res) => {
   try {
-    const { firstName, lastName, email, password, confirmPassword, language } = req.body;
+    const {
+      firstName,
+      lastName,
+      email,
+      password,
+      confirmPassword,
+      language
+    } = req.body;
 
     if (!firstName || !lastName || !email || !password || !confirmPassword) {
       return res.status(400).json({
@@ -29,7 +39,9 @@ app.post("/api/auth/register", async (req, res) => {
       });
     }
 
-    const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
+    const existingUser = await User.findOne({
+      email: email.toLowerCase().trim()
+    });
 
     if (existingUser) {
       return res.status(400).json({
