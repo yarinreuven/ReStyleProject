@@ -2,9 +2,15 @@ import express from "express";
 import multer from "multer";
 
 import Item from "../models/Item.ts";
-import User from "../models/User.ts";
+import {
+  authenticateToken,
+  type AuthRequest
+} from "../middleware/auth.ts";
 
 const router = express.Router();
+
+// כל הנתיבים בקובץ דורשים משתמש מחובר
+router.use(authenticateToken);
 
 // ================================
 // MULTER
@@ -17,11 +23,11 @@ const upload = multer({
   limits: {
     fileSize: 10 * 1024 * 1024
   },
-  fileFilter: (req, file, cb) => {
+  fileFilter: (req, file, callback) => {
     if (file.mimetype.startsWith("image/")) {
-      cb(null, true);
+      callback(null, true);
     } else {
-      cb(new Error("Only image files are allowed"));
+      callback(new Error("Only image files are allowed"));
     }
   }
 });
@@ -30,341 +36,272 @@ const upload = multer({
 // ADD ITEM
 // ================================
 
-router.post("/", upload.single("image"), async (req, res) => {
-  try {
-    const {
-      email,
-      name,
-      category,
-      color,
-      season,
-      style,
-      favorite
-    } = req.body;
+router.post(
+  "/",
+  upload.single("image"),
+  async (req: AuthRequest, res, next) => {
+    try {
+      const {
+        name,
+        category,
+        color,
+        season,
+        style,
+        favorite
+      } = req.body;
 
-    if (!email || !name || !category || !color || !season || !style) {
-      return res.status(400).json({
-        success: false,
-        message: "Please fill in all required fields"
+      if (
+        !name ||
+        !category ||
+        !color ||
+        !season ||
+        !style
+      ) {
+        res.status(400).json({
+          success: false,
+          message: "Please fill in all required fields"
+        });
+        return;
+      }
+
+      const newItem = await Item.create({
+        user: req.userId,
+        name: name.trim(),
+        category,
+        color: color.trim(),
+        season,
+        style,
+
+        favorite:
+          favorite === true ||
+          favorite === "true",
+
+        image: req.file
+          ? {
+              data: req.file.buffer,
+              contentType: req.file.mimetype
+            }
+          : undefined
       });
-    }
 
-    const user = await User.findOne({
-      email: email.toLowerCase().trim()
-    });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
+      res.status(201).json({
+        success: true,
+        message: "Item added successfully",
+        item: newItem
       });
+    } catch (error) {
+      next(error);
     }
-
-    const newItem = await Item.create({
-      user: user._id,
-      name: name.trim(),
-      category,
-      color: color.trim(),
-      season,
-      style,
-
-      favorite:
-        favorite === "true" ||
-        favorite === true,
-
-      image: req.file
-        ? {
-            data: req.file.buffer,
-            contentType: req.file.mimetype
-          }
-        : undefined
-    });
-
-    return res.status(201).json({
-      success: true,
-      message: "Item added successfully",
-      item: newItem
-    });
-
-  } catch (error) {
-    console.log(error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Server error. Please try again."
-    });
   }
-});
+);
 
 // ================================
 // GET USER ITEMS
 // ================================
 
-router.get("/", async (req, res) => {
-  try {
-    const email = req.query.email as string;
+router.get(
+  "/",
+  async (req: AuthRequest, res, next) => {
+    try {
+      const items = await Item.find({
+        user: req.userId
+      }).sort({ createdAt: -1 });
 
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is required"
+      const formattedItems = items.map((item) => {
+        const itemObject = item.toObject();
+
+        let image = "";
+
+        if (
+          item.image &&
+          item.image.data &&
+          item.image.contentType
+        ) {
+          image =
+            `data:${item.image.contentType};base64,` +
+            item.image.data.toString("base64");
+        }
+
+        return {
+          ...itemObject,
+          image
+        };
       });
-    }
 
-    const user = await User.findOne({
-      email: email.toLowerCase().trim()
-    });
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
+      res.status(200).json({
+        success: true,
+        items: formattedItems
       });
+    } catch (error) {
+      next(error);
     }
-
-    const items = await Item.find({
-      user: user._id
-    }).sort({ createdAt: -1 });
-
-    const formattedItems = items.map(item => {
-      const itemObject = item.toObject();
-
-      let image = "";
-
-      if (
-        item.image &&
-        item.image.data &&
-        item.image.contentType
-      ) {
-        image =
-          `data:${item.image.contentType};base64,` +
-          item.image.data.toString("base64");
-      }
-
-      return {
-        ...itemObject,
-        image
-      };
-    });
-
-    return res.status(200).json({
-      success: true,
-      items: formattedItems
-    });
-
-  } catch (error) {
-    console.log(error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Server error. Please try again."
-    });
   }
-});
+);
 
 // ================================
 // UPDATE FAVORITE
 // ================================
 
-router.put("/:id/favorite", async (req, res) => {
-  try {
-    const { email, favorite } = req.body;
-    const { id } = req.params;
+router.put(
+  "/:id/favorite",
+  async (req: AuthRequest, res, next) => {
+    try {
+      const { favorite } = req.body;
+      const { id } = req.params;
 
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is required"
+      const item = await Item.findOne({
+        _id: id,
+        user: req.userId
       });
-    }
 
-    const user = await User.findOne({
-      email: email.toLowerCase().trim()
-    });
+      if (!item) {
+        res.status(404).json({
+          success: false,
+          message: "Item not found"
+        });
+        return;
+      }
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
+      item.favorite =
+        favorite === true ||
+        favorite === "true";
+
+      await item.save();
+
+      res.status(200).json({
+        success: true,
+        message: "Favorite updated successfully",
+        item
       });
+    } catch (error) {
+      next(error);
     }
-
-    const item = await Item.findOne({
-      _id: id,
-      user: user._id
-    });
-
-    if (!item) {
-      return res.status(404).json({
-        success: false,
-        message: "Item not found"
-      });
-    }
-
-    item.favorite = Boolean(favorite);
-
-    await item.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Favorite updated successfully",
-      item
-    });
-
-  } catch (error) {
-    console.log(error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Server error. Please try again."
-    });
   }
-});
+);
 
 // ================================
 // UPDATE ITEM
 // ================================
 
-router.put("/:id", upload.single("image"), async (req, res) => {
-  try {
-    const { id } = req.params;
+router.put(
+  "/:id",
+  upload.single("image"),
+  async (req: AuthRequest, res, next) => {
+    try {
+      const { id } = req.params;
 
-    const {
-      email,
-      name,
-      category,
-      color,
-      season,
-      style
-    } = req.body;
+      const {
+        name,
+        category,
+        color,
+        season,
+        style
+      } = req.body;
 
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is required"
+      const item = await Item.findOne({
+        _id: id,
+        user: req.userId
       });
-    }
 
-    const user = await User.findOne({
-      email: email.toLowerCase().trim()
-    });
+      if (!item) {
+        res.status(404).json({
+          success: false,
+          message: "Item not found"
+        });
+        return;
+      }
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
+      if (name !== undefined) {
+        const trimmedName = name.trim();
+
+        if (!trimmedName) {
+          res.status(400).json({
+            success: false,
+            message: "Item name cannot be empty"
+          });
+          return;
+        }
+
+        item.name = trimmedName;
+      }
+
+      if (category !== undefined) {
+        item.category = category;
+      }
+
+      if (color !== undefined) {
+        const trimmedColor = color.trim();
+
+        if (!trimmedColor) {
+          res.status(400).json({
+            success: false,
+            message: "Color cannot be empty"
+          });
+          return;
+        }
+
+        item.color = trimmedColor;
+      }
+
+      if (season !== undefined) {
+        item.season = season;
+      }
+
+      if (style !== undefined) {
+        item.style = style;
+      }
+
+      if (req.file) {
+        item.image = {
+          data: req.file.buffer,
+          contentType: req.file.mimetype
+        };
+      }
+
+      await item.save();
+
+      res.status(200).json({
+        success: true,
+        message: "Item updated successfully",
+        item
       });
+    } catch (error) {
+      next(error);
     }
-
-    const item = await Item.findOne({
-      _id: id,
-      user: user._id
-    });
-
-    if (!item) {
-      return res.status(404).json({
-        success: false,
-        message: "Item not found"
-      });
-    }
-
-    if (name !== undefined) {
-      item.name = name.trim();
-    }
-
-    if (category !== undefined) {
-      item.category = category;
-    }
-
-    if (color !== undefined) {
-      item.color = color.trim();
-    }
-
-    if (season !== undefined) {
-      item.season = season;
-    }
-
-    if (style !== undefined) {
-      item.style = style;
-    }
-
-    if (req.file) {
-      item.image = {
-        data: req.file.buffer,
-        contentType: req.file.mimetype
-      };
-    }
-
-    await item.save();
-
-    return res.status(200).json({
-      success: true,
-      message: "Item updated successfully",
-      item
-    });
-
-  } catch (error) {
-    console.log(error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Server error. Please try again."
-    });
   }
-});
+);
 
 // ================================
 // DELETE ITEM
 // ================================
 
-router.delete("/:id", async (req, res) => {
-  try {
-    const email = req.query.email as string;
-    const { id } = req.params;
+router.delete(
+  "/:id",
+  async (req: AuthRequest, res, next) => {
+    try {
+      const { id } = req.params;
 
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is required"
+      const deletedItem = await Item.findOneAndDelete({
+        _id: id,
+        user: req.userId
       });
-    }
 
-    const user = await User.findOne({
-      email: email.toLowerCase().trim()
-    });
+      if (!deletedItem) {
+        res.status(404).json({
+          success: false,
+          message: "Item not found"
+        });
+        return;
+      }
 
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found"
+      res.status(200).json({
+        success: true,
+        message: "Item deleted successfully"
       });
+    } catch (error) {
+      next(error);
     }
-
-    const deletedItem = await Item.findOneAndDelete({
-      _id: id,
-      user: user._id
-    });
-
-    if (!deletedItem) {
-      return res.status(404).json({
-        success: false,
-        message: "Item not found"
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "Item deleted successfully"
-    });
-
-  } catch (error) {
-    console.log(error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Server error. Please try again."
-    });
   }
-});
+);
 
 export default router;
