@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import User from "../models/User.ts";
+import type { AuthRequest } from "../middleware/auth.ts";
 
 function createToken(userId: string, email: string) {
   const jwtSecret = process.env.JWT_SECRET;
@@ -48,7 +49,13 @@ export async function register(
       lastName,
       email,
       password: hashedPassword,
-      language
+      language,
+      profileImage: req.file
+        ? {
+            data: req.file.buffer,
+            contentType: req.file.mimetype
+          }
+        : undefined
     });
 
     const token = createToken(
@@ -65,8 +72,112 @@ export async function register(
         firstName: newUser.firstName,
         lastName: newUser.lastName,
         email: newUser.email,
-        language: newUser.language
+        language: newUser.language,
+        hasProfileImage: Boolean(req.file)
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getProfileImage(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const user = await User.findById(req.userId).select("profileImage");
+
+    if (
+      !user ||
+      !user.profileImage?.data ||
+      !user.profileImage.contentType
+    ) {
+      res.status(404).json({
+        success: false,
+        message: "Profile image not found"
+      });
+      return;
+    }
+
+    res.set("Content-Type", user.profileImage.contentType);
+    res.set("Cache-Control", "private, no-store, no-cache, must-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
+    res.send(user.profileImage.data);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateProfileImage(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    if (!req.file) {
+      res.status(400).json({
+        success: false,
+        message: "Please choose a profile image"
+      });
+      return;
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      {
+        profileImage: {
+          data: req.file.buffer,
+          contentType: req.file.mimetype
+        }
+      },
+      { new: true }
+    );
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Profile image updated successfully",
+      hasProfileImage: true
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteProfileImage(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { $unset: { profileImage: 1 } },
+      { new: true }
+    );
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Profile image removed successfully",
+      hasProfileImage: false
     });
   } catch (error) {
     next(error);
@@ -131,7 +242,8 @@ export async function login(
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        language: user.language
+        language: user.language,
+        hasProfileImage: Boolean(user.profileImage?.data)
       }
     });
   } catch (error) {

@@ -4,6 +4,8 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import MyCloset from "./pages/MyCloset";
+import Profile from "./pages/Profile";
+import OutfitBuilder from "./pages/OutfitBuilder";
 
 function App() {
   return (
@@ -14,6 +16,8 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/closet" element={<MyCloset />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/outfit-builder" element={<OutfitBuilder />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

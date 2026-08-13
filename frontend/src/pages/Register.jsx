@@ -22,6 +22,8 @@ export default function Register() {
   const [errors, setErrors] = useState({});
   const [success, setSuccess] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [profileImage, setProfileImage] = useState(null);
+  const [profilePreview, setProfilePreview] = useState("");
 
   function change(event) {
     const { name, value } = event.target;
@@ -37,6 +39,60 @@ export default function Register() {
     }));
 
     setSuccess("");
+  }
+
+  function chooseProfileImage(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const allowedTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp"
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      setErrors((currentErrors) => ({
+        ...currentErrors,
+        profileImage: "Please choose a JPG, PNG or WEBP image"
+      }));
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setErrors((currentErrors) => ({
+        ...currentErrors,
+        profileImage: "Profile image must be smaller than 5MB"
+      }));
+      event.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+
+    reader.onload = () => {
+      setProfileImage(file);
+      setProfilePreview(String(reader.result));
+      setErrors((currentErrors) => ({
+        ...currentErrors,
+        profileImage: ""
+      }));
+    };
+
+    reader.readAsDataURL(file);
+  }
+
+  function removeProfileImage() {
+    setProfileImage(null);
+    setProfilePreview("");
+    setErrors((currentErrors) => ({
+      ...currentErrors,
+      profileImage: ""
+    }));
   }
 
   async function submit(event) {
@@ -102,16 +158,22 @@ export default function Register() {
     try {
       setIsSubmitting(true);
 
+      const body = new FormData();
+
+      body.append("firstName", firstName);
+      body.append("lastName", lastName);
+      body.append("email", email);
+      body.append("password", values.password);
+      body.append("confirmPassword", values.confirmPassword);
+      body.append("language", values.language);
+
+      if (profileImage) {
+        body.append("profileImage", profileImage);
+      }
+
       const { data } = await axios.post(
         "http://localhost:3001/api/auth/register",
-        {
-          firstName,
-          lastName,
-          email,
-          password: values.password,
-          confirmPassword: values.confirmPassword,
-          language: values.language
-        }
+        body
       );
 
       if (data.success) {
@@ -267,10 +329,46 @@ export default function Register() {
             {errors.confirmPassword || ""}
           </p>
 
-          <label className="upload-box">
-            <span>Upload Profile Picture (Optional)</span>
-            <input type="file" accept="image/*" />
-          </label>
+          <div className="profile-upload">
+            {profilePreview && (
+              <img
+                className="profile-preview"
+                src={profilePreview}
+                alt="Selected profile preview"
+              />
+            )}
+
+            <label className="upload-box">
+              <span>
+                {profileImage
+                  ? profileImage.name
+                  : "Upload Profile Picture (Optional)"}
+              </span>
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={chooseProfileImage}
+              />
+            </label>
+
+            {profileImage && (
+              <button
+                type="button"
+                className="remove-image-btn"
+                onClick={removeProfileImage}
+              >
+                Remove picture
+              </button>
+            )}
+
+            <p className="profile-image-help">
+              JPG, PNG or WEBP, up to 5MB
+            </p>
+
+            <p className="error-message">
+              {errors.profileImage || ""}
+            </p>
+          </div>
 
           <button
             type="submit"
@@ -286,12 +384,17 @@ export default function Register() {
             <span>OR</span>
           </div>
 
-          <button type="button" className="google-btn">
+          <button
+            type="button"
+            className="google-btn"
+            disabled
+            title="Google sign-in will be available later"
+          >
             <img
               src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/google/google-original.svg"
               alt="Google"
             />
-            Continue with Google
+            Continue with Google (Coming Soon)
           </button>
         </form>
 

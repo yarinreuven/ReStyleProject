@@ -191,6 +191,49 @@ input:focus{
     display:none;
 }
 
+.profile-upload{
+    margin-bottom:18px;
+}
+
+.profile-upload .upload-box{
+    margin-bottom:8px;
+}
+
+.profile-preview{
+    width:86px;
+    height:86px;
+    display:block;
+    margin:0 auto 12px;
+    border:3px solid rgba(201,130,142,0.35);
+    border-radius:50%;
+    object-fit:cover;
+}
+
+.profile-image-help{
+    color:var(--text);
+    font-size:12px;
+    margin-top:6px;
+}
+
+.profile-upload .error-message{
+    margin-top:6px;
+    margin-bottom:0;
+    text-align:center;
+}
+
+.remove-image-btn{
+    border:0;
+    background:transparent;
+    color:#a64f5e;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+}
+
+.remove-image-btn:hover{
+    text-decoration:underline;
+}
+
 .register-btn{
     height:52px;
 
@@ -255,6 +298,11 @@ input:focus{
 
 .google-btn:hover{
     background:#fafafa;
+}
+
+.google-btn:disabled{
+    cursor:not-allowed;
+    opacity:0.65;
 }
 
 .google-btn img{

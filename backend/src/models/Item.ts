@@ -65,7 +65,22 @@ const itemSchema = new mongoose.Schema(
     favorite: {
       type: Boolean,
       default: false
-    }
+    },
+
+    wearCount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+
+    lastWornAt: {
+      type: Date,
+      default: null
+    },
+
+    wornDates: [{
+      type: Date
+    }]
   },
   {
     timestamps: true

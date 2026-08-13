@@ -30,6 +30,11 @@ const userSchema = new mongoose.Schema(
     language: {
       type: String,
       default: "en"
+    },
+
+    profileImage: {
+      data: Buffer,
+      contentType: String
     }
   },
   {
