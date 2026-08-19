@@ -35,6 +35,11 @@ const userSchema = new mongoose.Schema(
     profileImage: {
       data: Buffer,
       contentType: String
+    },
+
+    virtualModelImage: {
+      data: Buffer,
+      contentType: String
     }
   },
   {

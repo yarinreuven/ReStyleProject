@@ -1,9 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import usePageStyles from "../hooks/usePageStyles";
 
 const OUTFIT_API_URL = "http://localhost:3001/api/outfits/generate";
+const TRY_ON_API_URL = "http://localhost:3001/api/outfits/try-on";
+const VIRTUAL_MODEL_API_URL =
+  "http://localhost:3001/api/auth/virtual-model-image";
+const ILLUSTRATED_MODEL_URL = "/images/avatars/airy-fashion-avatar.png";
 
 const events = [
   ["Work", "fa-briefcase"],
@@ -21,6 +25,7 @@ export default function OutfitBuilder() {
   usePageStyles("outfit-builder.css");
 
   const navigate = useNavigate();
+  const modelFileInputRef = useRef(null);
   const [eventType, setEventType] = useState("Work");
   const [customEvent, setCustomEvent] = useState("");
   const [style, setStyle] = useState("Elegant");
@@ -30,12 +35,104 @@ export default function OutfitBuilder() {
   const [isCreating, setIsCreating] = useState(false);
   const [outfit, setOutfit] = useState(null);
   const [aiError, setAiError] = useState("");
+  const [modelChoice, setModelChoice] = useState("illustrated");
+  const [personalModelUrl, setPersonalModelUrl] = useState("");
+  const [isSavingModel, setIsSavingModel] = useState(false);
+  const [modelMessage, setModelMessage] = useState("");
+  const [isTryingOn, setIsTryingOn] = useState(false);
+  const [tryOnImage, setTryOnImage] = useState("");
+  const [tryOnError, setTryOnError] = useState("");
+  const [tryOnRenderer, setTryOnRenderer] = useState("");
 
   useEffect(() => {
     if (!localStorage.getItem("token")) {
       navigate("/login", { replace: true });
     }
   }, [navigate]);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    let objectUrl = "";
+    let cancelled = false;
+
+    if (!token) {
+      return undefined;
+    }
+
+    axios
+      .get(VIRTUAL_MODEL_API_URL, {
+        headers: { Authorization: `Bearer ${token}` },
+        responseType: "blob"
+      })
+      .then(({ data }) => {
+        if (cancelled) {
+          return;
+        }
+
+        objectUrl = URL.createObjectURL(data);
+        setPersonalModelUrl(objectUrl);
+      })
+      .catch(() => setPersonalModelUrl(""));
+
+    return () => {
+      cancelled = true;
+
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, []);
+
+  async function uploadVirtualModel(event) {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+
+    if (!allowedTypes.includes(file.type)) {
+      setModelMessage("Please choose a JPG, PNG or WEBP image.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setModelMessage("Your full-body image must be smaller than 5MB.");
+      event.target.value = "";
+      return;
+    }
+
+    const body = new FormData();
+    body.append("virtualModelImage", file);
+
+    try {
+      setIsSavingModel(true);
+      setModelMessage("");
+
+      const token = localStorage.getItem("token");
+      await axios.put(VIRTUAL_MODEL_API_URL, body, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (personalModelUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(personalModelUrl);
+      }
+
+      setPersonalModelUrl(URL.createObjectURL(file));
+      setModelChoice("personal");
+      setModelMessage("Your private model photo is ready.");
+    } catch (error) {
+      setModelMessage(
+        error.response?.data?.message ||
+          "Could not save your model photo."
+      );
+    } finally {
+      setIsSavingModel(false);
+      event.target.value = "";
+    }
+  }
 
   async function submit(event) {
     event.preventDefault();
@@ -66,7 +163,11 @@ export default function OutfitBuilder() {
       );
 
       setOutfit(data.outfit);
+      setTryOnImage("");
+      setTryOnError("");
+      setTryOnRenderer("");
       setIsPreview(true);
+      await createVirtualTryOn(data.outfit);
     } catch (error) {
       if (error.response?.status === 401) {
         localStorage.removeItem("token");
@@ -81,6 +182,50 @@ export default function OutfitBuilder() {
       );
     } finally {
       setIsCreating(false);
+    }
+  }
+
+  async function createVirtualTryOn(outfitToTry = outfit) {
+    if (!outfitToTry?.items?.length) {
+      return;
+    }
+
+    try {
+      setIsTryingOn(true);
+      setTryOnError("");
+
+      const modelUrl =
+        modelChoice === "personal" && personalModelUrl
+          ? personalModelUrl
+          : ILLUSTRATED_MODEL_URL;
+      const modelResponse = await fetch(modelUrl);
+
+      if (!modelResponse.ok) {
+        throw new Error("Could not load the virtual model image");
+      }
+
+      const modelBlob = await modelResponse.blob();
+      const body = new FormData();
+      body.append("modelImage", modelBlob, "virtual-model.png");
+      body.append(
+        "itemIds",
+        JSON.stringify(outfitToTry.items.map((item) => item._id))
+      );
+
+      const token = localStorage.getItem("token");
+      const { data } = await axios.post(TRY_ON_API_URL, body, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      setTryOnImage(data.tryOnImage);
+      setTryOnRenderer(data.renderer || "");
+    } catch (error) {
+      setTryOnError(
+        error.response?.data?.message ||
+          "Could not create the virtual try-on. Please try again later."
+      );
+    } finally {
+      setIsTryingOn(false);
     }
   }
 
@@ -181,6 +326,78 @@ export default function OutfitBuilder() {
               </div>
             </div>
 
+            <div className="studio-section virtual-model-section">
+              <div className="studio-label">Choose your virtual model</div>
+
+              <div className="model-choice-grid">
+                <button
+                  type="button"
+                  className={modelChoice === "illustrated" ? "selected" : ""}
+                  onClick={() => setModelChoice("illustrated")}
+                >
+                  <img src={ILLUSTRATED_MODEL_URL} alt="Airy fashion avatar" />
+                  <span>
+                    <strong>Airy Avatar</strong>
+                    A neutral mannequin, no personal photo needed
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  className={modelChoice === "personal" ? "selected" : ""}
+                  onClick={() => {
+                    if (personalModelUrl) {
+                      setModelChoice("personal");
+                    } else {
+                      modelFileInputRef.current?.click();
+                    }
+                  }}
+                >
+                  {personalModelUrl ? (
+                    <img src={personalModelUrl} alt="My virtual model" />
+                  ) : (
+                    <i className="fa-solid fa-camera" />
+                  )}
+                  <span>
+                    <strong>My Digital Model</strong>
+                    {personalModelUrl
+                      ? "Use my face and body"
+                      : "Upload a clear full-body photo"}
+                  </span>
+                </button>
+              </div>
+
+              <input
+                ref={modelFileInputRef}
+                className="model-file-input"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={uploadVirtualModel}
+              />
+
+              <button
+                type="button"
+                className="replace-model-button"
+                disabled={isSavingModel}
+                onClick={() => modelFileInputRef.current?.click()}
+              >
+                {isSavingModel ? "Saving photo..." : "Upload or replace my photo"}
+              </button>
+
+              <small className="model-privacy-note">
+                <i className="fa-solid fa-lock" />
+                Your saved photo belongs only to your account. Try-on images are
+                securely sent to CatVTON on Hugging Face for processing.
+              </small>
+
+              <small className="model-photo-guidance">
+                For the best result: stand facing the camera with your full body
+                clearly visible and filling most of the photo.
+              </small>
+
+              {modelMessage && <p className="model-message">{modelMessage}</p>}
+            </div>
+
             {aiError && <p className="ai-error">{aiError}</p>}
 
             <button
@@ -203,17 +420,69 @@ export default function OutfitBuilder() {
               <span>{style}</span>
               <span>{weather}</span>
             </div>
-            <div className="outfit-items">
-              {outfit?.items.map((item) => (
-                <article className="outfit-piece" key={item._id}>
-                  <img src={item.image} alt={item.name} />
-                  <div>
-                    <strong>{item.name}</strong>
-                    <span>{item.category} · {item.color}</span>
+            <div className="look-board">
+              {isTryingOn ? (
+                <div className="try-on-loading" role="status" aria-live="polite">
+                  <div className="try-on-loader">
+                    <i className="fa-solid fa-shirt" />
                   </div>
-                </article>
-              ))}
+                  <strong>Creating your personal try-on</strong>
+                  <span>
+                    Keeping your appearance while dressing you in the selected
+                    pieces from your wardrobe.
+                  </span>
+                </div>
+              ) : tryOnImage ? (
+                <div className={`look-model-stage${tryOnImage ? " result-ready" : ""}`}>
+                  <span>YOUR VIRTUAL TRY-ON</span>
+                  <img
+                    src={tryOnImage}
+                    alt="Generated virtual try-on"
+                  />
+                </div>
+              ) : (
+                <div className="try-on-loading try-on-failed" role="status">
+                  <i className="fa-solid fa-triangle-exclamation" />
+                  <strong>The try-on could not be completed</strong>
+                  <span>Please try again in a moment.</span>
+                </div>
+              )}
             </div>
+
+            {tryOnRenderer === "catvton-fallback" && (
+              <p className="try-on-note">
+                The main clothes are shown on the avatar. Shoes, bag and
+                accessories are shown below from their exact wardrobe photos.
+              </p>
+            )}
+
+            <section className="selected-look-summary" aria-labelledby="used-items-title">
+              <h3 id="used-items-title">Pieces used from your wardrobe</h3>
+              <div className="selected-item-grid">
+                {outfit?.items.map((item) => (
+                  <article key={item._id} className="selected-item-card">
+                    <img src={item.image} alt={item.name} loading="lazy" />
+                    <span>
+                      <strong>{item.name}</strong>
+                      {item.detectedCategory || item.category}
+                    </span>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            {tryOnError && <p className="ai-error">{tryOnError}</p>}
+
+            {tryOnError && !isTryingOn && (
+              <button
+                type="button"
+                className="try-on-button"
+                onClick={() => createVirtualTryOn()}
+              >
+                <i className="fa-solid fa-rotate-right" />
+                Try the virtual fitting again
+              </button>
+            )}
 
             <p className="outfit-explanation">{outfit?.explanation}</p>
 
@@ -228,6 +497,9 @@ export default function OutfitBuilder() {
               onClick={() => {
                 setIsPreview(false);
                 setOutfit(null);
+                setTryOnImage("");
+                setTryOnError("");
+                setTryOnRenderer("");
               }}
             >
               Edit my request

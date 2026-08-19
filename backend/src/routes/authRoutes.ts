@@ -2,10 +2,13 @@ import { Router } from "express";
 import multer from "multer";
 import {
   deleteProfileImage,
+  deleteVirtualModelImage,
   getProfileImage,
+  getVirtualModelImage,
   login,
   register,
-  updateProfileImage
+  updateProfileImage,
+  updateVirtualModelImage
 } from "../controllers/authController.ts";
 import { authenticateToken } from "../middleware/auth.ts";
 import { validate } from "../middleware/validate.ts";
@@ -67,6 +70,25 @@ router.delete(
   "/profile-image",
   authenticateToken,
   deleteProfileImage
+);
+
+router.get(
+  "/virtual-model-image",
+  authenticateToken,
+  getVirtualModelImage
+);
+
+router.put(
+  "/virtual-model-image",
+  authenticateToken,
+  upload.single("virtualModelImage"),
+  updateVirtualModelImage
+);
+
+router.delete(
+  "/virtual-model-image",
+  authenticateToken,
+  deleteVirtualModelImage
 );
 
 export default router;

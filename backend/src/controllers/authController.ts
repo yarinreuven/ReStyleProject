@@ -184,6 +184,107 @@ export async function deleteProfileImage(
   }
 }
 
+export async function getVirtualModelImage(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const user = await User.findById(req.userId).select("virtualModelImage");
+
+    if (
+      !user ||
+      !user.virtualModelImage?.data ||
+      !user.virtualModelImage.contentType
+    ) {
+      res.status(404).json({
+        success: false,
+        message: "Virtual model image not found"
+      });
+      return;
+    }
+
+    res.set("Content-Type", user.virtualModelImage.contentType);
+    res.set("Cache-Control", "private, no-store, no-cache, must-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
+    res.send(user.virtualModelImage.data);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateVirtualModelImage(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    if (!req.file) {
+      res.status(400).json({
+        success: false,
+        message: "Please choose a full-body image"
+      });
+      return;
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      {
+        virtualModelImage: {
+          data: req.file.buffer,
+          contentType: req.file.mimetype
+        }
+      },
+      { new: true }
+    );
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: "Virtual model image updated successfully"
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteVirtualModelImage(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { $unset: { virtualModelImage: 1 } },
+      { new: true }
+    );
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: "Virtual model image removed successfully"
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function login(
   req: Request,
   res: Response,

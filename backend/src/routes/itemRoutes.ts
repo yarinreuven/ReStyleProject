@@ -56,6 +56,7 @@ interface GeminiImageCheckResponse {
 
 interface ImageCheckResult {
   isWardrobeItem: boolean;
+  isSingleClearItem: boolean;
   category: typeof clothingCategories[number] | "None";
 }
 
@@ -83,7 +84,7 @@ async function checkWardrobeImage(
             parts: [
               {
                 text:
-                  "Inspect this image. Accept it only when its main subject is a clearly visible wearable wardrobe item: top, bottom, dress, shoes, bag or fashion accessory. Reject unrelated objects, rooms, people without a clearly identifiable item, screenshots, drawings that do not show a usable item, and images where the item cannot be identified. Return the single best category."
+                  "Inspect this image strictly for a virtual wardrobe and virtual try-on. Accept it only if exactly one clothing product is the clear dominant subject and its full shape, edges, color and design can be seen well. A matching pair of shoes counts as one product. Reject wardrobe or closet scenes, clothing racks, piles, collages, full outfits containing multiple garments, distant garments, people wearing the item, unrelated objects, screenshots, and images in which the product is cropped, hidden or too small. Return the single best category and whether it is one clear isolated product."
               },
               {
                 inline_data: {
@@ -100,12 +101,13 @@ async function checkWardrobeImage(
             type: "OBJECT",
             properties: {
               isWardrobeItem: { type: "BOOLEAN" },
+              isSingleClearItem: { type: "BOOLEAN" },
               category: {
                 type: "STRING",
                 enum: [...clothingCategories, "None"]
               }
             },
-            required: ["isWardrobeItem", "category"]
+            required: ["isWardrobeItem", "isSingleClearItem", "category"]
           }
         }
       })
@@ -134,10 +136,14 @@ async function validateWardrobeImage(
 ) {
   const imageCheck = await checkWardrobeImage(file);
 
-  if (!imageCheck.isWardrobeItem || imageCheck.category === "None") {
+  if (
+    !imageCheck.isWardrobeItem ||
+    !imageCheck.isSingleClearItem ||
+    imageCheck.category === "None"
+  ) {
     return {
       valid: false,
-      message: "This image does not appear to show a clothing or wardrobe item"
+      message: "Please upload one clear clothing item only, without a person, clothing rack, room or other garments"
     };
   }
 
