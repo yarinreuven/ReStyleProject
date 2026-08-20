@@ -53,6 +53,57 @@ interface GeminiResponse {
   };
 }
 
+const GEMINI_STYLIST_MODELS = [
+  "gemini-3.5-flash",
+  "gemini-3.6-flash",
+  "gemini-3.5-flash-lite"
+] as const;
+
+async function requestGeminiStylist(
+  apiKey: string,
+  requestBody: object
+): Promise<{ response: Response; data: GeminiResponse; model: string }> {
+  let lastResult: {
+    response: Response;
+    data: GeminiResponse;
+    model: string;
+  } | null = null;
+
+  for (const model of GEMINI_STYLIST_MODELS) {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+      {
+        method: "POST",
+        headers: {
+          "x-goog-api-key": apiKey,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(requestBody),
+        signal: AbortSignal.timeout(90 * 1000)
+      }
+    );
+    const data = await response.json() as GeminiResponse;
+    const result = { response, data, model };
+
+    if (response.ok) {
+      return result;
+    }
+
+    lastResult = result;
+
+    if (![429, 500, 502, 503, 504].includes(response.status)) {
+      return result;
+    }
+
+    console.warn(
+      `Gemini stylist model ${model} is unavailable; trying fallback:`,
+      data.error?.message || response.status
+    );
+  }
+
+  return lastResult!;
+}
+
 interface OutfitSuggestion {
   title: string;
   explanation: string;
@@ -61,6 +112,86 @@ interface OutfitSuggestion {
     detectedCategory: "Tops" | "Bottoms" | "Dresses" | "Shoes" | "Bags" | "Accessories";
   }>;
   stylingTips: string[];
+}
+
+interface WardrobeCandidate {
+  id: string;
+  name: string;
+  category: OutfitSuggestion["selectedItems"][number]["detectedCategory"];
+  season: string;
+  style: string;
+  favorite: boolean;
+  wearCount: number;
+}
+
+function createLocalOutfitSuggestion(
+  wardrobe: WardrobeCandidate[],
+  request: {
+    event: string;
+    style: string;
+    weather: string;
+    preferFavorites: boolean;
+  }
+): OutfitSuggestion {
+  const weatherSeasons: Record<string, string[]> = {
+    Warm: ["Summer", "Spring", "All Season"],
+    Mild: ["Spring", "Fall", "All Season"],
+    Cold: ["Winter", "Fall", "All Season"],
+    Rainy: ["Fall", "Winter", "All Season"]
+  };
+  const score = (item: WardrobeCandidate) => {
+    let result = 0;
+
+    if (item.style === request.style) result += 6;
+    if (weatherSeasons[request.weather]?.includes(item.season)) result += 3;
+    if (request.preferFavorites && item.favorite) result += 2;
+    result += Math.max(0, 2 - (item.wearCount || 0) * 0.1);
+    return result;
+  };
+  const best = (category: WardrobeCandidate["category"]) =>
+    wardrobe
+      .filter((item) => item.category === category)
+      .sort((left, right) => score(right) - score(left))[0];
+  const dress = best("Dresses");
+  const top = best("Tops");
+  const bottom = best("Bottoms");
+  const dressScore = dress ? score(dress) : -1;
+  const separatesScore = top && bottom ? score(top) + score(bottom) : -1;
+  const selected: WardrobeCandidate[] = [];
+
+  if (dress && dressScore >= separatesScore) {
+    selected.push(dress);
+  } else if (top && bottom) {
+    selected.push(top, bottom);
+  }
+
+  if (selected.length > 0) {
+    const shoes = best("Shoes");
+    const bag = best("Bags");
+    const accessory = best("Accessories");
+
+    if (shoes) selected.push(shoes);
+    if (bag) selected.push(bag);
+    if (accessory) selected.push(accessory);
+  }
+
+  const selectedNames = selected.map((item) => item.name);
+
+  return {
+    title: `${request.style} ${request.event} Look`,
+    explanation: selectedNames.length > 0
+      ? `A complete ${request.style.toLowerCase()} look for ${request.event.toLowerCase()}, built from ${selectedNames.join(", ")}.`
+      : "Your wardrobe does not yet contain a complete outfit for this request.",
+    selectedItems: selected.map((item) => ({
+      id: item.id,
+      detectedCategory: item.category
+    })),
+    stylingTips: [
+      selectedNames.length > 0
+        ? `Wear the selected pieces together as a complete coordinated look for ${request.event}.`
+        : "Add a dress, or both a top and a bottom, to create a complete look."
+    ]
+  };
 }
 
 router.post(
@@ -157,15 +288,8 @@ router.post(
         ];
       });
 
-      const aiResponse = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
-        {
-        method: "POST",
-        headers: {
-          "x-goog-api-key": apiKey,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
+      const { response: aiResponse, data: aiData, model: usedModel } =
+        await requestGeminiStylist(apiKey, {
           contents: [
             {
               role: "user",
@@ -218,27 +342,34 @@ router.post(
               ]
             }
           }
-        })
-      });
-
-      const aiData = await aiResponse.json() as GeminiResponse;
+        });
 
       if (!aiResponse.ok) {
-        console.error("Gemini API error:", aiData.error?.message);
-        res.status(502).json({
-          success: false,
-          message: "The AI stylist could not create a look right now"
-        });
-        return;
+        console.error(
+          `Gemini API error after trying ${GEMINI_STYLIST_MODELS.join(", ")}:`,
+          aiData.error?.message
+        );
+      } else {
+        console.info(`Gemini stylist completed with ${usedModel}`);
       }
 
-      const outputText = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
+      let suggestion: OutfitSuggestion;
 
-      if (!outputText) {
-        throw new Error("The Gemini response did not include output text");
+      if (!aiResponse.ok) {
+        console.warn("Using the local wardrobe stylist fallback");
+        suggestion = createLocalOutfitSuggestion(
+          wardrobe as WardrobeCandidate[],
+          value
+        );
+      } else {
+        const outputText = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
+
+        if (!outputText) {
+          throw new Error("The Gemini response did not include output text");
+        }
+
+        suggestion = JSON.parse(outputText) as OutfitSuggestion;
       }
-
-      const suggestion = JSON.parse(outputText) as OutfitSuggestion;
       const allowedIds = new Set(items.map((item) => item._id.toString()));
       const uniqueCategories = new Set<string>();
       const uniqueIds = new Set<string>();
