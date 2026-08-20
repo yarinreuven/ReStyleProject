@@ -109,7 +109,7 @@ interface OutfitSuggestion {
   explanation: string;
   selectedItems: Array<{
     id: string;
-    detectedCategory: "Tops" | "Bottoms" | "Dresses" | "Shoes" | "Bags" | "Accessories";
+    detectedCategory: "Tops" | "Bottoms" | "Dresses" | "Jackets" | "Shoes" | "Bags" | "Accessories";
   }>;
   stylingTips: string[];
 }
@@ -169,7 +169,9 @@ function createLocalOutfitSuggestion(
     const shoes = best("Shoes");
     const bag = best("Bags");
     const accessory = best("Accessories");
+    const jacket = best("Jackets");
 
+    if (jacket) selected.push(jacket);
     if (shoes) selected.push(shoes);
     if (bag) selected.push(bag);
     if (accessory) selected.push(accessory);
@@ -253,10 +255,12 @@ router.post(
         "Never trust an item's name or category when its image contradicts them.",
         "Never invent, recommend or mention any clothing, shoes, bag or accessory that is not among the valid attached wardrobe images.",
         "A complete outfit MUST contain exactly one of these two bases: (1) one Tops item plus one Bottoms item, or (2) one Dresses item. Never combine a dress with a top or bottom.",
-        "Shoes, Bags and Accessories never count as the required outfit base.",
+        "Jackets, Shoes, Bags and Accessories never count as the required outfit base.",
+        "Jackets means outerwear worn over the completed outfit, including jackets, coats, blazers and trench coats. It never means a long-sleeve shirt, blouse, sweatshirt or ordinary sweater.",
+        "A jacket is an optional outer layer. Include at most one suitable jacket when it improves the outfit for the requested event and weather.",
         "If at least one valid Shoes item exists, the completed outfit MUST include exactly one suitable pair of shoes.",
         "Include one suitable bag whenever the valid wardrobe contains a bag that fits the request. Include one suitable accessory whenever available and relevant.",
-        "Select exactly one top and one bottom OR exactly one dress, plus at most one pair of shoes, one bag and one accessory.",
+        "Select exactly one top and one bottom OR exactly one dress, plus at most one jacket, one pair of shoes, one bag and one accessory.",
         "Return each selected item's visually detected category, based on the image rather than its claimed metadata.",
         "The requested event is a HARD constraint, not a suggestion. The outfit must be genuinely appropriate for that event.",
         "For Work choose polished, professional and practical pieces. For Party choose festive, expressive evening-appropriate pieces. For Formal choose refined dressy pieces. For Date choose stylish occasion-appropriate pieces. For Casual choose relaxed everyday pieces. For a custom event infer its real dress code from the user's description.",
@@ -318,6 +322,7 @@ router.post(
                           "Tops",
                           "Bottoms",
                           "Dresses",
+                          "Jackets",
                           "Shoes",
                           "Bags",
                           "Accessories"
@@ -542,6 +547,7 @@ router.post(
       const top = orderedItems.find((item) => item.category === "Tops");
       const bottom = orderedItems.find((item) => item.category === "Bottoms");
       const dress = orderedItems.find((item) => item.category === "Dresses");
+      const jacket = orderedItems.find((item) => item.category === "Jackets");
 
       if (!dress && (!top || !bottom)) {
         res.status(400).json({
@@ -625,10 +631,14 @@ router.post(
       }
 
       const garments = dress
-        ? [{ item: dress, type: "overall" as const }]
+        ? [
+            { item: dress, type: "overall" as const },
+            ...(jacket ? [{ item: jacket, type: "upper" as const }] : [])
+          ]
         : [
             { item: bottom!, type: "lower" as const },
-            { item: top!, type: "upper" as const }
+            { item: top!, type: "upper" as const },
+            ...(jacket ? [{ item: jacket, type: "upper" as const }] : [])
           ];
 
       let currentImage = req.file.buffer;

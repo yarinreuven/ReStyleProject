@@ -36,6 +36,7 @@ const clothingCategories = [
   "Tops",
   "Bottoms",
   "Dresses",
+  "Jackets",
   "Shoes",
   "Bags",
   "Accessories"
@@ -84,7 +85,7 @@ async function checkWardrobeImage(
             parts: [
               {
                 text:
-                  "Inspect this image strictly for a virtual wardrobe and virtual try-on. Accept it only if exactly one clothing product is the clear dominant subject and its full shape, edges, color and design can be seen well. A matching pair of shoes counts as one product. Reject wardrobe or closet scenes, clothing racks, piles, collages, full outfits containing multiple garments, distant garments, people wearing the item, unrelated objects, screenshots, and images in which the product is cropped, hidden or too small. Return the single best category and whether it is one clear isolated product."
+                  "Inspect this image strictly for a virtual wardrobe and virtual try-on. Accept it only if exactly one clothing product is the clear dominant subject and its full shape, edges, color and design can be seen well. A matching pair of shoes counts as one product. Use Jackets only for outerwear worn as a layer over an outfit, such as jackets, coats, blazers, trench coats and substantial outer cardigans. Long-sleeve shirts, button-down shirts, blouses, sweatshirts and ordinary sweaters belong in Tops, not Jackets. Reject wardrobe or closet scenes, clothing racks, piles, collages, full outfits containing multiple garments, distant garments, people wearing the item, unrelated objects, screenshots, and images in which the product is cropped, hidden or too small. Return the single best category and whether it is one clear isolated product."
               },
               {
                 inline_data: {

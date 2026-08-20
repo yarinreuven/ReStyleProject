@@ -16,10 +16,15 @@ const categories = [
   "Tops",
   "Bottoms",
   "Dresses",
+  "Jackets",
   "Shoes",
   "Bags",
   "Accessories"
 ];
+
+const categoryLabels = {
+  Jackets: "Jackets & Coats"
+};
 
 function CategoryIcon({ category }) {
   const paths = {
@@ -37,6 +42,9 @@ function CategoryIcon({ category }) {
     ),
     Dresses: (
       <path d="M24 8h12l3 10-5 4 11 23H15l11-23-5-4 3-10Zm0 0c1 5 11 5 12 0M26 22h8" />
+    ),
+    Jackets: (
+      <path d="M21 9 11 16l5 12 5-3v20h18V25l5 3 5-12-10-7-5 7h-8l-5-7Zm5 7 4 29m4-29-4 29M26 25h-5m13 0h5" />
     ),
     Shoes: (
       <path d="M10 36c9 0 13-6 16-16l8 2c1 8 7 11 15 13 3 1 4 8-1 9H13c-6 0-8-8-3-8Zm14-9 10 3M18 35h25" />
@@ -670,7 +678,7 @@ export default function MyCloset() {
                 <span className="category-art">
                   <CategoryIcon category={name} />
                 </span>
-                <span>{name}</span>
+                <span>{categoryLabels[name] || name}</span>
               </button>
             ))}
           </div>
@@ -1037,7 +1045,7 @@ export default function MyCloset() {
             >
               {categories.slice(1).map((name) => (
                 <option key={name} value={name}>
-                  {name}
+                  {categoryLabels[name] || name}
                 </option>
               ))}
             </select>

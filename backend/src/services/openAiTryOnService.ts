@@ -35,6 +35,7 @@ export async function createOpenAiTryOnImage(
     "Fit each garment naturally around the body with realistic fabric, seams, folds, sleeves, waist and hem.",
     "Keep the original color, pattern, material, silhouette and distinctive product details of every referenced wardrobe item.",
     "A dress replaces both top and bottom. Otherwise use exactly the referenced top and bottom.",
+    "If a jacket is referenced, wear it naturally as the outermost layer while keeping the outfit underneath recognizable.",
     "Put referenced shoes correctly on both feet. Place the referenced bag naturally in a hand or on a shoulder. Wear referenced accessories in their correct position.",
     "Show the entire body from head to both shoes. Do not show floating products, pasted rectangles, collages, product cards or labels.",
     "Do not invent clothing, shoes, bags, jewelry, belts, jackets, colors, prints, text, logos or watermarks.",

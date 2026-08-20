@@ -21,6 +21,7 @@ const itemSchema = new mongoose.Schema(
         "Tops",
         "Bottoms",
         "Dresses",
+        "Jackets",
         "Shoes",
         "Bags",
         "Accessories"

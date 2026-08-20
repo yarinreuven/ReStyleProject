@@ -52,6 +52,7 @@ export async function createGeminiTryOnImage(
         "Dress the model in ALL listed items and no unlisted fashion items.",
         "Preserve each product's exact color, silhouette, material, pattern and distinctive details as closely as possible.",
         "If the outfit has a dress, do not add a separate top or bottom. Otherwise show both the selected top and selected bottom.",
+        "If a jacket is referenced, wear it naturally as the outermost layer while keeping the outfit underneath recognizable.",
         "Shoes must be visible on the feet. Put the selected bag naturally in one hand or on one shoulder. Add selected accessories in their natural position.",
         "Keep the entire outfit visible from head to shoes. Use a clean fashion-catalog composition with realistic layering and fit.",
         "Do not invent jewelry, belts, jackets, bags, shoes, garments, prints or colors. Do not add text, labels or a watermark.",
