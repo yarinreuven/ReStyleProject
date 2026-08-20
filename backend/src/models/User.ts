@@ -32,6 +32,12 @@ const userSchema = new mongoose.Schema(
       default: "en"
     },
 
+    gender: {
+      type: String,
+      enum: ["female", "male"],
+      default: "female"
+    },
+
     profileImage: {
       data: Buffer,
       contentType: String

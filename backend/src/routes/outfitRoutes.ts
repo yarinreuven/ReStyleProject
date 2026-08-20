@@ -477,6 +477,22 @@ router.post(
         console.error("Gemini try-on error; falling back to CatVTON:", geminiError);
       }
 
+      const fullLookExtras = orderedItems.filter((item) =>
+        ["Shoes", "Bags", "Accessories"].includes(item.category)
+      );
+
+      if (fullLookExtras.length > 0) {
+        const needsOpenAiBilling = /billing|quota|credit|limit/i.test(openAiFailure);
+
+        res.status(502).json({
+          success: false,
+          message: needsOpenAiBilling
+            ? "The full outfit renderer needs available OpenAI API billing or credits to dress the avatar in the selected clothes, shoes and bag."
+            : "The full outfit renderer is unavailable right now. A partial image without the selected shoes or bag will not be shown."
+        });
+        return;
+      }
+
       const garments = dress
         ? [{ item: dress, type: "overall" as const }]
         : [

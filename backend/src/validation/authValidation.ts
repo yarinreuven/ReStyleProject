@@ -53,7 +53,16 @@ export const registerSchema = Joi.object({
 
   language: Joi.string()
     .valid("en", "he")
-    .default("en")
+    .default("en"),
+
+  gender: Joi.string()
+    .valid("female", "male")
+    .required()
+    .messages({
+      "any.only": "Please select Female or Male",
+      "any.required": "Gender is required",
+      "string.empty": "Gender is required"
+    })
 });
 
 export const loginSchema = Joi.object({

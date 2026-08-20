@@ -168,6 +168,68 @@ input:focus{
     box-shadow:0 0 0 4px rgba(192,57,43,0.12) !important;
 }
 
+.gender-picker{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin:0;
+    padding:10px;
+    border:1px solid #e5d9dc;
+    border-radius:14px;
+    background:rgba(255, 248, 250, 0.55);
+}
+
+.gender-picker legend{
+    padding:0 8px;
+    color:#654f55;
+    font-size:14px;
+    font-weight:700;
+    text-align:left;
+}
+
+.gender-picker label{
+    min-height:50px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:9px;
+    border:1px solid #eadde0;
+    border-radius:12px;
+    color:#745b60;
+    background:#fff;
+    cursor:pointer;
+    transition:0.2s ease;
+}
+
+.gender-picker label.selected{
+    border-color:var(--pink);
+    color:#994f5c;
+    background:linear-gradient(135deg, rgba(247, 226, 231, 0.95), rgba(255, 248, 250, 0.95));
+    box-shadow:0 5px 14px rgba(157, 83, 96, 0.12);
+}
+
+.gender-picker label:hover{
+    border-color:rgba(201,130,142,0.75);
+    background:#fff9fa;
+}
+
+.gender-picker input{
+    position:absolute;
+    opacity:0;
+    pointer-events:none;
+}
+
+.gender-picker i{
+    width:24px;
+    height:24px;
+    display:grid;
+    place-items:center;
+    border-radius:50%;
+    color:var(--pink);
+    background:rgba(201,130,142,0.12);
+    font-size:14px;
+}
+
 .upload-box{
     height:50px;
     border:1px dashed var(--pink);

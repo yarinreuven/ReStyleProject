@@ -10,7 +10,8 @@ const initialValues = {
   email: "",
   password: "",
   confirmPassword: "",
-  language: "en"
+  language: "en",
+  gender: ""
 };
 
 export default function Register() {
@@ -149,6 +150,10 @@ export default function Register() {
       nextErrors.confirmPassword = "Passwords do not match";
     }
 
+    if (!values.gender) {
+      nextErrors.gender = "Please select your gender";
+    }
+
     setErrors(nextErrors);
 
     if (Object.keys(nextErrors).length > 0) {
@@ -166,6 +171,7 @@ export default function Register() {
       body.append("password", values.password);
       body.append("confirmPassword", values.confirmPassword);
       body.append("language", values.language);
+      body.append("gender", values.gender);
 
       if (profileImage) {
         body.append("profileImage", profileImage);
@@ -291,6 +297,40 @@ export default function Register() {
 
           <p className="error-message">
             {errors.email || ""}
+          </p>
+
+          <fieldset className={
+            `gender-picker${errors.gender ? " input-error" : ""}`
+          }>
+            <legend>Gender</legend>
+
+            <label className={values.gender === "female" ? "selected" : ""}>
+              <input
+                type="radio"
+                name="gender"
+                value="female"
+                checked={values.gender === "female"}
+                onChange={change}
+              />
+              <i className="fa-solid fa-venus" />
+              <span>Female</span>
+            </label>
+
+            <label className={values.gender === "male" ? "selected" : ""}>
+              <input
+                type="radio"
+                name="gender"
+                value="male"
+                checked={values.gender === "male"}
+                onChange={change}
+              />
+              <i className="fa-solid fa-mars" />
+              <span>Male</span>
+            </label>
+          </fieldset>
+
+          <p className="error-message">
+            {errors.gender || ""}
           </p>
 
           {success && (

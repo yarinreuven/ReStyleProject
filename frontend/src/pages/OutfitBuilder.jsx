@@ -7,7 +7,17 @@ const OUTFIT_API_URL = "http://localhost:3001/api/outfits/generate";
 const TRY_ON_API_URL = "http://localhost:3001/api/outfits/try-on";
 const VIRTUAL_MODEL_API_URL =
   "http://localhost:3001/api/auth/virtual-model-image";
-const ILLUSTRATED_MODEL_URL = "/images/avatars/airy-fashion-avatar.png";
+const FEMALE_AVATAR_URL = "/images/avatars/fashion-avatar-v2.png";
+const MALE_AVATAR_URL = "/images/avatars/fashion-avatar-male.png";
+
+function getDefaultAvatarUrl() {
+  try {
+    const user = JSON.parse(localStorage.getItem("user"));
+    return user?.gender === "male" ? MALE_AVATAR_URL : FEMALE_AVATAR_URL;
+  } catch {
+    return FEMALE_AVATAR_URL;
+  }
+}
 
 const events = [
   ["Work", "fa-briefcase"],
@@ -26,6 +36,7 @@ export default function OutfitBuilder() {
 
   const navigate = useNavigate();
   const modelFileInputRef = useRef(null);
+  const [defaultAvatarUrl] = useState(getDefaultAvatarUrl);
   const [eventType, setEventType] = useState("Work");
   const [customEvent, setCustomEvent] = useState("");
   const [style, setStyle] = useState("Elegant");
@@ -42,7 +53,6 @@ export default function OutfitBuilder() {
   const [isTryingOn, setIsTryingOn] = useState(false);
   const [tryOnImage, setTryOnImage] = useState("");
   const [tryOnError, setTryOnError] = useState("");
-  const [tryOnRenderer, setTryOnRenderer] = useState("");
 
   useEffect(() => {
     if (!localStorage.getItem("token")) {
@@ -165,7 +175,6 @@ export default function OutfitBuilder() {
       setOutfit(data.outfit);
       setTryOnImage("");
       setTryOnError("");
-      setTryOnRenderer("");
       setIsPreview(true);
       await createVirtualTryOn(data.outfit);
     } catch (error) {
@@ -197,7 +206,7 @@ export default function OutfitBuilder() {
       const modelUrl =
         modelChoice === "personal" && personalModelUrl
           ? personalModelUrl
-          : ILLUSTRATED_MODEL_URL;
+          : defaultAvatarUrl;
       const modelResponse = await fetch(modelUrl);
 
       if (!modelResponse.ok) {
@@ -218,7 +227,6 @@ export default function OutfitBuilder() {
       });
 
       setTryOnImage(data.tryOnImage);
-      setTryOnRenderer(data.renderer || "");
     } catch (error) {
       setTryOnError(
         error.response?.data?.message ||
@@ -335,7 +343,7 @@ export default function OutfitBuilder() {
                   className={modelChoice === "illustrated" ? "selected" : ""}
                   onClick={() => setModelChoice("illustrated")}
                 >
-                  <img src={ILLUSTRATED_MODEL_URL} alt="Airy fashion avatar" />
+                  <img src={defaultAvatarUrl} alt="Default fashion avatar" />
                   <span>
                     <strong>Airy Avatar</strong>
                     A neutral mannequin, no personal photo needed
@@ -449,13 +457,6 @@ export default function OutfitBuilder() {
               )}
             </div>
 
-            {tryOnRenderer === "catvton-fallback" && (
-              <p className="try-on-note">
-                The main clothes are shown on the avatar. Shoes, bag and
-                accessories are shown below from their exact wardrobe photos.
-              </p>
-            )}
-
             <section className="selected-look-summary" aria-labelledby="used-items-title">
               <h3 id="used-items-title">Pieces used from your wardrobe</h3>
               <div className="selected-item-grid">
@@ -499,7 +500,6 @@ export default function OutfitBuilder() {
                 setOutfit(null);
                 setTryOnImage("");
                 setTryOnError("");
-                setTryOnRenderer("");
               }}
             >
               Edit my request

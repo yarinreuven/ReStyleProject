@@ -29,7 +29,8 @@ export async function register(
       lastName,
       email,
       password,
-      language
+      language,
+      gender
     } = req.body;
 
     const existingUser = await User.findOne({ email });
@@ -50,6 +51,7 @@ export async function register(
       email,
       password: hashedPassword,
       language,
+      gender,
       profileImage: req.file
         ? {
             data: req.file.buffer,
@@ -73,6 +75,7 @@ export async function register(
         lastName: newUser.lastName,
         email: newUser.email,
         language: newUser.language,
+        gender: newUser.gender,
         hasProfileImage: Boolean(req.file)
       }
     });
@@ -344,6 +347,7 @@ export async function login(
         lastName: user.lastName,
         email: user.email,
         language: user.language,
+        gender: user.gender || "female",
         hasProfileImage: Boolean(user.profileImage?.data)
       }
     });
