@@ -89,7 +89,7 @@ const styles = [
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const LESS_WORN_DAYS = 60;
-const RECENT_DAYS = 30;
+const RECENT_DAYS = 7;
 
 function daysSince(date) {
   if (!date) {
@@ -107,7 +107,13 @@ function isLessWorn(item) {
 }
 
 function isRecentlyAdded(item) {
-  return daysSince(item.createdAt) <= RECENT_DAYS;
+  if (!item.createdAt) {
+    return false;
+  }
+
+  const age = Date.now() - new Date(item.createdAt).getTime();
+
+  return age >= 0 && age <= RECENT_DAYS * DAY_IN_MS;
 }
 
 function todayKey() {
