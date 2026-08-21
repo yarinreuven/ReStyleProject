@@ -1,6 +1,6 @@
 import { memo } from "react";
 
-function MarketplaceItemCard({ item, ownerActions, onOpen }) {
+function MarketplaceItemCard({ item, ownerActions, onOpen, onSellerOpen }) {
   const isRental = item.listingType === "RENT";
 
   return (
@@ -56,10 +56,17 @@ function MarketplaceItemCard({ item, ownerActions, onOpen }) {
           <span>{item.condition}</span>
         </div>
 
-        <div className="market-item-seller">
+        <button
+          type="button"
+          className="market-item-seller"
+          onClick={(event) => {
+            event.stopPropagation();
+            onSellerOpen(item.seller.id);
+          }}
+        >
           <img src={item.seller.avatar} alt="" loading="lazy" decoding="async" />
           <span>{item.seller.name}</span>
-        </div>
+        </button>
 
         {ownerActions && (
           <div className="market-owner-actions" onClick={(event) => event.stopPropagation()}>

@@ -122,7 +122,7 @@ export default function MarketplaceItemDetails() {
                 <div><dt>Brand</dt><dd>{item.brand}</dd></div><div><dt>Category</dt><dd>{item.category}</dd></div>
               </dl>
               <div className="market-detail-description"><h2>About this piece</h2><p>{item.description}</p></div>
-              <button type="button" className="market-detail-seller" onClick={() => setMessage("Seller profiles will be added in the next stage.")}>
+              <button type="button" className="market-detail-seller" onClick={() => navigate(`/marketplace/sellers/${item.seller.id}`)}>
                 <img src={sellerAvatar} alt={item.seller?.name || "Seller"} /><span><small>Listed by</small><strong>{item.seller?.name || "ReStyle member"}</strong></span><i className="fa-solid fa-chevron-right" />
               </button>
               <button type="button" className="market-contact-seller" onClick={() => setMessage("Chat with sellers will be available soon.")} disabled={item.availabilityStatus !== "active"}><i className="fa-regular fa-comment-dots" /> Contact Seller</button>

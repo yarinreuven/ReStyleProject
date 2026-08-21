@@ -38,6 +38,13 @@ const userSchema = new mongoose.Schema(
       default: "female"
     },
 
+    publicBio: {
+      type: String,
+      trim: true,
+      maxlength: 300,
+      default: ""
+    },
+
     profileImage: {
       data: Buffer,
       contentType: String

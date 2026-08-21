@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import ProfileAvatar from "../components/ProfileAvatar";
 import MarketplaceItemCard from "../components/MarketplaceItemCard";
 import MarketplaceListingForm from "../components/MarketplaceListingForm";
@@ -30,6 +30,7 @@ function normalizeMarketplaceItem(item, index) {
     imageShape: imageShapes[index % imageShapes.length],
     seller: {
       name: item.seller?.name || "ReStyle member",
+      id: item.seller?.id || "",
       avatar:
         item.seller?.avatar ||
         (index % 2 === 0
@@ -42,6 +43,7 @@ function normalizeMarketplaceItem(item, index) {
 export default function Marketplace() {
   usePageStyles("marketplace.css");
   const navigate = useNavigate();
+  const location = useLocation();
   const accountMenuRef = useRef(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [user] = useState(() => {
@@ -53,7 +55,9 @@ export default function Marketplace() {
   });
   const [token] = useState(() => localStorage.getItem("token"));
   const [marketplaceItems, setMarketplaceItems] = useState([]);
-  const [feedView, setFeedView] = useState("all");
+  const [feedView, setFeedView] = useState(() =>
+    new URLSearchParams(location.search).get("view") === "mine" ? "mine" : "all"
+  );
   const [listingFormOpen, setListingFormOpen] = useState(false);
   const [editingListing, setEditingListing] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -512,6 +516,7 @@ export default function Marketplace() {
                   key={item.id}
                   item={item}
                   onOpen={(itemId) => navigate(`/marketplace/items/${itemId}`)}
+                  onSellerOpen={(sellerId) => navigate(`/marketplace/sellers/${sellerId}`)}
                   ownerActions={feedView === "mine" ? {
                     onEdit: openEditForm,
                     onAvailability: changeAvailability,

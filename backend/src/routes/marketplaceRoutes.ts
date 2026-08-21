@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 
 import { authenticateToken, type AuthRequest } from "../middleware/auth.ts";
 import Item from "../models/Item.ts";
+import User from "../models/User.ts";
 
 const router = express.Router();
 const categories = [
@@ -138,6 +139,45 @@ router.get("/mine", async (req: AuthRequest, res, next) => {
       .sort({ createdAt: -1 });
 
     res.json({ success: true, items: items.map(formatMarketplaceItem) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/sellers/:userId", async (req: AuthRequest, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.userId)) {
+      res.status(404).json({ success: false, message: "Seller not found" });
+      return;
+    }
+
+    const seller = await User.findById(req.params.userId)
+      .select("firstName lastName profileImage publicBio");
+
+    if (!seller) {
+      res.status(404).json({ success: false, message: "Seller not found" });
+      return;
+    }
+
+    const items = await Item.find({
+      user: seller._id,
+      availabilityStatus: "active",
+      listingType: { $in: ["sale", "rent"] }
+    })
+      .populate("user", "firstName lastName profileImage")
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      seller: {
+        id: seller._id,
+        name: `${seller.firstName} ${seller.lastName}`.trim(),
+        avatar: imageToDataUrl(seller.profileImage),
+        bio: seller.publicBio || "",
+        activeListingCount: items.length
+      },
+      items: items.map(formatMarketplaceItem)
+    });
   } catch (error) {
     next(error);
   }

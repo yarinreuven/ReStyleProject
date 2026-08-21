@@ -1140,6 +1140,7 @@ button{
 }
 
 .market-item-seller{
+  width:100%;
   display:flex;
   align-items:center;
   gap:8px;
@@ -1149,7 +1150,14 @@ button{
   color:#655a5e;
   font-size:10px;
   font-weight:600;
+  border-right:0;
+  border-bottom:0;
+  border-left:0;
+  background:transparent;
+  text-align:left;
 }
+
+.market-item-seller:hover{color:var(--market-rose-deep)}
 
 .market-item-seller img{
   width:27px;
