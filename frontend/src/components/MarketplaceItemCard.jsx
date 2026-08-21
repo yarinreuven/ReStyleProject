@@ -1,6 +1,6 @@
 import { memo } from "react";
 
-function MarketplaceItemCard({ item }) {
+function MarketplaceItemCard({ item, ownerActions }) {
   const isRental = item.listingType === "RENT";
 
   return (
@@ -15,6 +15,9 @@ function MarketplaceItemCard({ item }) {
         <span className={`market-item-badge ${isRental ? "rent" : "sale"}`}>
           {item.listingType}
         </span>
+        {ownerActions && item.availabilityStatus !== "active" && (
+          <span className="market-unavailable-badge">UNAVAILABLE</span>
+        )}
         <button
           type="button"
           className="market-heart-button"
@@ -44,6 +47,21 @@ function MarketplaceItemCard({ item }) {
           <img src={item.seller.avatar} alt="" loading="lazy" decoding="async" />
           <span>{item.seller.name}</span>
         </div>
+
+        {ownerActions && (
+          <div className="market-owner-actions">
+            <button type="button" onClick={() => ownerActions.onEdit(item)}>
+              <i className="fa-regular fa-pen-to-square" aria-hidden="true" /> Edit
+            </button>
+            <button type="button" onClick={() => ownerActions.onAvailability(item)}>
+              <i className={`fa-regular ${item.availabilityStatus === "active" ? "fa-eye-slash" : "fa-eye"}`} aria-hidden="true" />
+              {item.availabilityStatus === "active" ? "Unavailable" : "Make available"}
+            </button>
+            <button type="button" className="danger" onClick={() => ownerActions.onDelete(item)}>
+              <i className="fa-regular fa-trash-can" aria-hidden="true" /> Delete
+            </button>
+          </div>
+        )}
       </div>
     </article>
   );

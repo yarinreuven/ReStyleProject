@@ -61,6 +61,9 @@ const marketplaceItemSchema = Joi.object({
 const createMarketplaceItemSchema = marketplaceItemSchema.append({
   name: Joi.string().trim().min(2).max(80).required()
 });
+const availabilitySchema = Joi.object({
+  availabilityStatus: Joi.string().valid("active", "hidden").required()
+});
 
 function imageToDataUrl(image?: { data?: Buffer; contentType?: string } | null) {
   if (!image?.data || !image.contentType) {
@@ -291,9 +294,56 @@ router.put(
   }
 );
 
+router.patch("/:id/availability", async (req: AuthRequest, res, next) => {
+  try {
+    const { error, value } = availabilitySchema.validate(req.body, {
+      abortEarly: false,
+      stripUnknown: true
+    });
+
+    if (error) {
+      res.status(400).json({
+        success: false,
+        message: error.details[0]?.message,
+        errors: error.details.map((detail) => detail.message)
+      });
+      return;
+    }
+
+    const item = await Item.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        user: req.userId,
+        listingType: { $in: ["sale", "rent"] }
+      },
+      { availabilityStatus: value.availabilityStatus },
+      { returnDocument: "after", runValidators: true }
+    ).populate("user", "firstName lastName profileImage");
+
+    if (!item) {
+      res.status(404).json({ success: false, message: "Listing not found" });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: value.availabilityStatus === "active"
+        ? "Listing is available again"
+        : "Listing marked as unavailable",
+      item: formatMarketplaceItem(item)
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.delete("/:id", async (req: AuthRequest, res, next) => {
   try {
-    const item = await Item.findOne({ _id: req.params.id, user: req.userId });
+    const item = await Item.findOne({
+      _id: req.params.id,
+      user: req.userId,
+      listingType: { $in: ["sale", "rent"] }
+    });
 
     if (!item) {
       res.status(404).json({ success: false, message: "Item not found" });

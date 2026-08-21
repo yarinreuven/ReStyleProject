@@ -18,7 +18,7 @@ const initialForm = {
   rentalPricePerDay: ""
 };
 
-function validate(form, images) {
+function validate(form, images, hasExistingImages) {
   const errors = {};
   const selectedPrice = form.listingType === "sale"
     ? form.price
@@ -33,14 +33,25 @@ function validate(form, images) {
   if (!selectedPrice || Number(selectedPrice) <= 0) {
     errors.price = "Enter a price greater than 0.";
   }
-  if (images.length === 0) errors.images = "Add at least one image.";
+  if (images.length === 0 && !hasExistingImages) errors.images = "Add at least one image.";
   if (images.length > MAX_IMAGES) errors.images = "You can add up to 4 images.";
 
   return errors;
 }
 
-export default function MarketplaceListingForm({ token, onClose, onPublished }) {
-  const [form, setForm] = useState(initialForm);
+export default function MarketplaceListingForm({ token, listing = null, onClose, onPublished }) {
+  const isEditing = Boolean(listing);
+  const [form, setForm] = useState(() => listing ? {
+    name: listing.title || "",
+    description: listing.description || "",
+    category: listing.category || "Tops",
+    brand: listing.brand || "",
+    size: listing.size || "",
+    condition: listing.condition || "Like New",
+    listingType: listing.listingType === "RENT" ? "rent" : "sale",
+    price: listing.listingType === "SALE" ? String(listing.price || "") : "",
+    rentalPricePerDay: listing.listingType === "RENT" ? String(listing.price || "") : ""
+  } : initialForm);
   const [images, setImages] = useState([]);
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState("");
@@ -97,7 +108,7 @@ export default function MarketplaceListingForm({ token, onClose, onPublished }) 
 
   async function submitListing(event) {
     event.preventDefault();
-    const validationErrors = validate(form, images);
+    const validationErrors = validate(form, images, isEditing && Boolean(listing.image));
 
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -114,15 +125,21 @@ export default function MarketplaceListingForm({ token, onClose, onPublished }) 
         if (key === "rentalPricePerDay" && form.listingType !== "rent") return;
         payload.append(key, value);
       });
+      if (isEditing) payload.append("availabilityStatus", listing.availabilityStatus);
       images.forEach((image) => payload.append("images", image));
 
-      const { data } = await axios.post(API_URL, payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const request = isEditing
+        ? axios.put(`${API_URL}/${listing.id}`, payload, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+        : axios.post(API_URL, payload, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      const { data } = await request;
       onPublished(data.item);
     } catch (error) {
       setSubmitError(
-        error.response?.data?.message || "Could not publish your listing. Please try again."
+        error.response?.data?.message || `Could not ${isEditing ? "save" : "publish"} your listing. Please try again.`
       );
     } finally {
       setIsSubmitting(false);
@@ -138,8 +155,8 @@ export default function MarketplaceListingForm({ token, onClose, onPublished }) 
       <section className="market-listing-modal" role="dialog" aria-modal="true" aria-labelledby="listingFormTitle">
         <header>
           <div>
-            <span>SHARE FROM YOUR WARDROBE</span>
-            <h2 id="listingFormTitle">Add a listing</h2>
+            <span>{isEditing ? "UPDATE YOUR LISTING" : "SHARE FROM YOUR WARDROBE"}</span>
+            <h2 id="listingFormTitle">{isEditing ? "Edit listing" : "Add a listing"}</h2>
             <p>Your account will automatically be shown as the seller.</p>
           </div>
           <button type="button" onClick={onClose} disabled={isSubmitting} aria-label="Close form">
@@ -226,11 +243,11 @@ export default function MarketplaceListingForm({ token, onClose, onPublished }) 
             </label>
 
             <div className="market-image-field market-form-wide">
-              <span>Photos <small>1–4 images, up to 5MB each</small></span>
+              <span>Photos <small>{isEditing ? "Choose new images only to replace the current ones" : "1–4 images, up to 5MB each"}</small></span>
               <label className="market-image-picker">
                 <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={chooseImages} />
                 <i className="fa-regular fa-images" aria-hidden="true" />
-                <strong>Choose item photos</strong>
+                <strong>{isEditing ? "Replace item photos" : "Choose item photos"}</strong>
                 <small>JPG, PNG or WEBP</small>
               </label>
               {errors.images && <small className="market-field-error">{errors.images}</small>}
@@ -254,7 +271,9 @@ export default function MarketplaceListingForm({ token, onClose, onPublished }) 
           <footer>
             <button type="button" className="market-listing-cancel" onClick={onClose} disabled={isSubmitting}>Cancel</button>
             <button type="submit" className="market-listing-submit" disabled={isSubmitting}>
-              {isSubmitting ? <><span className="market-button-spinner" /> Publishing...</> : <><i className="fa-solid fa-plus" /> Publish listing</>}
+              {isSubmitting
+                ? <><span className="market-button-spinner" /> {isEditing ? "Saving..." : "Publishing..."}</>
+                : <><i className={`fa-solid ${isEditing ? "fa-check" : "fa-plus"}`} /> {isEditing ? "Save changes" : "Publish listing"}</>}
             </button>
           </footer>
         </form>

@@ -24,6 +24,8 @@ function normalizeMarketplaceItem(item, index) {
     style: item.style,
     description: item.description,
     createdAt: item.createdAt,
+    availabilityStatus: item.availabilityStatus,
+    images: item.images || [],
     image: item.images?.[0] || "",
     imageShape: imageShapes[index % imageShapes.length],
     seller: {
@@ -53,7 +55,9 @@ export default function Marketplace() {
   const [marketplaceItems, setMarketplaceItems] = useState([]);
   const [feedView, setFeedView] = useState("all");
   const [listingFormOpen, setListingFormOpen] = useState(false);
+  const [editingListing, setEditingListing] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [actionError, setActionError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
@@ -207,9 +211,60 @@ export default function Marketplace() {
 
   function handlePublished() {
     setListingFormOpen(false);
+    setEditingListing(null);
     setFeedView("mine");
     setRefreshKey((key) => key + 1);
     clearFilters();
+  }
+
+  function openEditForm(item) {
+    setEditingListing(item);
+    setListingFormOpen(true);
+    setActionError("");
+  }
+
+  function closeListingForm() {
+    setListingFormOpen(false);
+    setEditingListing(null);
+  }
+
+  async function changeAvailability(item) {
+    const nextStatus = item.availabilityStatus === "active" ? "hidden" : "active";
+
+    try {
+      setActionError("");
+      await axios.patch(
+        `${API_URL}/${item.id}/availability`,
+        { availabilityStatus: nextStatus },
+        requestConfig
+      );
+      setRefreshKey((key) => key + 1);
+    } catch (error) {
+      if (error.response?.status === 401) {
+        logout();
+        return;
+      }
+      setActionError(error.response?.data?.message || "Could not update this listing.");
+    }
+  }
+
+  async function deleteListing(item) {
+    const confirmed = window.confirm(
+      `Remove “${item.title}” from Marketplace? The wardrobe item itself will not be deleted.`
+    );
+    if (!confirmed) return;
+
+    try {
+      setActionError("");
+      await axios.delete(`${API_URL}/${item.id}`, requestConfig);
+      setRefreshKey((key) => key + 1);
+    } catch (error) {
+      if (error.response?.status === 401) {
+        logout();
+        return;
+      }
+      setActionError(error.response?.data?.message || "Could not delete this listing.");
+    }
   }
 
   if (!user || !token) {
@@ -427,6 +482,8 @@ export default function Marketplace() {
             <p>{visibleItems.length} {visibleItems.length === 1 ? "item" : "items"}</p>
           </div>
 
+          {actionError && <p className="market-action-error" role="alert">{actionError}</p>}
+
           {isLoading ? (
             <div className="market-feed-state" role="status">
               <span className="market-loading-spinner" />
@@ -451,7 +508,15 @@ export default function Marketplace() {
           ) : visibleItems.length > 0 ? (
             <div className="market-masonry">
               {visibleItems.map((item) => (
-                <MarketplaceItemCard key={item.id} item={item} />
+                <MarketplaceItemCard
+                  key={item.id}
+                  item={item}
+                  ownerActions={feedView === "mine" ? {
+                    onEdit: openEditForm,
+                    onAvailability: changeAvailability,
+                    onDelete: deleteListing
+                  } : null}
+                />
               ))}
             </div>
           ) : (
@@ -471,7 +536,12 @@ export default function Marketplace() {
         </section>
       </main>
       {listingFormOpen && (
-        <MarketplaceListingForm token={token} onClose={() => setListingFormOpen(false)} onPublished={handlePublished} />
+        <MarketplaceListingForm
+          token={token}
+          listing={editingListing}
+          onClose={closeListingForm}
+          onPublished={handlePublished}
+        />
       )}
     </div>
   );
