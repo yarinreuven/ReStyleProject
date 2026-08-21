@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import { createServer } from "http";
 import app from "./app.ts";
+import { initializeSocketServer } from "./services/socketService.ts";
 
 dotenv.config();
 
@@ -16,8 +18,9 @@ mongoose
   .connect(MONGO_URI)
   .then(() => {
     console.log("MongoDB connected!");
-
-    app.listen(PORT, () => {
+    const httpServer = createServer(app);
+    initializeSocketServer(httpServer);
+    httpServer.listen(PORT, () => {
       console.log(`Server running on port ${PORT}`);
     });
   })

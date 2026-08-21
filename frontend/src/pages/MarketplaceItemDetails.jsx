@@ -74,7 +74,7 @@ export default function MarketplaceItemDetails() {
         { itemId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      navigate(`/messages/${data.conversation.id}`);
+      navigate(`/marketplace?chat=${data.conversation.id}`);
     } catch (error) {
       setMessage(error.response?.data?.message || "Could not open this conversation.");
     } finally {

@@ -7,10 +7,11 @@ import outfitRoutes from "./routes/outfitRoutes.ts";
 import marketplaceRoutes from "./routes/marketplaceRoutes.ts";
 import messageRoutes from "./routes/messageRoutes.ts";
 import { errorHandler } from "./middleware/errorHandler.ts";
+import { getAllowedOrigins } from "./services/socketService.ts";
 
 const app = express();
 
-app.use(cors());
+app.use(cors({ origin: getAllowedOrigins(), credentials: true }));
 app.use(express.json());
 
 app.get("/", (req, res) => {

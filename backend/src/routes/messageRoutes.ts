@@ -5,6 +5,11 @@ import mongoose from "mongoose";
 import { authenticateToken, type AuthRequest } from "../middleware/auth.ts";
 import Conversation from "../models/Conversation.ts";
 import Item from "../models/Item.ts";
+import {
+  emitConversationRead,
+  emitNewMessage,
+  joinParticipantsToConversation
+} from "../services/socketService.ts";
 
 const router = express.Router();
 const startConversationSchema = Joi.object({
@@ -25,6 +30,13 @@ function formatConversation(conversation: any, currentUserId: string) {
     (participant: any) => String(participant._id) !== String(currentUserId)
   );
   const itemImage = object.item?.marketplaceImages?.[0] || object.item?.image;
+  const lastReadAt = object.readState?.find(
+    (state: any) => String(state.user) === String(currentUserId)
+  )?.lastReadAt;
+  const unreadCount = (object.messages || []).filter((message: any) =>
+    String(message.sender?._id || message.sender) !== String(currentUserId) &&
+    (!lastReadAt || new Date(message.sentAt) > new Date(lastReadAt))
+  ).length;
 
   return {
     id: object._id,
@@ -50,6 +62,7 @@ function formatConversation(conversation: any, currentUserId: string) {
       sentAt: message.sentAt
     })),
     lastMessageAt: object.lastMessageAt,
+    unreadCount,
     createdAt: object.createdAt
   };
 }
@@ -96,10 +109,19 @@ router.post("/conversations", async (req: AuthRequest, res, next) => {
     if (!conversation) {
       conversation = await Conversation.create({
         item: item._id,
-        participants: [req.userId, item.user]
+        participants: [req.userId, item.user],
+        readState: [
+          { user: req.userId, lastReadAt: new Date() },
+          { user: item.user, lastReadAt: new Date() }
+        ]
       });
       created = true;
     }
+
+    await joinParticipantsToConversation(String(conversation._id), [
+      String(req.userId),
+      String(item.user)
+    ]);
 
     await conversation.populate(conversationPopulate);
     res.status(created ? 201 : 200).json({
@@ -184,10 +206,49 @@ router.post("/conversations/:conversationId/messages", async (req: AuthRequest, 
     await conversation.save();
     await conversation.populate(conversationPopulate);
 
+    const savedMessage = conversation.messages[conversation.messages.length - 1] as any;
+    emitNewMessage(String(conversation._id), {
+      id: savedMessage._id,
+      senderId: savedMessage.sender?._id || savedMessage.sender,
+      senderName: savedMessage.sender?.firstName
+        ? `${savedMessage.sender.firstName} ${savedMessage.sender.lastName}`.trim()
+        : "ReStyle member",
+      text: savedMessage.text,
+      sentAt: savedMessage.sentAt
+    });
+
     res.status(201).json({
       success: true,
       conversation: formatConversation(conversation, req.userId as string)
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post("/conversations/:conversationId/read", async (req: AuthRequest, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.conversationId)) {
+      res.status(404).json({ success: false, message: "Conversation not found" });
+      return;
+    }
+    const conversation = await Conversation.findOne({
+      _id: req.params.conversationId,
+      participants: req.userId
+    });
+    if (!conversation) {
+      res.status(404).json({ success: false, message: "Conversation not found" });
+      return;
+    }
+
+    const state = conversation.readState.find(
+      (entry: any) => String(entry.user) === String(req.userId)
+    );
+    if (state) state.lastReadAt = new Date();
+    else conversation.readState.push({ user: new mongoose.Types.ObjectId(req.userId), lastReadAt: new Date() } as any);
+    await conversation.save();
+    emitConversationRead(String(conversation._id), String(req.userId));
+    res.json({ success: true, unreadCount: 0 });
   } catch (error) {
     next(error);
   }

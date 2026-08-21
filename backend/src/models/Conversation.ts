@@ -38,6 +38,11 @@ const conversationSchema = new mongoose.Schema(
       type: [messageSchema],
       default: []
     },
+    readState: [{
+      _id: false,
+      user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+      lastReadAt: { type: Date, default: Date.now }
+    }],
     lastMessageAt: {
       type: Date,
       default: Date.now,
