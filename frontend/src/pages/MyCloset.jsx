@@ -568,7 +568,7 @@ export default function MyCloset() {
             My Closet
           </button>
 
-          <button type="button">
+          <button type="button" onClick={() => navigate("/marketplace")}>
             Marketplace
           </button>
 

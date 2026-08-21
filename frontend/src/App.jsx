@@ -6,6 +6,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import MyCloset from "./pages/MyCloset";
 import Profile from "./pages/Profile";
 import OutfitBuilder from "./pages/OutfitBuilder";
+import Marketplace from "./pages/Marketplace";
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
         <Route path="/closet" element={<MyCloset />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/outfit-builder" element={<OutfitBuilder />} />
+        <Route path="/marketplace" element={<Marketplace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

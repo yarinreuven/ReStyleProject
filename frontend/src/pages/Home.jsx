@@ -42,7 +42,7 @@ export default function Home() {
         <nav className="main-nav">
           <Link to="/">Home</Link>
           <Link to="/closet">My Closet</Link>
-          <a href="#marketplace">Marketplace</a>
+          <Link to="/marketplace">Marketplace</Link>
         </nav>
         <div id="userArea">
           {user ? (
@@ -86,7 +86,7 @@ export default function Home() {
             <Link to={user ? "/closet" : "/login"} className="primary-btn">
               {user ? "Go to My Closet" : "Get Started"}
             </Link>
-            <button className="secondary-btn">Explore Marketplace</button>
+            <button className="secondary-btn" onClick={() => navigate(user ? "/marketplace" : "/login")}>Explore Marketplace</button>
           </div>
         </div>
         <div className="hero-image"><img src="/images/closet.png" alt="Wardrobe" /></div>
@@ -97,7 +97,7 @@ export default function Home() {
           <i className="fa-solid fa-shirt icon" /><h4>Smart Closet</h4><p>Upload and organize your clothing and accessories.</p>
         </Link>
         <Link to="/outfit-builder" className="feature-card"><i className="fa-solid fa-wand-magic-sparkles icon" /><h4>Outfit Builder</h4><p>Create outfits based on style and occasion.</p></Link>
-        <div className="feature-card"><i className="fa-solid fa-bag-shopping icon" /><h4>Marketplace</h4><p>Sell or rent selected clothing items.</p></div>
+        <Link to={user ? "/marketplace" : "/login"} className="feature-card"><i className="fa-solid fa-bag-shopping icon" /><h4>Marketplace</h4><p>Sell or rent selected clothing items.</p></Link>
         <div className="feature-card"><i className="fa-solid fa-recycle icon" /><h4>ReStyle Studio</h4><p>Discover tutorials and clothing transformation ideas.</p></div>
       </section>
 
