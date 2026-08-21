@@ -1,6 +1,7 @@
 import express from "express";
 import Joi from "joi";
 import multer from "multer";
+import mongoose from "mongoose";
 
 import { authenticateToken, type AuthRequest } from "../middleware/auth.ts";
 import Item from "../models/Item.ts";
@@ -137,6 +138,30 @@ router.get("/mine", async (req: AuthRequest, res, next) => {
       .sort({ createdAt: -1 });
 
     res.json({ success: true, items: items.map(formatMarketplaceItem) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get("/:id", async (req: AuthRequest, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      res.status(404).json({ success: false, message: "Listing not found" });
+      return;
+    }
+
+    const item = await Item.findOne({
+      _id: req.params.id,
+      listingType: { $in: ["sale", "rent"] },
+      $or: [{ availabilityStatus: "active" }, { user: req.userId }]
+    }).populate("user", "firstName lastName profileImage");
+
+    if (!item) {
+      res.status(404).json({ success: false, message: "Listing not found" });
+      return;
+    }
+
+    res.json({ success: true, item: formatMarketplaceItem(item) });
   } catch (error) {
     next(error);
   }

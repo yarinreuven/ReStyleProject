@@ -1,10 +1,22 @@
 import { memo } from "react";
 
-function MarketplaceItemCard({ item, ownerActions }) {
+function MarketplaceItemCard({ item, ownerActions, onOpen }) {
   const isRental = item.listingType === "RENT";
 
   return (
-    <article className="market-item-card">
+    <article
+      className="market-item-card"
+      role="link"
+      tabIndex="0"
+      aria-label={`View ${item.title}`}
+      onClick={() => onOpen(item.id)}
+      onKeyDown={(event) => {
+        if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          onOpen(item.id);
+        }
+      }}
+    >
       <div className={`market-item-image market-item-image-${item.imageShape}`}>
         <img
           src={item.image}
@@ -23,6 +35,7 @@ function MarketplaceItemCard({ item, ownerActions }) {
           className="market-heart-button"
           aria-label={`Save ${item.title}`}
           aria-pressed="false"
+          onClick={(event) => event.stopPropagation()}
         >
           <i className="fa-regular fa-heart" aria-hidden="true" />
         </button>
@@ -49,7 +62,7 @@ function MarketplaceItemCard({ item, ownerActions }) {
         </div>
 
         {ownerActions && (
-          <div className="market-owner-actions">
+          <div className="market-owner-actions" onClick={(event) => event.stopPropagation()}>
             <button type="button" onClick={() => ownerActions.onEdit(item)}>
               <i className="fa-regular fa-pen-to-square" aria-hidden="true" /> Edit
             </button>

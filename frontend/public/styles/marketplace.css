@@ -1011,6 +1011,7 @@ button{
   box-shadow:0 12px 34px rgba(76,47,55,.075);
   break-inside:avoid;
   transition:transform .22s ease,box-shadow .22s ease;
+  cursor:pointer;
 }
 
 .market-item-card:hover{

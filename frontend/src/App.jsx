@@ -7,6 +7,7 @@ import MyCloset from "./pages/MyCloset";
 import Profile from "./pages/Profile";
 import OutfitBuilder from "./pages/OutfitBuilder";
 import Marketplace from "./pages/Marketplace";
+import MarketplaceItemDetails from "./pages/MarketplaceItemDetails";
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
         <Route path="/profile" element={<Profile />} />
         <Route path="/outfit-builder" element={<OutfitBuilder />} />
         <Route path="/marketplace" element={<Marketplace />} />
+        <Route path="/marketplace/items/:itemId" element={<MarketplaceItemDetails />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

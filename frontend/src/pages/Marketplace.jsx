@@ -511,6 +511,7 @@ export default function Marketplace() {
                 <MarketplaceItemCard
                   key={item.id}
                   item={item}
+                  onOpen={(itemId) => navigate(`/marketplace/items/${itemId}`)}
                   ownerActions={feedView === "mine" ? {
                     onEdit: openEditForm,
                     onAvailability: changeAvailability,
