@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ProfileAvatar from "../components/ProfileAvatar";
+import MarketplaceItemCard from "../components/MarketplaceItemCard";
 import usePageStyles from "../hooks/usePageStyles";
+import marketplaceItems from "../data/marketplaceItems";
 
 export default function Marketplace() {
   usePageStyles("marketplace.css");
@@ -145,10 +147,21 @@ export default function Marketplace() {
           </div>
         </section>
 
-        <section
-          className="market-feed-placeholder"
-          aria-label="Marketplace item feed will appear here"
-        />
+        <section className="market-feed" aria-labelledby="marketFeedTitle">
+          <div className="market-feed-heading">
+            <div>
+              <span>FRESH FROM THE COMMUNITY</span>
+              <h2 id="marketFeedTitle">Discover pieces</h2>
+            </div>
+            <p>{marketplaceItems.length} items</p>
+          </div>
+
+          <div className="market-masonry">
+            {marketplaceItems.map((item) => (
+              <MarketplaceItemCard key={item.id} item={item} />
+            ))}
+          </div>
+        </section>
       </main>
     </div>
   );
