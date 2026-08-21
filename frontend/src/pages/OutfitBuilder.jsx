@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import usePageStyles from "../hooks/usePageStyles";
+import { useAuth } from "../context/AuthContext";
 
 const OUTFIT_API_URL = "http://localhost:3001/api/outfits/generate";
 const TRY_ON_API_URL = "http://localhost:3001/api/outfits/try-on";
@@ -10,13 +11,8 @@ const VIRTUAL_MODEL_API_URL =
 const FEMALE_AVATAR_URL = "/images/avatars/fashion-avatar-v2.png";
 const MALE_AVATAR_URL = "/images/avatars/fashion-avatar-male.png";
 
-function getDefaultAvatarUrl() {
-  try {
-    const user = JSON.parse(localStorage.getItem("user"));
-    return user?.gender === "male" ? MALE_AVATAR_URL : FEMALE_AVATAR_URL;
-  } catch {
-    return FEMALE_AVATAR_URL;
-  }
+function getDefaultAvatarUrl(user) {
+  return user?.gender === "male" ? MALE_AVATAR_URL : FEMALE_AVATAR_URL;
 }
 
 const events = [
@@ -35,8 +31,9 @@ export default function OutfitBuilder() {
   usePageStyles("outfit-builder.css");
 
   const navigate = useNavigate();
+  const { user, token, logout } = useAuth();
   const modelFileInputRef = useRef(null);
-  const [defaultAvatarUrl] = useState(getDefaultAvatarUrl);
+  const defaultAvatarUrl = getDefaultAvatarUrl(user);
   const [eventType, setEventType] = useState("Work");
   const [customEvent, setCustomEvent] = useState("");
   const [style, setStyle] = useState("Elegant");
@@ -55,13 +52,6 @@ export default function OutfitBuilder() {
   const [tryOnError, setTryOnError] = useState("");
 
   useEffect(() => {
-    if (!localStorage.getItem("token")) {
-      navigate("/login", { replace: true });
-    }
-  }, [navigate]);
-
-  useEffect(() => {
-    const token = localStorage.getItem("token");
     let objectUrl = "";
     let cancelled = false;
 
@@ -82,7 +72,14 @@ export default function OutfitBuilder() {
         objectUrl = URL.createObjectURL(data);
         setPersonalModelUrl(objectUrl);
       })
-      .catch(() => setPersonalModelUrl(""));
+      .catch((error) => {
+        if (error.response?.status === 401) {
+          logout();
+          navigate("/login", { replace: true });
+          return;
+        }
+        setPersonalModelUrl("");
+      });
 
     return () => {
       cancelled = true;
@@ -91,7 +88,7 @@ export default function OutfitBuilder() {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, []);
+  }, [logout, navigate, token]);
 
   async function uploadVirtualModel(event) {
     const file = event.target.files?.[0];
@@ -121,7 +118,6 @@ export default function OutfitBuilder() {
       setIsSavingModel(true);
       setModelMessage("");
 
-      const token = localStorage.getItem("token");
       await axios.put(VIRTUAL_MODEL_API_URL, body, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -134,6 +130,11 @@ export default function OutfitBuilder() {
       setModelChoice("personal");
       setModelMessage("Your private model photo is ready.");
     } catch (error) {
+      if (error.response?.status === 401) {
+        logout();
+        navigate("/login", { replace: true });
+        return;
+      }
       setModelMessage(
         error.response?.data?.message ||
           "Could not save your model photo."
@@ -156,7 +157,6 @@ export default function OutfitBuilder() {
       setIsCreating(true);
       setAiError("");
 
-      const token = localStorage.getItem("token");
       const { data } = await axios.post(
         OUTFIT_API_URL,
         {
@@ -179,8 +179,7 @@ export default function OutfitBuilder() {
       await createVirtualTryOn(data.outfit);
     } catch (error) {
       if (error.response?.status === 401) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
+        logout();
         navigate("/login", { replace: true });
         return;
       }
@@ -221,13 +220,17 @@ export default function OutfitBuilder() {
         JSON.stringify(outfitToTry.items.map((item) => item._id))
       );
 
-      const token = localStorage.getItem("token");
       const { data } = await axios.post(TRY_ON_API_URL, body, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
       setTryOnImage(data.tryOnImage);
     } catch (error) {
+      if (error.response?.status === 401) {
+        logout();
+        navigate("/login", { replace: true });
+        return;
+      }
       setTryOnError(
         error.response?.data?.message ||
           "Could not create the virtual try-on. Please try again later."

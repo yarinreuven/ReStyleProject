@@ -8,6 +8,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import ProfileAvatar from "../components/ProfileAvatar";
 import usePageStyles from "../hooks/usePageStyles";
+import { useAuth } from "../context/AuthContext";
 
 const API_URL = "http://localhost:3001/api/items";
 
@@ -139,18 +140,7 @@ export default function MyCloset() {
   usePageStyles("closet.css");
 
   const navigate = useNavigate();
-
-  const [user] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("user"));
-    } catch {
-      return null;
-    }
-  });
-
-  const [token] = useState(() =>
-    localStorage.getItem("token")
-  );
+  const { user, token, logout: logoutUser } = useAuth();
 
   const [items, setItems] = useState([]);
   const [filter, setFilter] = useState("All");
@@ -197,8 +187,7 @@ export default function MyCloset() {
         setItems(data.items || []);
       } catch (error) {
         if (error.response?.status === 401) {
-          localStorage.removeItem("token");
-          localStorage.removeItem("user");
+          logoutUser();
           navigate("/login", { replace: true });
           return;
         }
@@ -213,7 +202,7 @@ export default function MyCloset() {
     }
 
     getItems();
-  }, [navigate, requestConfig, token, user]);
+  }, [logoutUser, navigate, requestConfig, token, user]);
 
   useEffect(() => {
     function closeAccountMenu(event) {
@@ -537,8 +526,7 @@ export default function MyCloset() {
   }
 
   function logout() {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    logoutUser();
     navigate("/login", { replace: true });
   }
 
@@ -709,7 +697,10 @@ export default function MyCloset() {
                         insightFilter === value ? " active" : ""
                       }`
                     }
-                    onClick={() => setInsightFilter(value)}
+                    onClick={() => {
+                      setFilter("All");
+                      setInsightFilter(value);
+                    }}
                   >
                     {label} <span>{count}</span>
                   </button>

@@ -3,6 +3,7 @@ import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import ProfileAvatar from "../components/ProfileAvatar";
 import usePageStyles from "../hooks/usePageStyles";
+import { useAuth } from "../context/AuthContext";
 
 const API_URL = "http://localhost:3001/api/messages";
 
@@ -27,20 +28,16 @@ export default function Messages() {
   const [status, setStatus] = useState("loading");
   const [errorMessage, setErrorMessage] = useState("");
   const [sending, setSending] = useState(false);
-  const [user] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("user")); } catch { return null; }
-  });
-  const [token] = useState(() => localStorage.getItem("token"));
+  const { user, token, logout: logoutUser } = useAuth();
   const currentUserId = String(user?.id || user?._id || "");
   const requestConfig = useMemo(() => ({
     headers: { Authorization: `Bearer ${token}` }
   }), [token]);
 
   const logout = useCallback(() => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    logoutUser();
     navigate("/login", { replace: true });
-  }, [navigate]);
+  }, [logoutUser, navigate]);
 
   useEffect(() => {
     if (!user || !token) navigate("/login", { replace: true });
@@ -81,6 +78,10 @@ export default function Messages() {
         }
       } catch (error) {
         if (!cancelled) {
+          if (error.response?.status === 401) {
+            logout();
+            return;
+          }
           setStatus(error.response?.status === 404 ? "not-found" : "error");
           setErrorMessage(error.response?.data?.message || "Could not load this conversation.");
         }
@@ -88,7 +89,7 @@ export default function Messages() {
     }
     loadPage();
     return () => { cancelled = true; };
-  }, [conversationId, loadConversations, navigate, requestConfig, token]);
+  }, [conversationId, loadConversations, logout, navigate, requestConfig, token]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -110,6 +111,10 @@ export default function Messages() {
       setDraft("");
       await loadConversations();
     } catch (error) {
+      if (error.response?.status === 401) {
+        logout();
+        return;
+      }
       setErrorMessage(error.response?.data?.message || "Could not send your message.");
     } finally {
       setSending(false);

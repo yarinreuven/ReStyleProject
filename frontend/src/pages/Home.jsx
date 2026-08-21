@@ -2,16 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import usePageStyles from "../hooks/usePageStyles";
 import ProfileAvatar from "../components/ProfileAvatar";
+import { useAuth } from "../context/AuthContext";
 
 export default function Home() {
   usePageStyles("home.css");
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
-  const [user, setUser] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("user")); } catch { return null; }
-  });
-  const [token] = useState(() => localStorage.getItem("token"));
+  const { user, token, logout: logoutUser } = useAuth();
 
   useEffect(() => {
     function closeMenu(event) {
@@ -28,9 +26,7 @@ export default function Home() {
   }, []);
 
   function logout() {
-    localStorage.removeItem("user");
-    localStorage.removeItem("token");
-    setUser(null);
+    logoutUser();
     setMenuOpen(false);
     navigate("/");
   }

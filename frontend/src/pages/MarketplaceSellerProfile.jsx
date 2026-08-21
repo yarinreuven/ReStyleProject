@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import MarketplaceItemCard from "../components/MarketplaceItemCard";
 import ProfileAvatar from "../components/ProfileAvatar";
 import usePageStyles from "../hooks/usePageStyles";
+import { useAuth } from "../context/AuthContext";
 
 const API_URL = "http://localhost:3001/api/marketplace";
 const imageShapes = ["tall", "standard", "compact"];
@@ -37,10 +38,7 @@ export default function MarketplaceSellerProfile() {
   const [items, setItems] = useState([]);
   const [filter, setFilter] = useState("ALL");
   const [status, setStatus] = useState("loading");
-  const [user] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("user")); } catch { return null; }
-  });
-  const [token] = useState(() => localStorage.getItem("token"));
+  const { user, token, logout } = useAuth();
 
   useEffect(() => {
     if (!user || !token) navigate("/login", { replace: true });
@@ -62,8 +60,7 @@ export default function MarketplaceSellerProfile() {
     }).catch((error) => {
       if (cancelled) return;
       if (error.response?.status === 401) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
+        logout();
         navigate("/login", { replace: true });
         return;
       }
@@ -71,7 +68,7 @@ export default function MarketplaceSellerProfile() {
     });
 
     return () => { cancelled = true; };
-  }, [navigate, token, userId]);
+  }, [logout, navigate, token, userId]);
 
   const visibleItems = useMemo(
     () => filter === "ALL" ? items : items.filter((item) => item.listingType === filter),

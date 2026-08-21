@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import MarketplaceItemCard from "../components/MarketplaceItemCard";
 import ProfileAvatar from "../components/ProfileAvatar";
 import usePageStyles from "../hooks/usePageStyles";
+import { useAuth } from "../context/AuthContext";
 
 const API_URL = "http://localhost:3001/api/marketplace";
 const imageShapes = ["standard", "compact", "tall"];
@@ -50,10 +51,7 @@ export default function MarketplaceItemDetails() {
   const [status, setStatus] = useState("loading");
   const [message, setMessage] = useState("");
   const [contacting, setContacting] = useState(false);
-  const [user] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("user")); } catch { return null; }
-  });
-  const [token] = useState(() => localStorage.getItem("token"));
+  const { user, token, logout: logoutUser } = useAuth();
 
   useEffect(() => {
     if (!user || !token) navigate("/login", { replace: true });
@@ -75,8 +73,7 @@ export default function MarketplaceItemDetails() {
     }).catch((error) => {
       if (cancelled) return;
       if (error.response?.status === 401) {
-        localStorage.removeItem("token");
-        localStorage.removeItem("user");
+        logoutUser();
         navigate("/login", { replace: true });
         return;
       }
@@ -84,7 +81,7 @@ export default function MarketplaceItemDetails() {
     });
 
     return () => { cancelled = true; };
-  }, [itemId, navigate, token]);
+  }, [itemId, logoutUser, navigate, token]);
 
   useEffect(() => {
     if (!token || !item?.seller?.id) return;
@@ -96,6 +93,14 @@ export default function MarketplaceItemDetails() {
       axios.get(`${API_URL}/sellers/${item.seller.id}`, { headers })
     ]).then(([feedResult, sellerResult]) => {
       if (cancelled) return;
+      if (
+        (feedResult.status === "rejected" && feedResult.reason?.response?.status === 401) ||
+        (sellerResult.status === "rejected" && sellerResult.reason?.response?.status === 401)
+      ) {
+        logoutUser();
+        navigate("/login", { replace: true });
+        return;
+      }
       if (feedResult.status === "fulfilled") {
         const otherItems = (feedResult.value.data.items || [])
           .filter((candidate) => String(candidate.id || candidate._id) !== String(itemId))
@@ -110,7 +115,7 @@ export default function MarketplaceItemDetails() {
     });
 
     return () => { cancelled = true; };
-  }, [item, itemId, token]);
+  }, [item, itemId, logoutUser, navigate, token]);
 
   useEffect(() => {
     if (!lightboxOpen) return undefined;
@@ -130,8 +135,7 @@ export default function MarketplaceItemDetails() {
   }, []);
 
   function logout() {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    logoutUser();
     navigate("/login", { replace: true });
   }
 
@@ -146,6 +150,11 @@ export default function MarketplaceItemDetails() {
       );
       navigate(`/marketplace?chat=${data.conversation.id}`);
     } catch (error) {
+      if (error.response?.status === 401) {
+        logoutUser();
+        navigate("/login", { replace: true });
+        return;
+      }
       setMessage(error.response?.data?.message || "Could not open this conversation.");
     } finally {
       setContacting(false);

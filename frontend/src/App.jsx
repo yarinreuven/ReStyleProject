@@ -11,6 +11,7 @@ import MarketplaceItemDetails from "./pages/MarketplaceItemDetails";
 import MarketplaceSellerProfile from "./pages/MarketplaceSellerProfile";
 import Messages from "./pages/Messages";
 import MarketplaceChat from "./components/MarketplaceChat";
+import ProtectedRoute from "./components/ProtectedRoute";
 import { useAuth } from "./context/AuthContext";
 
 function RealtimeChatLayer() {
@@ -38,14 +39,16 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/closet" element={<MyCloset />} />
-        <Route path="/profile" element={<Profile />} />
-        <Route path="/outfit-builder" element={<OutfitBuilder />} />
-        <Route path="/marketplace" element={<Marketplace />} />
-        <Route path="/marketplace/items/:itemId" element={<MarketplaceItemDetails />} />
-        <Route path="/marketplace/sellers/:userId" element={<MarketplaceSellerProfile />} />
-        <Route path="/messages" element={<Messages />} />
-        <Route path="/messages/:conversationId" element={<Messages />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/closet" element={<MyCloset />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/outfit-builder" element={<OutfitBuilder />} />
+          <Route path="/marketplace" element={<Marketplace />} />
+          <Route path="/marketplace/items/:itemId" element={<MarketplaceItemDetails />} />
+          <Route path="/marketplace/sellers/:userId" element={<MarketplaceSellerProfile />} />
+          <Route path="/messages" element={<Messages />} />
+          <Route path="/messages/:conversationId" element={<Messages />} />
+        </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

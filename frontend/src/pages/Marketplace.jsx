@@ -5,6 +5,7 @@ import ProfileAvatar from "../components/ProfileAvatar";
 import MarketplaceItemCard from "../components/MarketplaceItemCard";
 import MarketplaceListingForm from "../components/MarketplaceListingForm";
 import usePageStyles from "../hooks/usePageStyles";
+import { useAuth } from "../context/AuthContext";
 
 const API_URL = "http://localhost:3001/api/marketplace";
 const imageShapes = ["tall", "standard", "compact"];
@@ -46,14 +47,7 @@ export default function Marketplace() {
   const location = useLocation();
   const accountMenuRef = useRef(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
-  const [user] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("user"));
-    } catch {
-      return null;
-    }
-  });
-  const [token] = useState(() => localStorage.getItem("token"));
+  const { user, token, logout: logoutUser } = useAuth();
   const [marketplaceItems, setMarketplaceItems] = useState([]);
   const [feedView, setFeedView] = useState(() =>
     new URLSearchParams(location.search).get("view") === "mine" ? "mine" : "all"
@@ -127,10 +121,9 @@ export default function Marketplace() {
   );
 
   const logout = useCallback(() => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
+    logoutUser();
     navigate("/login", { replace: true });
-  }, [navigate]);
+  }, [logoutUser, navigate]);
 
   useEffect(() => {
     if (!user || !token) {

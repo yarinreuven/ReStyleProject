@@ -3,6 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import ProfileAvatar from "../components/ProfileAvatar";
 import usePageStyles from "../hooks/usePageStyles";
+import { useAuth } from "../context/AuthContext";
 
 const PROFILE_IMAGE_URL =
   "http://localhost:3001/api/auth/profile-image";
@@ -12,14 +13,7 @@ export default function Profile() {
 
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
-  const [user, setUser] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem("user"));
-    } catch {
-      return null;
-    }
-  });
-  const [token] = useState(() => localStorage.getItem("token"));
+  const { user, token, logout, updateUser } = useAuth();
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -29,11 +23,6 @@ export default function Profile() {
       navigate("/login", { replace: true });
     }
   }, [navigate, token, user]);
-
-  function saveUser(nextUser) {
-    setUser(nextUser);
-    localStorage.setItem("user", JSON.stringify(nextUser));
-  }
 
   async function changeImage(event) {
     const file = event.target.files?.[0];
@@ -70,13 +59,17 @@ export default function Profile() {
         }
       });
 
-      saveUser({
-        ...user,
+      updateUser({
         hasProfileImage: true,
         profileImageUpdatedAt: Date.now()
       });
       setMessage("Profile picture updated successfully.");
     } catch (requestError) {
+      if (requestError.response?.status === 401) {
+        logout();
+        navigate("/login", { replace: true });
+        return;
+      }
       setError(
         requestError.response?.data?.message ||
           "Could not update your profile picture."
@@ -103,13 +96,17 @@ export default function Profile() {
         }
       });
 
-      saveUser({
-        ...user,
+      updateUser({
         hasProfileImage: false,
         profileImageUpdatedAt: Date.now()
       });
       setMessage("Profile picture removed.");
     } catch (requestError) {
+      if (requestError.response?.status === 401) {
+        logout();
+        navigate("/login", { replace: true });
+        return;
+      }
       setError(
         requestError.response?.data?.message ||
           "Could not remove your profile picture."
