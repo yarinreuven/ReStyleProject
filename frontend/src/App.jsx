@@ -9,6 +9,7 @@ import OutfitBuilder from "./pages/OutfitBuilder";
 import Marketplace from "./pages/Marketplace";
 import MarketplaceItemDetails from "./pages/MarketplaceItemDetails";
 import MarketplaceSellerProfile from "./pages/MarketplaceSellerProfile";
+import Messages from "./pages/Messages";
 
 function App() {
   return (
@@ -24,6 +25,8 @@ function App() {
         <Route path="/marketplace" element={<Marketplace />} />
         <Route path="/marketplace/items/:itemId" element={<MarketplaceItemDetails />} />
         <Route path="/marketplace/sellers/:userId" element={<MarketplaceSellerProfile />} />
+        <Route path="/messages" element={<Messages />} />
+        <Route path="/messages/:conversationId" element={<Messages />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

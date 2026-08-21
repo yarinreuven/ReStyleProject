@@ -1,0 +1,55 @@
+import mongoose from "mongoose";
+
+const messageSchema = new mongoose.Schema(
+  {
+    sender: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true
+    },
+    text: {
+      type: String,
+      required: true,
+      trim: true,
+      minlength: 1,
+      maxlength: 1000
+    },
+    sentAt: {
+      type: Date,
+      default: Date.now
+    }
+  },
+  { _id: true }
+);
+
+const conversationSchema = new mongoose.Schema(
+  {
+    participants: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true
+    }],
+    item: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Item",
+      required: true
+    },
+    messages: {
+      type: [messageSchema],
+      default: []
+    },
+    lastMessageAt: {
+      type: Date,
+      default: Date.now,
+      index: true
+    }
+  },
+  { timestamps: true }
+);
+
+conversationSchema.index({ participants: 1, lastMessageAt: -1 });
+conversationSchema.index({ item: 1, participants: 1 });
+
+const Conversation = mongoose.model("Conversation", conversationSchema);
+
+export default Conversation;

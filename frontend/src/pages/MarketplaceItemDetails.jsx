@@ -16,6 +16,7 @@ export default function MarketplaceItemDetails() {
   const [item, setItem] = useState(null);
   const [status, setStatus] = useState("loading");
   const [message, setMessage] = useState("");
+  const [contacting, setContacting] = useState(false);
   const [user] = useState(() => {
     try { return JSON.parse(localStorage.getItem("user")); } catch { return null; }
   });
@@ -64,11 +65,29 @@ export default function MarketplaceItemDetails() {
     navigate("/login", { replace: true });
   }
 
+  async function contactSeller() {
+    try {
+      setContacting(true);
+      setMessage("");
+      const { data } = await axios.post(
+        "http://localhost:3001/api/messages/conversations",
+        { itemId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      navigate(`/messages/${data.conversation.id}`);
+    } catch (error) {
+      setMessage(error.response?.data?.message || "Could not open this conversation.");
+    } finally {
+      setContacting(false);
+    }
+  }
+
   if (!user || !token) return null;
 
   const isRental = item?.listingType === "rent";
   const price = isRental ? item?.rentalPricePerDay : item?.price;
   const sellerAvatar = item?.seller?.avatar || "/images/avatars/fashion-avatar-v2.png";
+  const isOwnListing = item && String(item.seller?.id) === String(user.id || user._id);
 
   return (
     <div className="market-detail-page">
@@ -125,7 +144,9 @@ export default function MarketplaceItemDetails() {
               <button type="button" className="market-detail-seller" onClick={() => navigate(`/marketplace/sellers/${item.seller.id}`)}>
                 <img src={sellerAvatar} alt={item.seller?.name || "Seller"} /><span><small>Listed by</small><strong>{item.seller?.name || "ReStyle member"}</strong></span><i className="fa-solid fa-chevron-right" />
               </button>
-              <button type="button" className="market-contact-seller" onClick={() => setMessage("Chat with sellers will be available soon.")} disabled={item.availabilityStatus !== "active"}><i className="fa-regular fa-comment-dots" /> Contact Seller</button>
+              <button type="button" className="market-contact-seller" onClick={contactSeller} disabled={item.availabilityStatus !== "active" || isOwnListing || contacting}>
+                <i className="fa-regular fa-comment-dots" /> {contacting ? "Opening conversation..." : isOwnListing ? "This is your listing" : "Contact Seller"}
+              </button>
               {message && <p className="market-detail-coming-soon" role="status">{message}</p>}
             </section>
           </article>
