@@ -578,6 +578,26 @@ button{
   gap:22px;
 }
 
+.market-feed.market-feed-mine .market-masonry{
+  display:grid;
+  grid-template-columns:none;
+  grid-auto-flow:column;
+  grid-auto-columns:clamp(220px,18vw,260px);
+  justify-content:start;
+  align-items:start;
+  gap:18px;
+  overflow-x:auto;
+  overflow-y:hidden;
+  padding:2px 2px 16px;
+  scroll-snap-type:x proximity;
+  scrollbar-color:rgba(185,95,118,.35) transparent;
+  scrollbar-width:thin;
+}
+
+.market-feed-mine .market-item-card{
+  scroll-snap-align:start;
+}
+
 .market-no-results{
   min-height:330px;
   display:flex;

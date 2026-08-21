@@ -470,7 +470,7 @@ export default function Marketplace() {
           )}
         </section>
 
-        <section className="market-feed" aria-labelledby="marketFeedTitle">
+        <section className={`market-feed${feedView === "mine" ? " market-feed-mine" : ""}`} aria-labelledby="marketFeedTitle">
           <div className="market-feed-heading">
             <div>
               <span>{feedView === "mine" ? "PUBLISHED BY YOU" : "FRESH FROM THE COMMUNITY"}</span>
