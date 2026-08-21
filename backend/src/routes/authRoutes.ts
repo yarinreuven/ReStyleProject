@@ -3,6 +3,7 @@ import multer from "multer";
 import {
   deleteProfileImage,
   deleteVirtualModelImage,
+  getCurrentUser,
   getProfileImage,
   getVirtualModelImage,
   login,
@@ -51,6 +52,12 @@ router.post(
   "/login",
   validate(loginSchema),
   login
+);
+
+router.get(
+  "/me",
+  authenticateToken,
+  getCurrentUser
 );
 
 router.get(

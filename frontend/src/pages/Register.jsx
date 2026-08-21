@@ -2,6 +2,7 @@ import { useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import HangerBrand from "../components/HangerBrand";
+import { useAuth } from "../context/AuthContext";
 import usePageStyles from "../hooks/usePageStyles";
 
 const initialValues = {
@@ -18,6 +19,7 @@ export default function Register() {
   usePageStyles("register.css");
 
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const [values, setValues] = useState(initialValues);
   const [errors, setErrors] = useState({});
@@ -183,11 +185,7 @@ export default function Register() {
       );
 
       if (data.success) {
-        localStorage.setItem("token", data.token);
-        localStorage.setItem(
-          "user",
-          JSON.stringify(data.user)
-        );
+        login(data.token, data.user);
 
         setSuccess("Account created successfully!");
 

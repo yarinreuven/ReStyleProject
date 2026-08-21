@@ -11,15 +11,14 @@ import MarketplaceItemDetails from "./pages/MarketplaceItemDetails";
 import MarketplaceSellerProfile from "./pages/MarketplaceSellerProfile";
 import Messages from "./pages/Messages";
 import MarketplaceChat from "./components/MarketplaceChat";
+import { useAuth } from "./context/AuthContext";
 
 function RealtimeChatLayer() {
   const location = useLocation();
-  let user = null;
-  try { user = JSON.parse(localStorage.getItem("user")); } catch { user = null; }
-  const token = localStorage.getItem("token");
+  const { user, token, isAuthenticated, isAuthLoading } = useAuth();
   const publicPaths = ["/login", "/register", "/forgot-password"];
 
-  if (!user || !token || publicPaths.includes(location.pathname)) return null;
+  if (isAuthLoading || !isAuthenticated || publicPaths.includes(location.pathname)) return null;
 
   return (
     <MarketplaceChat

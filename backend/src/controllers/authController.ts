@@ -18,6 +18,42 @@ function createToken(userId: string, email: string) {
   );
 }
 
+export async function getCurrentUser(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const user = await User.findById(req.userId).select(
+      "firstName lastName email language gender publicBio profileImage.contentType"
+    );
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        language: user.language,
+        gender: user.gender,
+        publicBio: user.publicBio || "",
+        hasProfileImage: Boolean(user.profileImage?.contentType)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function register(
   req: Request,
   res: Response,

@@ -5,6 +5,7 @@ import {
   useNavigate
 } from "react-router-dom";
 import HangerBrand from "../components/HangerBrand";
+import { useAuth } from "../context/AuthContext";
 import usePageStyles from "../hooks/usePageStyles";
 
 const initialValues = {
@@ -16,6 +17,7 @@ export default function Login() {
   usePageStyles("login.css");
 
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const [values, setValues] = useState(initialValues);
   const [errors, setErrors] = useState({});
@@ -76,15 +78,7 @@ export default function Login() {
       );
 
       if (data.success) {
-        localStorage.setItem(
-          "token",
-          data.token
-        );
-
-        localStorage.setItem(
-          "user",
-          JSON.stringify(data.user)
-        );
+        login(data.token, data.user);
 
         navigate("/closet", {
           replace: true
