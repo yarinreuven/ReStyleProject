@@ -27,8 +27,10 @@ import type {
     }
 
     if (
-      error.message ===
-      "Please choose a JPG, PNG or WEBP image"
+      [
+        "Please choose a JPG, PNG or WEBP image",
+        "Marketplace images must be JPG, PNG or WEBP"
+      ].includes(error.message)
     ) {
       res.status(400).json({
         success: false,

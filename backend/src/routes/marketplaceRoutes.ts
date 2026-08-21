@@ -3,7 +3,7 @@ import Joi from "joi";
 import multer from "multer";
 
 import { authenticateToken, type AuthRequest } from "../middleware/auth.ts";
-import MarketplaceListing from "../models/MarketplaceListing.ts";
+import Item from "../models/Item.ts";
 
 const router = express.Router();
 const categories = [
@@ -15,7 +15,6 @@ const categories = [
   "Bags",
   "Accessories"
 ] as const;
-const listingStatuses = ["Active", "Reserved", "Sold", "Rented", "Hidden"] as const;
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024, files: 4 },
@@ -29,95 +28,92 @@ const upload = multer({
   }
 });
 
-const listingSchema = Joi.object({
-  title: Joi.string().trim().min(2).max(80).required(),
-  description: Joi.string().trim().min(10).max(1000).required(),
-  category: Joi.string().valid(...categories).required(),
-  size: Joi.string().trim().min(1).max(30).required(),
-  condition: Joi.string().valid("New", "Like New", "Good", "Fair").required(),
-  listingType: Joi.string().valid("Sale", "Rent", "Sale or Rent").required(),
-  salePrice: Joi.number().min(0).allow(null),
+const marketplaceItemSchema = Joi.object({
+  listingType: Joi.string().valid("sale", "rent").required(),
+  price: Joi.number().min(0).allow(null),
   rentalPricePerDay: Joi.number().min(0).allow(null),
-  location: Joi.string().trim().min(2).max(100).required(),
-  contactMethod: Joi.string().valid("Email", "Phone", "WhatsApp").required(),
-  contactValue: Joi.string().trim().min(5).max(120).required(),
-  status: Joi.string().valid(...listingStatuses).default("Active")
+  size: Joi.string().trim().min(1).max(30).required(),
+  condition: Joi.string()
+    .valid("New", "Like New", "Excellent", "Good", "Fair")
+    .required(),
+  category: Joi.string().valid(...categories).required(),
+  brand: Joi.string().trim().min(1).max(80).required(),
+  description: Joi.string().trim().min(10).max(1000).required(),
+  availabilityStatus: Joi.string()
+    .valid("active", "reserved", "sold", "rented", "hidden")
+    .default("active")
 }).custom((value, helpers) => {
-  if (["Sale", "Sale or Rent"].includes(value.listingType) && value.salePrice == null) {
-    return helpers.error("any.custom", { message: "Sale price is required" });
+  if (value.listingType === "sale" && value.price == null) {
+    return helpers.error("any.custom", {
+      message: "Price is required for an item offered for sale"
+    });
   }
 
-  if (["Rent", "Sale or Rent"].includes(value.listingType) && value.rentalPricePerDay == null) {
-    return helpers.error("any.custom", { message: "Rental price is required" });
+  if (value.listingType === "rent" && value.rentalPricePerDay == null) {
+    return helpers.error("any.custom", {
+      message: "Rental price per day is required for an item offered for rent"
+    });
   }
 
   return value;
 });
 
-function parseListing(body: Record<string, unknown>, isUpdate = false) {
-  const normalized = { ...body };
-
-  if (!isUpdate || body.salePrice !== undefined) {
-    normalized.salePrice = body.salePrice === "" ? null : body.salePrice;
+function imageToDataUrl(image?: { data?: Buffer; contentType?: string } | null) {
+  if (!image?.data || !image.contentType) {
+    return "";
   }
 
-  if (!isUpdate || body.rentalPricePerDay !== undefined) {
-    normalized.rentalPricePerDay =
-      body.rentalPricePerDay === "" ? null : body.rentalPricePerDay;
-  }
-  const schema = isUpdate ? listingSchema.fork(
-    [
-      "title",
-      "description",
-      "category",
-      "size",
-      "condition",
-      "listingType",
-      "location",
-      "contactMethod",
-      "contactValue"
-    ],
-    (field) => field.optional()
-  ) : listingSchema;
-
-  return schema.validate(normalized, {
-    abortEarly: false,
-    stripUnknown: true
-  });
+  return `data:${image.contentType};base64,${image.data.toString("base64")}`;
 }
 
-function formatListing(listing: any) {
-  const object = listing.toObject ? listing.toObject() : listing;
+function formatMarketplaceItem(item: any) {
+  const object = item.toObject ? item.toObject() : item;
+  const uploadedImages = (object.marketplaceImages || [])
+    .map(imageToDataUrl)
+    .filter(Boolean);
+  const closetImage = imageToDataUrl(object.image);
+  const images = uploadedImages.length > 0
+    ? uploadedImages
+    : closetImage ? [closetImage] : [];
+  const owner = object.user;
 
   return {
-    ...object,
-    images: (object.images || []).map((image: any) =>
-      `data:${image.contentType};base64,${image.data.toString("base64")}`
-    )
+    _id: object._id,
+    name: object.name,
+    listingType: object.listingType,
+    price: object.price,
+    rentalPricePerDay: object.rentalPricePerDay,
+    size: object.size,
+    condition: object.condition,
+    category: object.category,
+    brand: object.brand,
+    style: object.style,
+    description: object.description,
+    images,
+    createdAt: object.createdAt,
+    availabilityStatus: object.availabilityStatus,
+    seller: owner ? {
+      id: owner._id,
+      name: `${owner.firstName} ${owner.lastName}`.trim(),
+      avatar: imageToDataUrl(owner.profileImage)
+    } : null
   };
 }
 
 router.use(authenticateToken);
 
-router.get("/", async (req: AuthRequest, res, next) => {
+router.get("/", async (_req: AuthRequest, res, next) => {
   try {
-    const filter: Record<string, unknown> = { status: "Active" };
-
-    if (req.query.category && categories.includes(req.query.category as any)) {
-      filter.category = req.query.category;
-    }
-
-    if (req.query.listingType) {
-      filter.listingType = req.query.listingType;
-    }
-
-    const listings = await MarketplaceListing.find(filter)
-      .populate("seller", "firstName lastName")
+    const items = await Item.find({
+      availabilityStatus: "active",
+      listingType: { $in: ["sale", "rent"] }
+    })
+      .populate("user", "firstName lastName profileImage")
       .sort({ createdAt: -1 });
 
     res.json({
       success: true,
-      listings: listings.map(formatListing)
+      items: items.map(formatMarketplaceItem)
     });
   } catch (error) {
     next(error);
@@ -126,129 +122,113 @@ router.get("/", async (req: AuthRequest, res, next) => {
 
 router.get("/mine", async (req: AuthRequest, res, next) => {
   try {
-    const listings = await MarketplaceListing.find({ seller: req.userId })
-      .populate("seller", "firstName lastName")
+    const items = await Item.find({
+      user: req.userId,
+      listingType: { $in: ["sale", "rent"] }
+    })
+      .populate("user", "firstName lastName profileImage")
       .sort({ createdAt: -1 });
 
-    res.json({ success: true, listings: listings.map(formatListing) });
+    res.json({ success: true, items: items.map(formatMarketplaceItem) });
   } catch (error) {
     next(error);
   }
 });
 
-router.get("/:id", async (req: AuthRequest, res, next) => {
-  try {
-    const listing = await MarketplaceListing.findById(req.params.id)
-      .populate("seller", "firstName lastName");
-
-    if (!listing || (listing.status === "Hidden" && listing.seller._id.toString() !== req.userId)) {
-      res.status(404).json({ success: false, message: "Listing not found" });
-      return;
-    }
-
-    res.json({ success: true, listing: formatListing(listing) });
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.post("/", upload.array("images", 4), async (req: AuthRequest, res, next) => {
-  try {
-    const files = (req.files || []) as Express.Multer.File[];
-    const { error, value } = parseListing(req.body);
-
-    if (error) {
-      res.status(400).json({
-        success: false,
-        message: error.details[0]?.context?.message || error.details[0]?.message,
-        errors: error.details.map((detail) => detail.message)
+router.put(
+  "/:id",
+  upload.array("images", 4),
+  async (req: AuthRequest, res, next) => {
+    try {
+      const normalizedBody = {
+        ...req.body,
+        price: req.body.price === "" || req.body.price === undefined
+          ? null
+          : req.body.price,
+        rentalPricePerDay:
+          req.body.rentalPricePerDay === "" ||
+          req.body.rentalPricePerDay === undefined
+            ? null
+            : req.body.rentalPricePerDay
+      };
+      const { error, value } = marketplaceItemSchema.validate(normalizedBody, {
+        abortEarly: false,
+        stripUnknown: true
       });
-      return;
-    }
 
-    if (files.length === 0) {
-      res.status(400).json({ success: false, message: "Add at least one item image" });
-      return;
-    }
+      if (error) {
+        res.status(400).json({
+          success: false,
+          message: error.details[0]?.context?.message || error.details[0]?.message,
+          errors: error.details.map((detail) => detail.message)
+        });
+        return;
+      }
 
-    const listing = await MarketplaceListing.create({
-      ...value,
-      seller: req.userId,
-      images: files.map((file) => ({
-        data: file.buffer,
-        contentType: file.mimetype
-      }))
-    });
+      const item = await Item.findOne({ _id: req.params.id, user: req.userId });
 
-    await listing.populate("seller", "firstName lastName");
-    res.status(201).json({
-      success: true,
-      message: "Listing published successfully",
-      listing: formatListing(listing)
-    });
-  } catch (error) {
-    next(error);
-  }
-});
+      if (!item) {
+        res.status(404).json({ success: false, message: "Item not found" });
+        return;
+      }
 
-router.put("/:id", upload.array("images", 4), async (req: AuthRequest, res, next) => {
-  try {
-    const listing = await MarketplaceListing.findOne({
-      _id: req.params.id,
-      seller: req.userId
-    });
+      const files = (req.files || []) as Express.Multer.File[];
 
-    if (!listing) {
-      res.status(404).json({ success: false, message: "Listing not found" });
-      return;
-    }
+      if (files.length === 0 && !item.image?.data && item.marketplaceImages.length === 0) {
+        res.status(400).json({
+          success: false,
+          message: "A marketplace item needs at least one image"
+        });
+        return;
+      }
 
-    const { error, value } = parseListing(req.body, true);
-
-    if (error) {
-      res.status(400).json({
-        success: false,
-        message: error.details[0]?.context?.message || error.details[0]?.message,
-        errors: error.details.map((detail) => detail.message)
+      item.set({
+        ...value,
+        price: value.listingType === "sale" ? value.price : null,
+        rentalPricePerDay:
+          value.listingType === "rent" ? value.rentalPricePerDay : null
       });
-      return;
+
+      if (files.length > 0) {
+        item.set("marketplaceImages", files.map((file) => ({
+          data: file.buffer,
+          contentType: file.mimetype
+        })));
+      }
+
+      await item.save();
+      await item.populate("user", "firstName lastName profileImage");
+
+      res.json({
+        success: true,
+        message: "Marketplace listing updated successfully",
+        item: formatMarketplaceItem(item)
+      });
+    } catch (error) {
+      next(error);
     }
-
-    Object.assign(listing, value);
-    const files = (req.files || []) as Express.Multer.File[];
-
-    if (files.length > 0) {
-      listing.set("images", files.map((file) => ({
-        data: file.buffer,
-        contentType: file.mimetype
-      })));
-    }
-
-    await listing.save();
-    await listing.populate("seller", "firstName lastName");
-    res.json({
-      success: true,
-      message: "Listing updated successfully",
-      listing: formatListing(listing)
-    });
-  } catch (error) {
-    next(error);
   }
-});
+);
 
 router.delete("/:id", async (req: AuthRequest, res, next) => {
   try {
-    const listing = await MarketplaceListing.findOneAndDelete({
-      _id: req.params.id,
-      seller: req.userId
-    });
+    const item = await Item.findOne({ _id: req.params.id, user: req.userId });
 
-    if (!listing) {
-      res.status(404).json({ success: false, message: "Listing not found" });
+    if (!item) {
+      res.status(404).json({ success: false, message: "Item not found" });
       return;
     }
 
-    res.json({ success: true, message: "Listing deleted successfully" });
+    item.listingType = null;
+    item.price = null;
+    item.rentalPricePerDay = null;
+    item.availabilityStatus = "hidden";
+    await item.save();
+
+    res.json({
+      success: true,
+      message: "Item removed from the marketplace. It is still in My Closet."
+    });
   } catch (error) {
     next(error);
   }

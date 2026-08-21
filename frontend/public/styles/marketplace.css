@@ -530,6 +530,61 @@ button{
   text-align:center;
 }
 
+.market-feed-state{
+  min-height:330px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:40px;
+  border:1px dashed rgba(147,70,91,.2);
+  border-radius:26px;
+  background:rgba(255,254,252,.7);
+  text-align:center;
+}
+
+.market-feed-state>span:not(.market-loading-spinner){
+  width:54px;
+  height:54px;
+  display:grid;
+  place-items:center;
+  margin-bottom:16px;
+  border-radius:50%;
+  color:var(--market-rose);
+  background:var(--market-rose-soft);
+}
+
+.market-feed-state h3{
+  margin-bottom:7px;
+  font:600 24px 'Playfair Display',Georgia,serif;
+}
+
+.market-feed-state p{
+  max-width:480px;
+  color:var(--market-muted);
+  font-size:13px;
+  line-height:1.6;
+}
+
+.market-feed-error{
+  border-color:rgba(164,63,76,.22);
+  background:rgba(255,248,247,.84);
+}
+
+.market-loading-spinner{
+  width:44px;
+  height:44px;
+  margin-bottom:18px;
+  border:4px solid var(--market-rose-soft);
+  border-top-color:var(--market-rose);
+  border-radius:50%;
+  animation:marketSpin .8s linear infinite;
+}
+
+@keyframes marketSpin{
+  to{transform:rotate(360deg)}
+}
+
 .market-no-results>span{
   width:54px;
   height:54px;

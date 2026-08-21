@@ -1,9 +1,40 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import ProfileAvatar from "../components/ProfileAvatar";
 import MarketplaceItemCard from "../components/MarketplaceItemCard";
 import usePageStyles from "../hooks/usePageStyles";
-import marketplaceItems from "../data/marketplaceItems";
+
+const API_URL = "http://localhost:3001/api/marketplace";
+const imageShapes = ["tall", "standard", "compact"];
+
+function normalizeMarketplaceItem(item, index) {
+  const isRental = item.listingType === "rent";
+
+  return {
+    id: item._id,
+    title: item.name,
+    listingType: isRental ? "RENT" : "SALE",
+    price: isRental ? item.rentalPricePerDay : item.price,
+    size: item.size,
+    condition: item.condition,
+    category: item.category,
+    brand: item.brand,
+    style: item.style,
+    description: item.description,
+    createdAt: item.createdAt,
+    image: item.images?.[0] || "",
+    imageShape: imageShapes[index % imageShapes.length],
+    seller: {
+      name: item.seller?.name || "ReStyle member",
+      avatar:
+        item.seller?.avatar ||
+        (index % 2 === 0
+          ? "/images/avatars/fashion-avatar-v2.png"
+          : "/images/avatars/fashion-avatar-male.png")
+    }
+  };
+}
 
 export default function Marketplace() {
   usePageStyles("marketplace.css");
@@ -18,6 +49,9 @@ export default function Marketplace() {
     }
   });
   const [token] = useState(() => localStorage.getItem("token"));
+  const [marketplaceItems, setMarketplaceItems] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
   const [listingType, setListingType] = useState("ALL");
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -28,11 +62,15 @@ export default function Marketplace() {
   const [maxPrice, setMaxPrice] = useState("");
   const [sortBy, setSortBy] = useState("newest");
 
+  const requestConfig = useMemo(() => ({
+    headers: { Authorization: `Bearer ${token}` }
+  }), [token]);
+
   const filterOptions = useMemo(() => ({
     categories: [...new Set(marketplaceItems.map((item) => item.category))],
     sizes: [...new Set(marketplaceItems.map((item) => item.size))],
     conditions: [...new Set(marketplaceItems.map((item) => item.condition))]
-  }), []);
+  }), [marketplaceItems]);
 
   const visibleItems = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
@@ -59,18 +97,78 @@ export default function Marketplace() {
       if (sortBy === "price-high") return second.price - first.price;
       return new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime();
     });
-  }, [category, condition, listingType, maxPrice, minPrice, search, size, sortBy]);
+  }, [
+    category,
+    condition,
+    listingType,
+    marketplaceItems,
+    maxPrice,
+    minPrice,
+    search,
+    size,
+    sortBy
+  ]);
 
   const hasActiveFilters = Boolean(
     search || listingType !== "ALL" || category !== "All" || size !== "All" ||
     condition !== "All" || minPrice !== "" || maxPrice !== "" || sortBy !== "newest"
   );
 
+  const logout = useCallback(() => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    navigate("/login", { replace: true });
+  }, [navigate]);
+
   useEffect(() => {
     if (!user || !token) {
       navigate("/login", { replace: true });
     }
   }, [navigate, token, user]);
+
+  useEffect(() => {
+    if (!token) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function loadMarketplace() {
+      try {
+        setIsLoading(true);
+        setLoadError("");
+        const { data } = await axios.get(API_URL, requestConfig);
+
+        if (!cancelled) {
+          setMarketplaceItems(
+            (data.items || []).map(normalizeMarketplaceItem)
+          );
+        }
+      } catch (error) {
+        if (error.response?.status === 401) {
+          logout();
+          return;
+        }
+
+        if (!cancelled) {
+          setLoadError(
+            error.response?.data?.message ||
+            "Could not load marketplace items. Please try again."
+          );
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadMarketplace();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [logout, requestConfig, token]);
 
   useEffect(() => {
     function closeAccountMenu(event) {
@@ -85,12 +183,6 @@ export default function Marketplace() {
     document.addEventListener("mousedown", closeAccountMenu);
     return () => document.removeEventListener("mousedown", closeAccountMenu);
   }, []);
-
-  function logout() {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/login", { replace: true });
-  }
 
   function clearFilters() {
     setSearch("");
@@ -309,7 +401,25 @@ export default function Marketplace() {
             <p>{visibleItems.length} {visibleItems.length === 1 ? "item" : "items"}</p>
           </div>
 
-          {visibleItems.length > 0 ? (
+          {isLoading ? (
+            <div className="market-feed-state" role="status">
+              <span className="market-loading-spinner" />
+              <h3>Loading marketplace pieces...</h3>
+              <p>We are gathering the latest items from the ReStyle community.</p>
+            </div>
+          ) : loadError ? (
+            <div className="market-feed-state market-feed-error" role="alert">
+              <span><i className="fa-solid fa-triangle-exclamation" aria-hidden="true" /></span>
+              <h3>We could not load the marketplace</h3>
+              <p>{loadError}</p>
+            </div>
+          ) : marketplaceItems.length === 0 ? (
+            <div className="market-feed-state" role="status">
+              <span><i className="fa-solid fa-bag-shopping" aria-hidden="true" /></span>
+              <h3>No items have been published yet</h3>
+              <p>Active sale and rental items from the community will appear here.</p>
+            </div>
+          ) : visibleItems.length > 0 ? (
             <div className="market-masonry">
               {visibleItems.map((item) => (
                 <MarketplaceItemCard key={item.id} item={item} />
@@ -324,7 +434,7 @@ export default function Marketplace() {
             </div>
           )}
 
-          {hasActiveFilters && visibleItems.length > 0 && (
+          {!isLoading && !loadError && hasActiveFilters && visibleItems.length > 0 && (
             <button type="button" className="market-feed-clear" onClick={clearFilters}>
               Clear Filters
             </button>
