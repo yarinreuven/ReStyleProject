@@ -30,8 +30,8 @@ const upload = multer({
 
 const marketplaceItemSchema = Joi.object({
   listingType: Joi.string().valid("sale", "rent").required(),
-  price: Joi.number().min(0).allow(null),
-  rentalPricePerDay: Joi.number().min(0).allow(null),
+  price: Joi.number().positive().allow(null),
+  rentalPricePerDay: Joi.number().positive().allow(null),
   size: Joi.string().trim().min(1).max(30).required(),
   condition: Joi.string()
     .valid("New", "Like New", "Excellent", "Good", "Fair")
@@ -56,6 +56,10 @@ const marketplaceItemSchema = Joi.object({
   }
 
   return value;
+});
+
+const createMarketplaceItemSchema = marketplaceItemSchema.append({
+  name: Joi.string().trim().min(2).max(80).required()
 });
 
 function imageToDataUrl(image?: { data?: Buffer; contentType?: string } | null) {
@@ -134,6 +138,83 @@ router.get("/mine", async (req: AuthRequest, res, next) => {
     next(error);
   }
 });
+
+router.post(
+  "/",
+  upload.array("images", 4),
+  async (req: AuthRequest, res, next) => {
+    try {
+      const normalizedBody = {
+        ...req.body,
+        price: req.body.price === "" || req.body.price === undefined
+          ? null
+          : req.body.price,
+        rentalPricePerDay:
+          req.body.rentalPricePerDay === "" ||
+          req.body.rentalPricePerDay === undefined
+            ? null
+            : req.body.rentalPricePerDay
+      };
+      const { error, value } = createMarketplaceItemSchema.validate(
+        normalizedBody,
+        { abortEarly: false, stripUnknown: true }
+      );
+
+      if (error) {
+        res.status(400).json({
+          success: false,
+          message: error.details[0]?.context?.message || error.details[0]?.message,
+          errors: error.details.map((detail) => detail.message)
+        });
+        return;
+      }
+
+      const files = (req.files || []) as Express.Multer.File[];
+
+      if (files.length === 0) {
+        res.status(400).json({
+          success: false,
+          message: "Add at least one item image"
+        });
+        return;
+      }
+
+      const images = files.map((file) => ({
+        data: file.buffer,
+        contentType: file.mimetype
+      }));
+      const item = await Item.create({
+        user: req.userId,
+        name: value.name,
+        category: value.category,
+        color: "Not specified",
+        season: "All Season",
+        style: "Casual",
+        image: images[0],
+        listingType: value.listingType,
+        price: value.listingType === "sale" ? value.price : null,
+        rentalPricePerDay:
+          value.listingType === "rent" ? value.rentalPricePerDay : null,
+        size: value.size,
+        condition: value.condition,
+        brand: value.brand,
+        description: value.description,
+        marketplaceImages: images,
+        availabilityStatus: "active"
+      });
+
+      await item.populate("user", "firstName lastName profileImage");
+
+      res.status(201).json({
+        success: true,
+        message: "Listing published successfully",
+        item: formatMarketplaceItem(item)
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 router.put(
   "/:id",

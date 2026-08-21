@@ -3,6 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import ProfileAvatar from "../components/ProfileAvatar";
 import MarketplaceItemCard from "../components/MarketplaceItemCard";
+import MarketplaceListingForm from "../components/MarketplaceListingForm";
 import usePageStyles from "../hooks/usePageStyles";
 
 const API_URL = "http://localhost:3001/api/marketplace";
@@ -50,6 +51,9 @@ export default function Marketplace() {
   });
   const [token] = useState(() => localStorage.getItem("token"));
   const [marketplaceItems, setMarketplaceItems] = useState([]);
+  const [feedView, setFeedView] = useState("all");
+  const [listingFormOpen, setListingFormOpen] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
@@ -137,7 +141,8 @@ export default function Marketplace() {
       try {
         setIsLoading(true);
         setLoadError("");
-        const { data } = await axios.get(API_URL, requestConfig);
+        const endpoint = feedView === "mine" ? `${API_URL}/mine` : API_URL;
+        const { data } = await axios.get(endpoint, requestConfig);
 
         if (!cancelled) {
           setMarketplaceItems(
@@ -168,7 +173,7 @@ export default function Marketplace() {
     return () => {
       cancelled = true;
     };
-  }, [logout, requestConfig, token]);
+  }, [feedView, logout, refreshKey, requestConfig, token]);
 
   useEffect(() => {
     function closeAccountMenu(event) {
@@ -193,6 +198,18 @@ export default function Marketplace() {
     setMinPrice("");
     setMaxPrice("");
     setSortBy("newest");
+  }
+
+  function showFeed(view) {
+    setFeedView(view);
+    clearFilters();
+  }
+
+  function handlePublished() {
+    setListingFormOpen(false);
+    setFeedView("mine");
+    setRefreshKey((key) => key + 1);
+    clearFilters();
   }
 
   if (!user || !token) {
@@ -261,7 +278,16 @@ export default function Marketplace() {
             Discover beautiful wardrobe pieces available for sale and rent
             from other ReStyle members.
           </p>
+          <button type="button" className="market-add-listing" onClick={() => setListingFormOpen(true)}>
+            <i className="fa-solid fa-plus" aria-hidden="true" />
+            Add Listing
+          </button>
         </section>
+
+        <div className="market-feed-tabs" aria-label="Choose marketplace feed">
+          <button type="button" className={feedView === "all" ? "active" : ""} aria-pressed={feedView === "all"} onClick={() => showFeed("all")}>Explore</button>
+          <button type="button" className={feedView === "mine" ? "active" : ""} aria-pressed={feedView === "mine"} onClick={() => showFeed("mine")}>My Listings</button>
+        </div>
 
         <section className="market-discovery" aria-label="Marketplace discovery controls">
           <label className="market-search" htmlFor="marketSearch">
@@ -395,8 +421,8 @@ export default function Marketplace() {
         <section className="market-feed" aria-labelledby="marketFeedTitle">
           <div className="market-feed-heading">
             <div>
-              <span>FRESH FROM THE COMMUNITY</span>
-              <h2 id="marketFeedTitle">Discover pieces</h2>
+              <span>{feedView === "mine" ? "PUBLISHED BY YOU" : "FRESH FROM THE COMMUNITY"}</span>
+              <h2 id="marketFeedTitle">{feedView === "mine" ? "My listings" : "Discover pieces"}</h2>
             </div>
             <p>{visibleItems.length} {visibleItems.length === 1 ? "item" : "items"}</p>
           </div>
@@ -416,8 +442,11 @@ export default function Marketplace() {
           ) : marketplaceItems.length === 0 ? (
             <div className="market-feed-state" role="status">
               <span><i className="fa-solid fa-bag-shopping" aria-hidden="true" /></span>
-              <h3>No items have been published yet</h3>
-              <p>Active sale and rental items from the community will appear here.</p>
+              <h3>{feedView === "mine" ? "You have not published any items yet" : "No items have been published yet"}</h3>
+              <p>{feedView === "mine" ? "Use Add Listing to offer your first item for sale or rent." : "Active sale and rental items from the community will appear here."}</p>
+              {feedView === "mine" && (
+                <button type="button" className="market-empty-add" onClick={() => setListingFormOpen(true)}>Add Listing</button>
+              )}
             </div>
           ) : visibleItems.length > 0 ? (
             <div className="market-masonry">
@@ -441,6 +470,9 @@ export default function Marketplace() {
           )}
         </section>
       </main>
+      {listingFormOpen && (
+        <MarketplaceListingForm token={token} onClose={() => setListingFormOpen(false)} onPublished={handlePublished} />
+      )}
     </div>
   );
 }
