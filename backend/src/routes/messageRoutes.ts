@@ -7,6 +7,7 @@ import Conversation from "../models/Conversation.ts";
 import Item from "../models/Item.ts";
 import {
   emitConversationRead,
+  emitMessageDeleted,
   emitNewMessage,
   joinParticipantsToConversation
 } from "../services/socketService.ts";
@@ -59,7 +60,8 @@ function formatConversation(conversation: any, currentUserId: string) {
         ? `${message.sender.firstName} ${message.sender.lastName}`.trim()
         : "ReStyle member",
       text: message.text,
-      sentAt: message.sentAt
+      sentAt: message.sentAt,
+      deletedAt: message.deletedAt
     })),
     lastMessageAt: object.lastMessageAt,
     unreadCount,
@@ -253,5 +255,68 @@ router.post("/conversations/:conversationId/read", async (req: AuthRequest, res,
     next(error);
   }
 });
+
+router.delete(
+  "/conversations/:conversationId/messages/:messageId",
+  async (req: AuthRequest, res, next) => {
+    try {
+      if (
+        !mongoose.isValidObjectId(req.params.conversationId) ||
+        !mongoose.isValidObjectId(req.params.messageId)
+      ) {
+        res.status(404).json({ success: false, message: "Message not found" });
+        return;
+      }
+
+      const conversation = await Conversation.findOne({
+        _id: req.params.conversationId,
+        participants: req.userId
+      });
+      if (!conversation) {
+        res.status(404).json({ success: false, message: "Message not found" });
+        return;
+      }
+
+      const message = conversation.messages.id(String(req.params.messageId)) as any;
+      if (!message || String(message.sender) !== String(req.userId)) {
+        res.status(404).json({ success: false, message: "Message not found" });
+        return;
+      }
+      if (message.deletedAt) {
+        res.status(400).json({ success: false, message: "This message was already deleted" });
+        return;
+      }
+
+      const tenMinutes = 10 * 60 * 1000;
+      if (Date.now() - new Date(message.sentAt).getTime() > tenMinutes) {
+        res.status(400).json({
+          success: false,
+          message: "Messages can only be deleted within 10 minutes of sending"
+        });
+        return;
+      }
+
+      message.text = "הודעה זו נמחקה";
+      message.deletedAt = new Date();
+      await conversation.save();
+      emitMessageDeleted(
+        String(conversation._id),
+        String(message._id),
+        message.deletedAt
+      );
+
+      res.json({
+        success: true,
+        message: {
+          id: message._id,
+          text: message.text,
+          deletedAt: message.deletedAt
+        }
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 export default router;

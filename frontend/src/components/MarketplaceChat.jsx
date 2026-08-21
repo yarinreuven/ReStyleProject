@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { io } from "socket.io-client";
+import usePageStyles from "../hooks/usePageStyles";
 
 const API_URL = "http://localhost:3001/api/messages";
 const SOCKET_URL = "http://localhost:3001";
@@ -22,7 +23,20 @@ function addMessageOnce(conversation, message) {
   };
 }
 
+function applyDeletedMessage(conversation, deletedMessage) {
+  if (!conversation) return conversation;
+  return {
+    ...conversation,
+    messages: conversation.messages.map((message) =>
+      String(message.id) === String(deletedMessage.messageId)
+        ? { ...message, text: deletedMessage.text, deletedAt: deletedMessage.deletedAt }
+        : message
+    )
+  };
+}
+
 export default function MarketplaceChat({ token, user, initialConversationId }) {
+  usePageStyles("marketplace-chat.css");
   const socketRef = useRef(null);
   const activeIdRef = useRef(initialConversationId || null);
   const openRef = useRef(Boolean(initialConversationId));
@@ -35,6 +49,7 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
+  const [now, setNow] = useState(Date.now());
   const currentUserId = String(user?.id || user?._id || "");
   const requestConfig = useMemo(() => ({
     headers: { Authorization: `Bearer ${token}` }
@@ -75,6 +90,11 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
   useEffect(() => {
     openRef.current = open;
   }, [open]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 30000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -128,13 +148,27 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
       }
       await loadConversations();
     };
+    const onMessageDeleted = (deletedMessage) => {
+      setActiveConversation((current) =>
+        current?.id === deletedMessage.conversationId
+          ? applyDeletedMessage(current, deletedMessage)
+          : current
+      );
+      setConversations((current) => current.map((conversation) =>
+        conversation.id === deletedMessage.conversationId
+          ? applyDeletedMessage(conversation, deletedMessage)
+          : conversation
+      ));
+    };
 
     socket.on("connect", onConnect);
     socket.on("message:new", onNewMessage);
+    socket.on("message:deleted", onMessageDeleted);
     socket.on("connect_error", () => setError("Real-time connection was interrupted. Reconnecting..."));
     return () => {
       socket.off("connect", onConnect);
       socket.off("message:new", onNewMessage);
+      socket.off("message:deleted", onMessageDeleted);
       socket.removeAllListeners();
       socket.disconnect();
       socketRef.current = null;
@@ -171,6 +205,31 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
     }
   }
 
+  async function deleteMessage(message) {
+    if (!activeConversation || message.deletedAt) return;
+    try {
+      setError("");
+      const { data } = await axios.delete(
+        `${API_URL}/conversations/${activeConversation.id}/messages/${message.id}`,
+        requestConfig
+      );
+      const deletedMessage = {
+        conversationId: activeConversation.id,
+        messageId: String(data.message.id),
+        text: data.message.text,
+        deletedAt: data.message.deletedAt
+      };
+      setActiveConversation((current) => applyDeletedMessage(current, deletedMessage));
+      setConversations((current) => current.map((conversation) =>
+        conversation.id === activeConversation.id
+          ? applyDeletedMessage(conversation, deletedMessage)
+          : conversation
+      ));
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Could not delete this message.");
+    }
+  }
+
   const unreadTotal = conversations.reduce(
     (sum, conversation) => sum + (conversation.unreadCount || 0),
     0
@@ -203,7 +262,11 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
             <div className="market-chat-person"><img src={activeConversation.otherUser?.avatar || "/images/avatars/fashion-avatar-v2.png"} alt="" /><span><strong>{activeConversation.otherUser?.name}</strong><small>{activeConversation.item?.name}</small></span></div>
             <div className="market-chat-history">
               {activeConversation.messages.length === 0 && <p className="market-chat-first">Start the conversation about this piece.</p>}
-              {activeConversation.messages.map((message) => <div key={message.id} className={`market-chat-bubble${String(message.senderId) === currentUserId ? " mine" : ""}`}><p>{message.text}</p><time>{timeLabel(message.sentAt)}</time></div>)}
+              {activeConversation.messages.map((message) => {
+                const mine = String(message.senderId) === currentUserId;
+                const canDelete = mine && !message.deletedAt && now - new Date(message.sentAt).getTime() <= 10 * 60 * 1000;
+                return <div key={message.id} className={`market-chat-bubble${mine ? " mine" : ""}${message.deletedAt ? " deleted" : ""}`}><p>{message.text}</p><div className="market-chat-message-meta"><time>{timeLabel(message.sentAt)}</time>{canDelete && <button type="button" onClick={() => deleteMessage(message)} aria-label="Delete message"><i className="fa-regular fa-trash-can" /></button>}</div></div>;
+              })}
             </div>
             <form onSubmit={sendMessage}><input value={draft} onChange={(event) => setDraft(event.target.value)} maxLength="1000" placeholder="Write a message..." aria-label="Message" /><button type="submit" disabled={!draft.trim() || sending}><i className="fa-solid fa-paper-plane" /></button>{sending && <small>Sending...</small>}</form>
           </>}

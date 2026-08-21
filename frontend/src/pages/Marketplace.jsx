@@ -4,7 +4,6 @@ import { useLocation, useNavigate } from "react-router-dom";
 import ProfileAvatar from "../components/ProfileAvatar";
 import MarketplaceItemCard from "../components/MarketplaceItemCard";
 import MarketplaceListingForm from "../components/MarketplaceListingForm";
-import MarketplaceChat from "../components/MarketplaceChat";
 import usePageStyles from "../hooks/usePageStyles";
 
 const API_URL = "http://localhost:3001/api/marketplace";
@@ -43,7 +42,6 @@ function normalizeMarketplaceItem(item, index) {
 
 export default function Marketplace() {
   usePageStyles("marketplace.css");
-  usePageStyles("marketplace-chat.css");
   const navigate = useNavigate();
   const location = useLocation();
   const accountMenuRef = useRef(null);
@@ -551,11 +549,6 @@ export default function Marketplace() {
           onPublished={handlePublished}
         />
       )}
-      <MarketplaceChat
-        token={token}
-        user={user}
-        initialConversationId={new URLSearchParams(location.search).get("chat")}
-      />
     </div>
   );
 }

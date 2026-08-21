@@ -17,6 +17,10 @@ const messageSchema = new mongoose.Schema(
     sentAt: {
       type: Date,
       default: Date.now
+    },
+    deletedAt: {
+      type: Date,
+      default: null
     }
   },
   { _id: true }

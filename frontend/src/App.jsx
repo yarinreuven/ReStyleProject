@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -10,10 +10,30 @@ import Marketplace from "./pages/Marketplace";
 import MarketplaceItemDetails from "./pages/MarketplaceItemDetails";
 import MarketplaceSellerProfile from "./pages/MarketplaceSellerProfile";
 import Messages from "./pages/Messages";
+import MarketplaceChat from "./components/MarketplaceChat";
+
+function RealtimeChatLayer() {
+  const location = useLocation();
+  let user = null;
+  try { user = JSON.parse(localStorage.getItem("user")); } catch { user = null; }
+  const token = localStorage.getItem("token");
+  const publicPaths = ["/login", "/register", "/forgot-password"];
+
+  if (!user || !token || publicPaths.includes(location.pathname)) return null;
+
+  return (
+    <MarketplaceChat
+      token={token}
+      user={user}
+      initialConversationId={new URLSearchParams(location.search).get("chat")}
+    />
+  );
+}
 
 function App() {
   return (
     <BrowserRouter>
+      <RealtimeChatLayer />
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
