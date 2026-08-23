@@ -40,7 +40,7 @@ function normalizeSavedItem(item, index) {
 
 export default function MarketplaceFavorites() {
   usePageStyles("marketplace.css");
-  usePageStyles("marketplace-favorites.css");
+  usePageStyles("marketplace-favorites.css?v=2");
   useMarketplaceFavoritesSync();
 
   const dispatch = useDispatch();

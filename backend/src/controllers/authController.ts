@@ -54,6 +54,146 @@ export async function getCurrentUser(
   }
 }
 
+export async function updateCurrentUser(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      {
+        firstName: req.body.firstName,
+        lastName: req.body.lastName
+      },
+      { new: true, runValidators: true }
+    ).select("firstName lastName email language gender publicBio profileImage.contentType");
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      message: "Name updated successfully",
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        language: user.language,
+        gender: user.gender,
+        publicBio: user.publicBio || "",
+        hasProfileImage: Boolean(user.profileImage?.contentType)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function changePassword(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const user = await User.findById(req.userId).select("password");
+
+    if (!user) {
+      res.status(404).json({ success: false, message: "User not found" });
+      return;
+    }
+
+    const passwordIsCorrect = user.password.startsWith("$2")
+      ? await bcrypt.compare(req.body.currentPassword, user.password)
+      : user.password === req.body.currentPassword;
+
+    if (!passwordIsCorrect) {
+      res.status(400).json({
+        success: false,
+        message: "Current password is incorrect"
+      });
+      return;
+    }
+
+    const matchesCurrentPassword = user.password.startsWith("$2")
+      ? await bcrypt.compare(req.body.newPassword, user.password)
+      : req.body.newPassword === user.password;
+
+    if (matchesCurrentPassword) {
+      res.status(400).json({
+        success: false,
+        message: "New password must be different from your current password"
+      });
+      return;
+    }
+
+    user.password = await bcrypt.hash(req.body.newPassword, 10);
+    await user.save();
+
+    res.json({ success: true, message: "Password updated successfully" });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getBlockedUsers(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const user = await User.findById(req.userId).populate(
+      "blockedUsers",
+      "firstName lastName profileImage"
+    );
+
+    if (!user) {
+      res.status(404).json({ success: false, message: "User not found" });
+      return;
+    }
+
+    const blockedUsers = (user.blockedUsers as any[]).map((blockedUser) => ({
+      id: blockedUser._id,
+      firstName: blockedUser.firstName,
+      lastName: blockedUser.lastName,
+      hasProfileImage: Boolean(blockedUser.profileImage?.contentType)
+    }));
+
+    res.json({ success: true, blockedUsers });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function unblockUser(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { $pull: { blockedUsers: req.params.userId } },
+      { new: true }
+    );
+
+    if (!user) {
+      res.status(404).json({ success: false, message: "User not found" });
+      return;
+    }
+
+    res.json({ success: true, message: "User unblocked successfully" });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function register(
   req: Request,
   res: Response,

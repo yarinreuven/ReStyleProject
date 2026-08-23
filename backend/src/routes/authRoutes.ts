@@ -1,21 +1,28 @@
 import { Router } from "express";
 import multer from "multer";
+import mongoose from "mongoose";
 import {
+  changePassword,
   deleteProfileImage,
   deleteVirtualModelImage,
   getCurrentUser,
   getProfileImage,
   getVirtualModelImage,
+  getBlockedUsers,
   login,
   register,
+  unblockUser,
+  updateCurrentUser,
   updateProfileImage,
   updateVirtualModelImage
 } from "../controllers/authController.ts";
 import { authenticateToken } from "../middleware/auth.ts";
 import { validate } from "../middleware/validate.ts";
 import {
+  changePasswordSchema,
   loginSchema,
-  registerSchema
+  registerSchema,
+  updateProfileSchema
 } from "../validation/authValidation.ts";
 
 const router = Router();
@@ -58,6 +65,39 @@ router.get(
   "/me",
   authenticateToken,
   getCurrentUser
+);
+
+router.put(
+  "/me",
+  authenticateToken,
+  validate(updateProfileSchema),
+  updateCurrentUser
+);
+
+router.put(
+  "/password",
+  authenticateToken,
+  validate(changePasswordSchema),
+  changePassword
+);
+
+router.get(
+  "/blocked-users",
+  authenticateToken,
+  getBlockedUsers
+);
+
+router.delete(
+  "/blocked-users/:userId",
+  authenticateToken,
+  (req, res, next) => {
+    if (!mongoose.isValidObjectId(req.params.userId)) {
+      res.status(400).json({ success: false, message: "Invalid user ID" });
+      return;
+    }
+    next();
+  },
+  unblockUser
 );
 
 router.get(

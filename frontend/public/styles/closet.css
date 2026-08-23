@@ -640,6 +640,21 @@ select:focus-visible{
     gap:26px;
 }
 
+/* Keep saved favorites compact and consistent across differently sized uploads. */
+.closet-grid-favorites{
+  grid-template-columns:repeat(auto-fill,minmax(240px,280px));
+  gap:20px;
+}
+
+.closet-grid-favorites .item-media{
+  height:235px;
+  background:#faf5f3;
+}
+
+.closet-grid-favorites .item-media > img{
+  object-fit:contain;
+}
+
 .empty-state{
     min-height:410px;
     grid-column:1/-1;

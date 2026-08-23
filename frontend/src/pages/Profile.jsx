@@ -130,6 +130,15 @@ export default function Profile() {
         ← Back to My Closet
       </button>
 
+      <button
+        type="button"
+        className="profile-settings-btn"
+        onClick={() => navigate("/settings")}
+      >
+        <i className="fa-solid fa-gear" aria-hidden="true" />
+        Settings
+      </button>
+
       <section className="profile-card">
         <h1>My Profile</h1>
         <p className="profile-subtitle">
@@ -175,21 +184,6 @@ export default function Profile() {
         {message && <p className="profile-success">{message}</p>}
         {error && <p className="profile-error">{error}</p>}
 
-        <div className="profile-marketplace-saved">
-          <span className="profile-marketplace-icon" aria-hidden="true">
-            <i className="fa-regular fa-heart" />
-          </span>
-          <div>
-            <h3>Marketplace Saved Items</h3>
-            <p>Pieces you saved from the Marketplace.</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate("/marketplace/favorites")}
-          >
-            View saved items
-          </button>
-        </div>
       </section>
     </main>
   );

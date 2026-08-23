@@ -60,6 +60,9 @@ export default function Home() {
                 <button onClick={() => navigate("/profile")}>
                   <i className="fa-regular fa-user" /> My Profile
                 </button>
+                <button onClick={() => navigate("/settings")}>
+                  <i className="fa-solid fa-gear" /> Settings
+                </button>
                 <button onClick={() => navigate("/marketplace/favorites")}>
                   <i className="fa-regular fa-heart" /> Marketplace Saved Items
                 </button>

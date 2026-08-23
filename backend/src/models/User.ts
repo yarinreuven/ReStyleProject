@@ -53,7 +53,12 @@ const userSchema = new mongoose.Schema(
     virtualModelImage: {
       data: Buffer,
       contentType: String
-    }
+    },
+
+    blockedUsers: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
+    }]
   },
   {
     timestamps: true

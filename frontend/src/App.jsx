@@ -5,6 +5,7 @@ import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import MyCloset from "./pages/MyCloset";
 import Profile from "./pages/Profile";
+import Settings from "./pages/Settings";
 import OutfitBuilder from "./pages/OutfitBuilder";
 import Marketplace from "./pages/Marketplace";
 import MarketplaceFavorites from "./pages/MarketplaceFavorites";
@@ -43,6 +44,7 @@ function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/closet" element={<MyCloset />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/settings" element={<Settings />} />
           <Route path="/outfit-builder" element={<OutfitBuilder />} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/marketplace/favorites" element={<MarketplaceFavorites />} />

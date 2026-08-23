@@ -604,6 +604,14 @@ export default function MyCloset() {
 
               <button
                 type="button"
+                onClick={() => navigate("/settings")}
+              >
+                <i className="fa-solid fa-gear" />
+                Settings
+              </button>
+
+              <button
+                type="button"
                 onClick={() => navigate("/marketplace/favorites")}
               >
                 <i className="fa-regular fa-heart" />
@@ -722,7 +730,11 @@ export default function MyCloset() {
               </p>
             )}
 
-            <section className="closet-grid">
+            <section
+              className={`closet-grid${
+                insightFilter === "favorites" ? " closet-grid-favorites" : ""
+              }`}
+            >
               {isLoading ? (
                 <div className="empty-state">
                   <i className="fa-solid fa-spinner fa-spin" />
