@@ -1,0 +1,57 @@
+import { useState } from "react";
+import axios from "axios";
+import { Link, useSearchParams } from "react-router-dom";
+import HangerBrand from "../components/HangerBrand";
+import usePageStyles from "../hooks/usePageStyles";
+
+export default function ResetPassword() {
+  usePageStyles("forgot-password.css");
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get("token") || "";
+  const [form, setForm] = useState({ newPassword: "", confirmPassword: "" });
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  function updateField(event) {
+    setForm((current) => ({ ...current, [event.target.name]: event.target.value }));
+    setError("");
+  }
+
+  async function submit(event) {
+    event.preventDefault();
+    if (!token) return setError("This password reset link is invalid.");
+    if (form.newPassword.length < 6) return setError("Password must contain at least 6 characters.");
+    if (form.newPassword !== form.confirmPassword) return setError("Passwords do not match.");
+
+    try {
+      setIsSaving(true);
+      setError("");
+      const { data } = await axios.post(
+        "http://localhost:3001/api/auth/reset-password",
+        { token, ...form }
+      );
+      setMessage(data.message);
+      setForm({ newPassword: "", confirmPassword: "" });
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Could not reset your password.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return <div className="forgot-page">
+    <Link to="/login" className="back-home">← Back to Login</Link>
+    <div className="forgot-card">
+      <HangerBrand />
+      <h1>Create New Password</h1>
+      <p className="subtitle">Choose a new password for your ReStyle account.</p>
+      {message ? <div className="reset-complete"><p>{message}</p><Link to="/login">Continue to Login</Link></div> : <form onSubmit={submit} noValidate>
+        <input type="password" name="newPassword" placeholder="New Password" value={form.newPassword} onChange={updateField} autoComplete="new-password" />
+        <input type="password" name="confirmPassword" placeholder="Confirm New Password" value={form.confirmPassword} onChange={updateField} autoComplete="new-password" />
+        <p className="error-message">{error}</p>
+        <button type="submit" className="reset-btn" disabled={isSaving}>{isSaving ? "Updating..." : "Reset Password"}</button>
+      </form>}
+    </div>
+  </div>;
+}

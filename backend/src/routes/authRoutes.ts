@@ -6,12 +6,14 @@ import {
   changePassword,
   deleteProfileImage,
   deleteVirtualModelImage,
+  forgotPassword,
   getCurrentUser,
   getProfileImage,
   getVirtualModelImage,
   getBlockedUsers,
   login,
   register,
+  resetPassword,
   unblockUser,
   updateCurrentUser,
   updateProfileImage,
@@ -21,8 +23,10 @@ import { authenticateToken } from "../middleware/auth.ts";
 import { validate } from "../middleware/validate.ts";
 import {
   changePasswordSchema,
+  forgotPasswordSchema,
   loginSchema,
   registerSchema,
+  resetPasswordSchema,
   updateProfileSchema
 } from "../validation/authValidation.ts";
 
@@ -60,6 +64,18 @@ router.post(
   "/login",
   validate(loginSchema),
   login
+);
+
+router.post(
+  "/forgot-password",
+  validate(forgotPasswordSchema),
+  forgotPassword
+);
+
+router.post(
+  "/reset-password",
+  validate(resetPasswordSchema),
+  resetPassword
 );
 
 router.get(

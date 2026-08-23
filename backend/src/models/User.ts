@@ -58,7 +58,19 @@ const userSchema = new mongoose.Schema(
     blockedUsers: [{
       type: mongoose.Schema.Types.ObjectId,
       ref: "User"
-    }]
+    }],
+
+    passwordResetTokenHash: {
+      type: String,
+      default: null,
+      select: false
+    },
+
+    passwordResetExpiresAt: {
+      type: Date,
+      default: null,
+      select: false
+    }
   },
   {
     timestamps: true

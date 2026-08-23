@@ -3,6 +3,7 @@ import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import MyCloset from "./pages/MyCloset";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
@@ -19,7 +20,7 @@ import { useAuth } from "./context/AuthContext";
 function RealtimeChatLayer() {
   const location = useLocation();
   const { user, token, isAuthenticated, isAuthLoading } = useAuth();
-  const publicPaths = ["/login", "/register", "/forgot-password"];
+  const publicPaths = ["/login", "/register", "/forgot-password", "/reset-password"];
 
   if (isAuthLoading || !isAuthenticated || publicPaths.includes(location.pathname)) return null;
 
@@ -41,6 +42,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/closet" element={<MyCloset />} />
           <Route path="/profile" element={<Profile />} />

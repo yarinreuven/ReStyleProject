@@ -124,3 +124,30 @@ export const changePasswordSchema = Joi.object({
       "string.empty": "Please confirm your new password"
     })
 });
+
+export const forgotPasswordSchema = Joi.object({
+  email: Joi.string().trim().lowercase().email().required().messages({
+    "string.empty": "Email is required",
+    "string.email": "Please enter a valid email address"
+  })
+});
+
+export const resetPasswordSchema = Joi.object({
+  token: Joi.string().hex().length(64).required().messages({
+    "string.empty": "Reset token is required",
+    "string.hex": "Reset link is invalid",
+    "string.length": "Reset link is invalid"
+  }),
+  newPassword: Joi.string().min(6).max(100).required().messages({
+    "string.empty": "New password is required",
+    "string.min": "New password must contain at least 6 characters",
+    "string.max": "New password cannot contain more than 100 characters"
+  }),
+  confirmPassword: Joi.string()
+    .valid(Joi.ref("newPassword"))
+    .required()
+    .messages({
+      "any.only": "Passwords do not match",
+      "string.empty": "Please confirm your new password"
+    })
+});

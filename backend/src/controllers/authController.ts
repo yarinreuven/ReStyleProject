@@ -1,8 +1,10 @@
 import type { NextFunction, Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import User from "../models/User.ts";
 import type { AuthRequest } from "../middleware/auth.ts";
+import { sendPasswordResetEmail } from "../services/emailService.ts";
 
 function createToken(userId: string, email: string) {
   const jwtSecret = process.env.JWT_SECRET;
@@ -557,6 +559,106 @@ export async function login(
         gender: user.gender || "female",
         hasProfileImage: Boolean(user.profileImage?.data)
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function forgotPassword(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  const genericResponse = {
+    success: true,
+    message: "If an account exists for this email, a password reset link has been sent."
+  };
+
+  try {
+    const user = await User.findOne({ email: req.body.email });
+
+    if (!user) {
+      res.json(genericResponse);
+      return;
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetTokenHash = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+
+    user.passwordResetTokenHash = resetTokenHash;
+    user.passwordResetExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
+    await user.save();
+
+    const frontendUrl = process.env.FRONTEND_URL?.trim() || "http://localhost:5173";
+    const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
+
+    try {
+      await sendPasswordResetEmail(
+        user.email,
+        user.firstName,
+        resetUrl
+      );
+    } catch (emailError) {
+      user.passwordResetTokenHash = null;
+      user.passwordResetExpiresAt = null;
+      await user.save();
+      throw emailError;
+    }
+
+    res.json(genericResponse);
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function resetPassword(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const resetTokenHash = crypto
+      .createHash("sha256")
+      .update(req.body.token)
+      .digest("hex");
+
+    const user = await User.findOne({
+      passwordResetTokenHash: resetTokenHash,
+      passwordResetExpiresAt: { $gt: new Date() }
+    }).select("+passwordResetTokenHash +passwordResetExpiresAt password");
+
+    if (!user) {
+      res.status(400).json({
+        success: false,
+        message: "This password reset link is invalid or has expired"
+      });
+      return;
+    }
+
+    const matchesCurrentPassword = user.password.startsWith("$2")
+      ? await bcrypt.compare(req.body.newPassword, user.password)
+      : req.body.newPassword === user.password;
+
+    if (matchesCurrentPassword) {
+      res.status(400).json({
+        success: false,
+        message: "New password must be different from your current password"
+      });
+      return;
+    }
+
+    user.password = await bcrypt.hash(req.body.newPassword, 10);
+    user.passwordResetTokenHash = null;
+    user.passwordResetExpiresAt = null;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Password reset successfully. You can now log in."
     });
   } catch (error) {
     next(error);
