@@ -27,6 +27,13 @@ const userSchema = new mongoose.Schema(
       required: true
     },
 
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      default: undefined
+    },
+
     language: {
       type: String,
       default: "en"
@@ -34,8 +41,8 @@ const userSchema = new mongoose.Schema(
 
     gender: {
       type: String,
-      enum: ["female", "male"],
-      default: "female"
+      enum: ["female", "male", "unspecified"],
+      default: "unspecified"
     },
 
     publicBio: {

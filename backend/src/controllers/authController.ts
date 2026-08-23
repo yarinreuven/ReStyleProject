@@ -2,9 +2,12 @@ import type { NextFunction, Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import { OAuth2Client } from "google-auth-library";
 import User from "../models/User.ts";
 import type { AuthRequest } from "../middleware/auth.ts";
 import { sendPasswordResetEmail } from "../services/emailService.ts";
+
+const googleClient = new OAuth2Client();
 
 function createToken(userId: string, email: string) {
   const jwtSecret = process.env.JWT_SECRET;
@@ -561,6 +564,97 @@ export async function login(
       }
     });
   } catch (error) {
+    next(error);
+  }
+}
+
+export async function googleAuth(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const googleClientId = process.env.GOOGLE_CLIENT_ID?.trim();
+
+    if (!googleClientId) {
+      throw new Error("GOOGLE_CLIENT_ID is missing");
+    }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: req.body.credential,
+      audience: googleClientId
+    });
+    const payload = ticket.getPayload();
+
+    if (!payload?.sub || !payload.email || !payload.email_verified) {
+      res.status(401).json({
+        success: false,
+        message: "Google account could not be verified"
+      });
+      return;
+    }
+
+    const email = payload.email.toLowerCase();
+    let user = await User.findOne({
+      $or: [{ googleId: payload.sub }, { email }]
+    });
+
+    if (user) {
+      if (user.googleId && user.googleId !== payload.sub) {
+        res.status(409).json({
+          success: false,
+          message: "This email is linked to another Google account"
+        });
+        return;
+      }
+
+      if (!user.googleId) {
+        user.googleId = payload.sub;
+        await user.save();
+      }
+    } else {
+      const firstName = (payload.given_name || payload.name || "ReStyle").trim().slice(0, 50);
+      const lastName = (payload.family_name || "Member").trim().slice(0, 50);
+      const generatedPassword = await bcrypt.hash(
+        crypto.randomBytes(32).toString("hex"),
+        10
+      );
+
+      user = await User.create({
+        googleId: payload.sub,
+        firstName: firstName.length >= 2 ? firstName : "ReStyle",
+        lastName: lastName.length >= 2 ? lastName : "Member",
+        email,
+        password: generatedPassword,
+        language: "en",
+        gender: "unspecified"
+      });
+    }
+
+    const token = createToken(user._id.toString(), user.email);
+
+    res.json({
+      success: true,
+      message: "Google sign-in successful",
+      token,
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        language: user.language,
+        gender: user.gender,
+        hasProfileImage: Boolean(user.profileImage?.data)
+      }
+    });
+  } catch (error) {
+    if (error instanceof Error && /token|audience|signature|issuer/i.test(error.message)) {
+      res.status(401).json({
+        success: false,
+        message: "Google sign-in failed. Please try again."
+      });
+      return;
+    }
     next(error);
   }
 }

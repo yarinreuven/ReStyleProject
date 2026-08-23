@@ -243,6 +243,8 @@ input:focus{
     width:22px;
 }
 
+.google-signin-wrap{position:relative;width:100%;min-height:44px;display:flex;justify-content:center}.google-signin-wrap>div:last-child{width:100%;display:flex;justify-content:center}.google-signin-loading{position:absolute;inset:0;display:grid;place-items:center;color:#777;font-size:13px}.google-error{margin:8px 0 0;color:#c0392b;font-size:12.5px;text-align:center}
+
 .register-link{
     margin-top:24px;
     font-size:14px;

@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import HangerBrand from "../components/HangerBrand";
 import { useAuth } from "../context/AuthContext";
 import usePageStyles from "../hooks/usePageStyles";
+import GoogleSignInButton from "../components/GoogleSignInButton";
 
 const initialValues = {
   firstName: "",
@@ -27,6 +28,9 @@ export default function Register() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [profileImage, setProfileImage] = useState(null);
   const [profilePreview, setProfilePreview] = useState("");
+  const setGoogleError = useCallback((message) => {
+    setErrors((current) => ({ ...current, google: message }));
+  }, []);
 
   function change(event) {
     const { name, value } = event.target;
@@ -422,18 +426,8 @@ export default function Register() {
             <span>OR</span>
           </div>
 
-          <button
-            type="button"
-            className="google-btn"
-            disabled
-            title="Google sign-in will be available later"
-          >
-            <img
-              src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/google/google-original.svg"
-              alt="Google"
-            />
-            Continue with Google (Coming Soon)
-          </button>
+          <GoogleSignInButton onError={setGoogleError} />
+          {errors.google && <p className="google-error" role="alert">{errors.google}</p>}
         </form>
 
         <div className="login-link">

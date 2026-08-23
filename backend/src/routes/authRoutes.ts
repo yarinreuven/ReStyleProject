@@ -11,6 +11,7 @@ import {
   getProfileImage,
   getVirtualModelImage,
   getBlockedUsers,
+  googleAuth,
   login,
   register,
   resetPassword,
@@ -24,6 +25,7 @@ import { validate } from "../middleware/validate.ts";
 import {
   changePasswordSchema,
   forgotPasswordSchema,
+  googleAuthSchema,
   loginSchema,
   registerSchema,
   resetPasswordSchema,
@@ -64,6 +66,12 @@ router.post(
   "/login",
   validate(loginSchema),
   login
+);
+
+router.post(
+  "/google",
+  validate(googleAuthSchema),
+  googleAuth
 );
 
 router.post(

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import axios from "axios";
 import {
   Link,
@@ -7,6 +7,7 @@ import {
 import HangerBrand from "../components/HangerBrand";
 import { useAuth } from "../context/AuthContext";
 import usePageStyles from "../hooks/usePageStyles";
+import GoogleSignInButton from "../components/GoogleSignInButton";
 
 const initialValues = {
   email: "",
@@ -23,6 +24,9 @@ export default function Login() {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] =
     useState(false);
+  const setGoogleError = useCallback((message) => {
+    setErrors((current) => ({ ...current, google: message }));
+  }, []);
 
   function change(event) {
     const { name, value } = event.target;
@@ -174,16 +178,8 @@ export default function Login() {
             <span>OR</span>
           </div>
 
-          <button
-            type="button"
-            className="google-btn"
-          >
-            <img
-              src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/google/google-original.svg"
-              alt="Google"
-            />
-            Continue with Google
-          </button>
+          <GoogleSignInButton onError={setGoogleError} />
+          {errors.google && <p className="google-error" role="alert">{errors.google}</p>}
         </form>
 
         <div className="register-link">

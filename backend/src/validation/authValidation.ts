@@ -83,6 +83,13 @@ export const loginSchema = Joi.object({
     })
 });
 
+export const googleAuthSchema = Joi.object({
+  credential: Joi.string().min(100).required().messages({
+    "string.empty": "Google credential is required",
+    "string.min": "Google credential is invalid"
+  })
+});
+
 export const updateProfileSchema = Joi.object({
   firstName: Joi.string()
     .trim()
