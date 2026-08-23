@@ -33,7 +33,7 @@ function normalizeSavedItem(item, index) {
     seller: {
       id: item.seller?.id || "",
       name: item.seller?.name || "ReStyle member",
-      avatar: item.seller?.avatar || "/images/avatars/fashion-avatar-v2.png"
+      avatar: item.seller?.avatar || ""
     }
   };
 }

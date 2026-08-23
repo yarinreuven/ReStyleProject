@@ -1191,13 +1191,16 @@ button{
 
 .market-item-seller:hover{color:var(--market-rose-deep)}
 
-.market-item-seller img{
+.market-item-seller img,
+.market-item-seller .market-seller-avatar-fallback{
   width:27px;
   height:27px;
   border:1px solid rgba(185,95,118,.2);
   border-radius:50%;
   object-fit:cover;
 }
+
+.market-item-seller .market-seller-avatar-fallback{font-size:10px}
 
 .market-owner-actions{
   display:grid;
@@ -1304,3 +1307,4 @@ button{
   .market-listing-modal form>footer{flex-direction:column-reverse}
   .market-listing-modal form>footer button{width:100%}
 }
+.market-seller-avatar-fallback{display:inline-grid;flex:none;place-items:center;border-radius:50%;color:white;background:linear-gradient(145deg,#d88ba0,#a95068);font-weight:700}

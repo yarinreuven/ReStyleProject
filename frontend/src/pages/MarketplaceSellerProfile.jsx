@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import MarketplaceItemCard from "../components/MarketplaceItemCard";
+import MarketplaceSellerAvatar from "../components/MarketplaceSellerAvatar";
 import ProfileAvatar from "../components/ProfileAvatar";
 import usePageStyles from "../hooks/usePageStyles";
 import { useAuth } from "../context/AuthContext";
@@ -24,7 +25,7 @@ function normalizeItem(item, index) {
     seller: {
       id: item.seller?.id || "",
       name: item.seller?.name || "ReStyle member",
-      avatar: item.seller?.avatar || "/images/avatars/fashion-avatar-v2.png"
+      avatar: item.seller?.avatar || ""
     }
   };
 }
@@ -85,7 +86,6 @@ export default function MarketplaceSellerProfile() {
     [filter, items]
   );
   const isOwnProfile = seller && String(user.id || user._id) === String(seller.id);
-  const sellerAvatar = seller?.avatar || "/images/avatars/fashion-avatar-v2.png";
 
   async function contactSeller() {
     try {
@@ -162,7 +162,7 @@ export default function MarketplaceSellerProfile() {
 
         {status === "ready" && seller && <>
           <section className="seller-profile-hero">
-            <img src={sellerAvatar} alt={seller.name} />
+            <MarketplaceSellerAvatar seller={seller} />
             <div className="seller-profile-copy">
               <span>RESTYLE SELLER</span><h1>{seller.name}</h1>
               <p>{seller.bio || "Sharing beautiful wardrobe pieces with the ReStyle community."}</p>

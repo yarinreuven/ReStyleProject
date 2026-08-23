@@ -35,11 +35,7 @@ function normalizeMarketplaceItem(item, index) {
     seller: {
       name: item.seller?.name || "ReStyle member",
       id: item.seller?.id || "",
-      avatar:
-        item.seller?.avatar ||
-        (index % 2 === 0
-          ? "/images/avatars/fashion-avatar-v2.png"
-          : "/images/avatars/fashion-avatar-male.png")
+      avatar: item.seller?.avatar || ""
     }
   };
 }

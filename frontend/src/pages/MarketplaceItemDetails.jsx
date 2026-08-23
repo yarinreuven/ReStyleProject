@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import MarketplaceItemCard from "../components/MarketplaceItemCard";
 import MarketplaceFavoriteButton from "../components/MarketplaceFavoriteButton";
+import MarketplaceSellerAvatar from "../components/MarketplaceSellerAvatar";
 import ProfileAvatar from "../components/ProfileAvatar";
 import usePageStyles from "../hooks/usePageStyles";
 import { useAuth } from "../context/AuthContext";
@@ -34,7 +35,7 @@ function normalizeMarketplaceItem(item, index) {
     seller: {
       id: item.seller?.id || "",
       name: item.seller?.name || "ReStyle member",
-      avatar: item.seller?.avatar || "/images/avatars/fashion-avatar-v2.png"
+      avatar: item.seller?.avatar || ""
     }
   };
 }
@@ -175,7 +176,6 @@ export default function MarketplaceItemDetails() {
 
   const isRental = item?.listingType === "rent";
   const price = isRental ? item?.rentalPricePerDay : item?.price;
-  const sellerAvatar = item?.seller?.avatar || "/images/avatars/fashion-avatar-v2.png";
   const isOwnListing = item && String(item.seller?.id) === String(user.id || user._id);
   const availabilityLabel = item?.availabilityStatus === "active" ? "Available" : "Unavailable";
   const accordionSections = item ? [
@@ -265,7 +265,7 @@ export default function MarketplaceItemDetails() {
 
                 <section className="market-detail-seller" aria-label="Seller">
                   <button type="button" className="market-detail-seller-identity" onClick={() => navigate(`/marketplace/sellers/${item.seller.id}`)}>
-                    <img src={sellerAvatar} alt={item.seller?.name || "Seller"} /><span><small>Listed by</small><strong>{item.seller?.name || "ReStyle member"}</strong>{sellerListingCount !== null && <em>{sellerListingCount} active {sellerListingCount === 1 ? "listing" : "listings"}</em>}</span>
+                    <MarketplaceSellerAvatar seller={item.seller} /><span><small>Listed by</small><strong>{item.seller?.name || "ReStyle member"}</strong>{sellerListingCount !== null && <em>{sellerListingCount} active {sellerListingCount === 1 ? "listing" : "listings"}</em>}</span>
                   </button>
                   <button type="button" className="market-detail-view-profile" onClick={() => navigate(`/marketplace/sellers/${item.seller.id}`)}>View profile <i className="fa-solid fa-arrow-right" /></button>
                 </section>

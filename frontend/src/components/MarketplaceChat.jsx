@@ -33,6 +33,12 @@ function applyDeletedMessage(conversation, deletedMessage) {
   };
 }
 
+function ChatAvatar({ user }) {
+  if (user?.avatar) return <img src={user.avatar} alt="" />;
+  const initial = user?.name?.trim().charAt(0).toUpperCase() || "?";
+  return <span className="market-chat-avatar-fallback" aria-hidden="true">{initial}</span>;
+}
+
 export default function MarketplaceChat({ token, user, initialConversationId }) {
   usePageStyles("marketplace-chat.css");
   const socketRef = useRef(null);
@@ -279,7 +285,7 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
             const lastMessage = conversation.messages.at(-1);
             return <div key={conversation.id} className={`market-chat-conversation${activeConversation?.id === conversation.id ? " active" : ""}${conversation.unreadCount ? " unread" : ""}`}>
               <button type="button" className="market-chat-conversation-open" onClick={() => selectConversation(conversation.id)}>
-                <img src={conversation.otherUser?.avatar || "/images/avatars/fashion-avatar-v2.png"} alt="" />
+                <ChatAvatar user={conversation.otherUser} />
                 <span><strong>{conversation.otherUser?.name}</strong><small>{conversation.item?.name || "Seller conversation"}</small><em>{lastMessage?.text || "Conversation started"}</em></span>
                 {conversation.unreadCount > 0 && <b>{conversation.unreadCount}</b>}
               </button>
@@ -290,7 +296,7 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
 
         <article>
           {!activeConversation ? <div className="market-chat-placeholder"><i className="fa-regular fa-message" /><p>Select a conversation</p></div> : <>
-            <div className="market-chat-person"><img src={activeConversation.otherUser?.avatar || "/images/avatars/fashion-avatar-v2.png"} alt="" /><span><strong>{activeConversation.otherUser?.name}</strong><small>{activeConversation.item?.name || "Seller conversation"}</small></span></div>
+            <div className="market-chat-person"><ChatAvatar user={activeConversation.otherUser} /><span><strong>{activeConversation.otherUser?.name}</strong><small>{activeConversation.item?.name || "Seller conversation"}</small></span></div>
             <div className="market-chat-history">
               {activeConversation.messages.length === 0 && <p className="market-chat-first">{activeConversation.item ? "Start the conversation about this piece." : "Start a conversation with this seller."}</p>}
               {activeConversation.messages.map((message) => {

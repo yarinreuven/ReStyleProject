@@ -1,5 +1,6 @@
 import { memo } from "react";
 import MarketplaceFavoriteButton from "./MarketplaceFavoriteButton";
+import MarketplaceSellerAvatar from "./MarketplaceSellerAvatar";
 
 function MarketplaceItemCard({ item, ownerActions, onOpen, onSellerOpen }) {
   const isRental = item.listingType === "RENT";
@@ -60,7 +61,7 @@ function MarketplaceItemCard({ item, ownerActions, onOpen, onSellerOpen }) {
             onSellerOpen(item.seller.id);
           }}
         >
-          <img src={item.seller.avatar} alt="" loading="lazy" decoding="async" />
+          <MarketplaceSellerAvatar seller={item.seller} />
           <span>{item.seller.name}</span>
         </button>
 

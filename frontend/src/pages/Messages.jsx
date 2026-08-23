@@ -17,6 +17,12 @@ function formatTime(value) {
   }).format(new Date(value));
 }
 
+function ChatAvatar({ user, className = "" }) {
+  if (user?.avatar) return <img className={className} src={user.avatar} alt="" />;
+  const initial = user?.name?.trim().charAt(0).toUpperCase() || "?";
+  return <span className={`messages-avatar-fallback ${className}`.trim()} aria-hidden="true">{initial}</span>;
+}
+
 export default function Messages() {
   usePageStyles("messages.css");
   const navigate = useNavigate();
@@ -140,9 +146,8 @@ export default function Messages() {
             <aside className="messages-list" aria-label="Conversations">
               {conversations.map((conversation) => {
                 const lastMessage = conversation.messages.at(-1);
-                const avatar = conversation.otherUser?.avatar || "/images/avatars/fashion-avatar-v2.png";
                 return <button type="button" key={conversation.id} className={activeConversation?.id === conversation.id ? "active" : ""} onClick={() => navigate(`/messages/${conversation.id}`)}>
-                  <img className="messages-user-avatar" src={avatar} alt="" />
+                  <ChatAvatar className="messages-user-avatar" user={conversation.otherUser} />
                   <span className="messages-list-copy"><strong>{conversation.otherUser?.name}</strong><small>{conversation.item?.name}</small><em>{lastMessage?.text || "Conversation started"}</em></span>
                   <time>{formatTime(lastMessage?.sentAt || conversation.createdAt)}</time>
                 </button>;
@@ -151,7 +156,7 @@ export default function Messages() {
 
             {status === "not-found" || status === "error" ? <div className="messages-conversation-state"><i className="fa-solid fa-circle-exclamation" /><h2>Conversation unavailable</h2></div> : activeConversation && <article className="messages-conversation">
               <header>
-                <img src={activeConversation.otherUser?.avatar || "/images/avatars/fashion-avatar-v2.png"} alt={activeConversation.otherUser?.name} />
+                <ChatAvatar user={activeConversation.otherUser} />
                 <div><strong>{activeConversation.otherUser?.name}</strong><span>About {activeConversation.item?.name}</span></div>
                 <button type="button" onClick={() => navigate(`/marketplace/items/${activeConversation.item?.id}`)}><img src={activeConversation.item?.image} alt="" /><span>View item</span></button>
               </header>
