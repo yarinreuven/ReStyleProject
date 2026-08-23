@@ -1,0 +1,27 @@
+.settings-field select {
+  height: 46px;
+  border: 1px solid #d5d5d5;
+  border-radius: 4px;
+  padding: 0 13px;
+  color: #333;
+  background: white;
+  font: inherit;
+  outline: none;
+}
+
+.settings-field select:focus {
+  border-color: #a64f5e;
+  box-shadow: 0 0 0 2px #a64f5e18;
+}
+
+.settings-email-change {
+  max-width: 590px;
+  margin-top: 34px;
+  padding-top: 28px;
+  border-top: 1px solid #e8e8e8;
+}
+
+.settings-email-change h3 { margin: 0; font: 700 21px Georgia, serif; }
+.settings-email-change > p { margin: 8px 0 22px; color: #777; font-size: 13px; line-height: 1.5; }
+.settings-email-actions { display: flex; align-items: center; gap: 14px; }
+.settings-email-actions > button:last-child { margin-top: 5px; border: 0; color: #a64f5e; background: transparent; font-weight: 700; cursor: pointer; }

@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import {
   blockUser,
   changePassword,
+  confirmEmailChange,
   deleteProfileImage,
   deleteVirtualModelImage,
   forgotPassword,
@@ -15,6 +16,7 @@ import {
   login,
   register,
   resetPassword,
+  requestEmailChange,
   unblockUser,
   updateCurrentUser,
   updateProfileImage,
@@ -24,11 +26,13 @@ import { authenticateToken } from "../middleware/auth.ts";
 import { validate } from "../middleware/validate.ts";
 import {
   changePasswordSchema,
+  confirmEmailChangeSchema,
   forgotPasswordSchema,
   googleAuthSchema,
   loginSchema,
   registerSchema,
   resetPasswordSchema,
+  requestEmailChangeSchema,
   updateProfileSchema
 } from "../validation/authValidation.ts";
 
@@ -104,6 +108,20 @@ router.put(
   authenticateToken,
   validate(changePasswordSchema),
   changePassword
+);
+
+router.post(
+  "/email-change/request",
+  authenticateToken,
+  validate(requestEmailChangeSchema),
+  requestEmailChange
+);
+
+router.post(
+  "/email-change/confirm",
+  authenticateToken,
+  validate(confirmEmailChangeSchema),
+  confirmEmailChange
 );
 
 router.get(

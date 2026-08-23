@@ -111,7 +111,25 @@ export const updateProfileSchema = Joi.object({
       "string.empty": "Last name is required",
       "string.min": "Last name must contain at least 2 characters",
       "string.max": "Last name cannot contain more than 50 characters"
-    })
+    }),
+  gender: Joi.string().valid("female", "male", "unspecified").required().messages({
+    "any.only": "Please select a valid gender",
+    "any.required": "Gender is required"
+  })
+});
+
+export const requestEmailChangeSchema = Joi.object({
+  email: Joi.string().trim().lowercase().email().required().messages({
+    "string.empty": "Email is required",
+    "string.email": "Please enter a valid email address"
+  })
+});
+
+export const confirmEmailChangeSchema = Joi.object({
+  code: Joi.string().pattern(/^\d{6}$/).required().messages({
+    "string.empty": "Verification code is required",
+    "string.pattern.base": "Enter the 6-digit verification code"
+  })
 });
 
 export const changePasswordSchema = Joi.object({

@@ -14,10 +14,13 @@ const sections = [
 
 export default function Settings() {
   usePageStyles("settings.css");
+  usePageStyles("settings-fields.css");
   const navigate = useNavigate();
   const { user, token, logout, updateUser } = useAuth();
   const [activeSection, setActiveSection] = useState("profile");
-  const [nameForm, setNameForm] = useState({ firstName: "", lastName: "" });
+  const [profileForm, setProfileForm] = useState({ firstName: "", lastName: "", email: "", gender: "unspecified" });
+  const [emailCode, setEmailCode] = useState("");
+  const [emailVerificationPending, setEmailVerificationPending] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
     newPassword: "",
@@ -26,22 +29,28 @@ export default function Settings() {
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState("");
   const [requestError, setRequestError] = useState("");
+  const [emailMessage, setEmailMessage] = useState("");
+  const [emailRequestError, setEmailRequestError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [blockedUsers, setBlockedUsers] = useState([]);
   const [isLoadingBlocked, setIsLoadingBlocked] = useState(false);
 
   useEffect(() => {
-    setNameForm({
+    setProfileForm({
       firstName: user?.firstName || "",
-      lastName: user?.lastName || ""
+      lastName: user?.lastName || "",
+      email: user?.email || "",
+      gender: user?.gender || "unspecified"
     });
-  }, [user?.firstName, user?.lastName]);
+  }, [user?.email, user?.firstName, user?.gender, user?.lastName]);
 
   useEffect(() => {
     if (activeSection !== "blocked" || !token) return;
     let active = true;
     setIsLoadingBlocked(true);
     setRequestError("");
+    setEmailMessage("");
+    setEmailRequestError("");
     axios.get(`${AUTH_URL}/blocked-users`, {
       headers: { Authorization: `Bearer ${token}` }
     }).then(({ data }) => {
@@ -61,10 +70,12 @@ export default function Settings() {
     setErrors({});
     setMessage("");
     setRequestError("");
+    setEmailMessage("");
+    setEmailRequestError("");
   }
 
-  function updateNameField(event) {
-    setNameForm((current) => ({ ...current, [event.target.name]: event.target.value }));
+  function updateProfileField(event) {
+    setProfileForm((current) => ({ ...current, [event.target.name]: event.target.value }));
     setErrors((current) => ({ ...current, [event.target.name]: "" }));
   }
 
@@ -73,10 +84,10 @@ export default function Settings() {
     setErrors((current) => ({ ...current, [event.target.name]: "" }));
   }
 
-  async function saveName(event) {
+  async function saveProfile(event) {
     event.preventDefault();
-    const firstName = nameForm.firstName.trim();
-    const lastName = nameForm.lastName.trim();
+    const firstName = profileForm.firstName.trim();
+    const lastName = profileForm.lastName.trim();
     const nextErrors = {};
     if (firstName.length < 2) nextErrors.firstName = "Enter at least 2 characters.";
     if (lastName.length < 2) nextErrors.lastName = "Enter at least 2 characters.";
@@ -88,14 +99,68 @@ export default function Settings() {
       setRequestError("");
       const { data } = await axios.put(
         `${AUTH_URL}/me`,
-        { firstName, lastName },
+        { firstName, lastName, gender: profileForm.gender },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       updateUser(data.user);
       setMessage("Your personal information was updated.");
     } catch (error) {
       if (error.response?.status === 401) logout();
-      else setRequestError(error.response?.data?.message || "Could not update your name.");
+      else setRequestError(error.response?.data?.message || "Could not update your personal information.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function requestEmailVerification() {
+    const email = profileForm.email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setErrors((current) => ({ ...current, email: "Enter a valid email address." }));
+      return;
+    }
+    if (email === user.email.toLowerCase()) {
+      setErrors((current) => ({ ...current, email: "Enter a different email address." }));
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setEmailMessage("");
+      setEmailRequestError("");
+      const { data } = await axios.post(`${AUTH_URL}/email-change/request`, { email }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setEmailVerificationPending(true);
+      setEmailCode("");
+      setEmailMessage(data.message);
+    } catch (error) {
+      if (error.response?.status === 401) logout();
+      else setEmailRequestError(error.response?.data?.message || "Could not send the verification code.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function confirmEmailVerification() {
+    if (!/^\d{6}$/.test(emailCode)) {
+      setErrors((current) => ({ ...current, emailCode: "Enter the 6-digit code." }));
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setEmailMessage("");
+      setEmailRequestError("");
+      const { data } = await axios.post(`${AUTH_URL}/email-change/confirm`, { code: emailCode }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      updateUser(data.user);
+      setEmailVerificationPending(false);
+      setEmailCode("");
+      setEmailMessage(data.message);
+    } catch (error) {
+      if (error.response?.status === 401) logout();
+      else setEmailRequestError(error.response?.data?.message || "Could not verify the email address.");
     } finally {
       setIsSaving(false);
     }
@@ -162,16 +227,28 @@ export default function Settings() {
 
         <section className="settings-content">
           {activeSection === "profile" && <>
-            <header><h2>Personal Information</h2><p>Update the name displayed on your profile, listings and conversations.</p></header>
-            <form onSubmit={saveName} className="settings-form" noValidate>
+            <header><h2>Personal Information</h2><p>Update your name, email address and gender.</p></header>
+            <form onSubmit={saveProfile} className="settings-form" noValidate>
               <div className="settings-two-columns">
-                <Field label="First name" name="firstName" value={nameForm.firstName} error={errors.firstName} onChange={updateNameField} autoComplete="given-name" />
-                <Field label="Last name" name="lastName" value={nameForm.lastName} error={errors.lastName} onChange={updateNameField} autoComplete="family-name" />
+                <Field label="First name" name="firstName" value={profileForm.firstName} error={errors.firstName} onChange={updateProfileField} autoComplete="given-name" />
+                <Field label="Last name" name="lastName" value={profileForm.lastName} error={errors.lastName} onChange={updateProfileField} autoComplete="family-name" />
               </div>
-              <div className="settings-readonly"><span>Email address</span><strong>{user.email}</strong><small>Your email address cannot be changed here.</small></div>
+              <label className="settings-field"><span>Gender</span><select name="gender" value={profileForm.gender} onChange={updateProfileField}><option value="female">Female</option><option value="male">Male</option><option value="unspecified">Prefer not to say</option></select></label>
               <Feedback message={message} error={requestError} />
               <button className="settings-primary-btn" disabled={isSaving} type="submit">{isSaving ? "Saving..." : "Save Changes"}</button>
             </form>
+            <section className="settings-email-change">
+              <h3>Change Email Address</h3>
+              <p>Your current email is <strong>{user.email}</strong>. We will send a 6-digit verification code to the new address.</p>
+              <Field type="email" label="New email address" name="email" value={profileForm.email} error={errors.email} onChange={updateProfileField} autoComplete="email" />
+              <Feedback message={emailMessage} error={emailRequestError} />
+              {!emailVerificationPending ? (
+                <button className="settings-primary-btn" disabled={isSaving} type="button" onClick={requestEmailVerification}>{isSaving ? "Sending..." : "Send Verification Code"}</button>
+              ) : <>
+                <Field label="Verification code" name="emailCode" inputMode="numeric" value={emailCode} error={errors.emailCode} onChange={(event) => { setEmailCode(event.target.value.replace(/\D/g, "").slice(0, 6)); setErrors((current) => ({ ...current, emailCode: "" })); }} autoComplete="one-time-code" hint="The code expires in 15 minutes" />
+                <div className="settings-email-actions"><button className="settings-primary-btn" disabled={isSaving} type="button" onClick={confirmEmailVerification}>{isSaving ? "Verifying..." : "Verify and Change Email"}</button><button type="button" disabled={isSaving} onClick={requestEmailVerification}>Send again</button></div>
+              </>}
+            </section>
           </>}
 
           {activeSection === "password" && <>

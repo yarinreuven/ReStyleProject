@@ -5,7 +5,7 @@ import crypto from "crypto";
 import { OAuth2Client } from "google-auth-library";
 import User from "../models/User.ts";
 import type { AuthRequest } from "../middleware/auth.ts";
-import { sendPasswordResetEmail } from "../services/emailService.ts";
+import { sendEmailChangeCode, sendPasswordResetEmail } from "../services/emailService.ts";
 
 const googleClient = new OAuth2Client();
 
@@ -69,7 +69,8 @@ export async function updateCurrentUser(
       req.userId,
       {
         firstName: req.body.firstName,
-        lastName: req.body.lastName
+        lastName: req.body.lastName,
+        gender: req.body.gender
       },
       { new: true, runValidators: true }
     ).select("firstName lastName email language gender publicBio profileImage.contentType");
@@ -84,7 +85,7 @@ export async function updateCurrentUser(
 
     res.json({
       success: true,
-      message: "Name updated successfully",
+      message: "Personal information updated successfully",
       user: {
         id: user._id,
         firstName: user.firstName,
@@ -97,6 +98,103 @@ export async function updateCurrentUser(
       }
     });
   } catch (error) {
+    if ((error as { code?: number }).code === 11000) {
+      res.status(409).json({ success: false, message: "This email address is already in use" });
+      return;
+    }
+    next(error);
+  }
+}
+
+export async function requestEmailChange(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const email = req.body.email.toLowerCase();
+    const user = await User.findById(req.userId).select("firstName lastName email");
+
+    if (!user) {
+      res.status(404).json({ success: false, message: "User not found" });
+      return;
+    }
+    if (email === user.email) {
+      res.status(400).json({ success: false, message: "Enter a different email address" });
+      return;
+    }
+    if (await User.exists({ email, _id: { $ne: user._id } })) {
+      res.status(409).json({ success: false, message: "This email address is already in use" });
+      return;
+    }
+
+    const code = crypto.randomInt(100000, 1000000).toString();
+    user.set({
+      pendingEmail: email,
+      emailVerificationCodeHash: crypto.createHash("sha256").update(code).digest("hex"),
+      emailVerificationExpiresAt: new Date(Date.now() + 15 * 60 * 1000)
+    });
+    await user.save();
+
+    try {
+      await sendEmailChangeCode(email, `${user.firstName} ${user.lastName}`.trim(), code);
+    } catch (error) {
+      user.set({ pendingEmail: null, emailVerificationCodeHash: null, emailVerificationExpiresAt: null });
+      await user.save();
+      throw error;
+    }
+
+    res.json({ success: true, message: "A verification code was sent to your new email address" });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function confirmEmailChange(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const user = await User.findById(req.userId).select(
+      "+pendingEmail +emailVerificationCodeHash +emailVerificationExpiresAt firstName lastName email language gender publicBio profileImage.contentType"
+    );
+    const codeHash = crypto.createHash("sha256").update(req.body.code).digest("hex");
+
+    if (!user?.pendingEmail || !user.emailVerificationCodeHash ||
+      !user.emailVerificationExpiresAt || user.emailVerificationExpiresAt.getTime() < Date.now() ||
+      codeHash !== user.emailVerificationCodeHash) {
+      res.status(400).json({ success: false, message: "The verification code is invalid or has expired" });
+      return;
+    }
+    if (await User.exists({ email: user.pendingEmail, _id: { $ne: user._id } })) {
+      res.status(409).json({ success: false, message: "This email address is already in use" });
+      return;
+    }
+
+    user.email = user.pendingEmail;
+    user.set({ pendingEmail: null, emailVerificationCodeHash: null, emailVerificationExpiresAt: null });
+    await user.save();
+
+    res.json({
+      success: true,
+      message: "Email address updated successfully",
+      user: {
+        id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        language: user.language,
+        gender: user.gender,
+        publicBio: user.publicBio || "",
+        hasProfileImage: Boolean(user.profileImage?.contentType)
+      }
+    });
+  } catch (error) {
+    if ((error as { code?: number }).code === 11000) {
+      res.status(409).json({ success: false, message: "This email address is already in use" });
+      return;
+    }
     next(error);
   }
 }

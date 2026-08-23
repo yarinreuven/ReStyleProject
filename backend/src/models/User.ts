@@ -77,6 +77,26 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
       select: false
+    },
+
+    pendingEmail: {
+      type: String,
+      lowercase: true,
+      trim: true,
+      default: null,
+      select: false
+    },
+
+    emailVerificationCodeHash: {
+      type: String,
+      default: null,
+      select: false
+    },
+
+    emailVerificationExpiresAt: {
+      type: Date,
+      default: null,
+      select: false
     }
   },
   {

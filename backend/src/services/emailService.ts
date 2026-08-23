@@ -59,3 +59,31 @@ export async function sendPasswordResetEmail(
     `
   });
 }
+
+export async function sendEmailChangeCode(
+  recipientEmail: string,
+  recipientName: string,
+  verificationCode: string
+) {
+  const from = process.env.EMAIL_FROM?.trim() || process.env.SMTP_USER?.trim();
+  const safeRecipientName = escapeHtml(recipientName);
+
+  if (!from) throw new Error("EMAIL_FROM is missing");
+
+  await getTransporter().sendMail({
+    from: `ReStyle <${from}>`,
+    to: recipientEmail,
+    subject: "Verify your new ReStyle email",
+    text: `Hi ${recipientName},\n\nYour ReStyle verification code is: ${verificationCode}\n\nThis code expires in 15 minutes. If you did not request this change, you can ignore this email.`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#2d2d2d">
+        <h1 style="color:#b45c6d">ReStyle</h1>
+        <h2>Verify your new email</h2>
+        <p>Hi ${safeRecipientName},</p>
+        <p>Enter this code in your ReStyle account settings:</p>
+        <p style="margin:26px 0;font-size:32px;font-weight:bold;letter-spacing:8px;color:#b45c6d">${verificationCode}</p>
+        <p>This code expires in 15 minutes. If you did not request this change, you can ignore this email.</p>
+      </div>
+    `
+  });
+}
