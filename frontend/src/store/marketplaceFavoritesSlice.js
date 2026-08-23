@@ -8,7 +8,9 @@ const initialState = {
   savedItemIds: [],
   status: "idle",
   error: null,
-  pendingItemIds: []
+  pendingItemIds: [],
+  loadedForUserId: null,
+  activeFetchRequestId: null
 };
 
 function getItemId(item) {
@@ -33,10 +35,10 @@ function authorizationConfig(token) {
 
 export const fetchMarketplaceFavorites = createAsyncThunk(
   "marketplaceFavorites/fetchMarketplaceFavorites",
-  async (token, { rejectWithValue }) => {
+  async ({ token, userId }, { rejectWithValue }) => {
     try {
       const { data } = await axios.get(API_URL, authorizationConfig(token));
-      return data.items;
+      return { items: data.items, userId: String(userId) };
     } catch (error) {
       return rejectWithValue(getRequestErrorMessage(error));
     }
@@ -92,19 +94,34 @@ const marketplaceFavoritesSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchMarketplaceFavorites.pending, (state) => {
+      .addCase(fetchMarketplaceFavorites.pending, (state, action) => {
         state.status = "loading";
         state.error = null;
+        state.loadedForUserId = String(action.meta.arg.userId);
+        state.activeFetchRequestId = action.meta.requestId;
       })
       .addCase(fetchMarketplaceFavorites.fulfilled, (state, action) => {
-        state.items = action.payload;
-        state.savedItemIds = action.payload.map(getItemId).filter(Boolean);
+        if (
+          state.activeFetchRequestId !== action.meta.requestId ||
+          state.loadedForUserId !== action.payload.userId
+        ) {
+          return;
+        }
+
+        state.items = action.payload.items;
+        state.savedItemIds = action.payload.items.map(getItemId).filter(Boolean);
         state.status = "succeeded";
         state.error = null;
+        state.activeFetchRequestId = null;
       })
       .addCase(fetchMarketplaceFavorites.rejected, (state, action) => {
+        if (state.activeFetchRequestId !== action.meta.requestId) {
+          return;
+        }
+
         state.status = "failed";
         state.error = action.payload || "Could not load saved marketplace items.";
+        state.activeFetchRequestId = null;
       })
       .addCase(addMarketplaceFavorite.pending, (state, action) => {
         const itemId = getItemId(action.meta.arg.item);
@@ -165,6 +182,8 @@ export const selectMarketplaceFavoritesStatus = (state) =>
   state.marketplaceFavorites.status;
 export const selectMarketplaceFavoritesError = (state) =>
   state.marketplaceFavorites.error;
+export const selectMarketplaceFavoritesLoadedForUserId = (state) =>
+  state.marketplaceFavorites.loadedForUserId;
 export const selectIsMarketplaceItemSaved = (state, itemId) =>
   state.marketplaceFavorites.savedItemIds.includes(String(itemId));
 export const selectIsMarketplaceItemPending = (state, itemId) =>

@@ -1112,9 +1112,18 @@ button{
   backdrop-filter:blur(8px);
 }
 
-.market-heart-button:hover{
+.market-heart-button:hover:not(:disabled){
   background:white;
   transform:scale(1.04);
+}
+
+.market-heart-button[aria-pressed="true"]{
+  color:#a7354a;
+}
+
+.market-heart-button:disabled{
+  cursor:wait;
+  opacity:.7;
 }
 
 .market-item-content{

@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useSelector } from "react-redux";
 import ProfileAvatar from "../components/ProfileAvatar";
 import MarketplaceItemCard from "../components/MarketplaceItemCard";
 import MarketplaceListingForm from "../components/MarketplaceListingForm";
 import usePageStyles from "../hooks/usePageStyles";
 import { useAuth } from "../context/AuthContext";
+import useMarketplaceFavoritesSync from "../hooks/useMarketplaceFavoritesSync";
+import { selectMarketplaceFavoritesError } from "../store/marketplaceFavoritesSlice.js";
 
 const API_URL = "http://localhost:3001/api/marketplace";
 const imageShapes = ["tall", "standard", "compact"];
@@ -48,6 +51,8 @@ export default function Marketplace() {
   const accountMenuRef = useRef(null);
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const { user, token, logout: logoutUser } = useAuth();
+  const favoritesError = useSelector(selectMarketplaceFavoritesError);
+  useMarketplaceFavoritesSync();
   const [marketplaceItems, setMarketplaceItems] = useState([]);
   const [feedView, setFeedView] = useState(() =>
     new URLSearchParams(location.search).get("view") === "mine" ? "mine" : "all"
@@ -480,6 +485,7 @@ export default function Marketplace() {
           </div>
 
           {actionError && <p className="market-action-error" role="alert">{actionError}</p>}
+          {favoritesError && <p className="market-action-error" role="alert">{favoritesError}</p>}
 
           {isLoading ? (
             <div className="market-feed-state" role="status">

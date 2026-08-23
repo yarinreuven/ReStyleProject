@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
+import { useSelector } from "react-redux";
 import MarketplaceItemCard from "../components/MarketplaceItemCard";
+import MarketplaceFavoriteButton from "../components/MarketplaceFavoriteButton";
 import ProfileAvatar from "../components/ProfileAvatar";
 import usePageStyles from "../hooks/usePageStyles";
 import { useAuth } from "../context/AuthContext";
+import useMarketplaceFavoritesSync from "../hooks/useMarketplaceFavoritesSync";
+import { selectMarketplaceFavoritesError } from "../store/marketplaceFavoritesSlice.js";
 
 const API_URL = "http://localhost:3001/api/marketplace";
 const imageShapes = ["standard", "compact", "tall"];
@@ -52,6 +56,8 @@ export default function MarketplaceItemDetails() {
   const [message, setMessage] = useState("");
   const [contacting, setContacting] = useState(false);
   const { user, token, logout: logoutUser } = useAuth();
+  const favoritesError = useSelector(selectMarketplaceFavoritesError);
+  useMarketplaceFavoritesSync();
 
   useEffect(() => {
     if (!user || !token) navigate("/login", { replace: true });
@@ -267,12 +273,17 @@ export default function MarketplaceItemDetails() {
                   <button type="button" className="market-contact-seller" onClick={contactSeller} disabled={item.availabilityStatus !== "active" || contacting}>
                     <i className="fa-regular fa-comment-dots" /> {contacting ? "Opening conversation..." : "Contact seller"}
                   </button>
-                  <button type="button" className="market-save-item" disabled title="Saving items will be available later"><i className="fa-regular fa-heart" /> Save item</button>
+                  <MarketplaceFavoriteButton
+                    item={item}
+                    className="market-save-item"
+                    showLabel
+                  />
                 </div> : <div className="market-detail-owner-actions">
                   <span><i className="fa-regular fa-circle-check" /> This is your listing</span>
                   <button type="button" onClick={() => navigate("/marketplace?view=mine")}>Manage listing</button>
                 </div>}
                 {message && <p className="market-detail-coming-soon" role="status">{message}</p>}
+                {favoritesError && <p className="market-detail-coming-soon" role="alert">{favoritesError}</p>}
                 <div className="market-detail-trust"><span><i className="fa-solid fa-shield-heart" /> Secure ReStyle conversation</span><span><i className="fa-solid fa-leaf" /> Give fashion a second life</span></div>
               </section>
             </article>

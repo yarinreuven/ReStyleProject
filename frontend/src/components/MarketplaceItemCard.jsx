@@ -1,4 +1,5 @@
 import { memo } from "react";
+import MarketplaceFavoriteButton from "./MarketplaceFavoriteButton";
 
 function MarketplaceItemCard({ item, ownerActions, onOpen, onSellerOpen }) {
   const isRental = item.listingType === "RENT";
@@ -30,15 +31,10 @@ function MarketplaceItemCard({ item, ownerActions, onOpen, onSellerOpen }) {
         {ownerActions && item.availabilityStatus !== "active" && (
           <span className="market-unavailable-badge">UNAVAILABLE</span>
         )}
-        <button
-          type="button"
+        <MarketplaceFavoriteButton
+          item={item}
           className="market-heart-button"
-          aria-label={`Save ${item.title}`}
-          aria-pressed="false"
-          onClick={(event) => event.stopPropagation()}
-        >
-          <i className="fa-regular fa-heart" aria-hidden="true" />
-        </button>
+        />
       </div>
 
       <div className="market-item-content">
