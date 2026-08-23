@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import { authenticateToken, type AuthRequest } from "../middleware/auth.ts";
 import Conversation from "../models/Conversation.ts";
 import Item from "../models/Item.ts";
+import User from "../models/User.ts";
 import {
   emitConversationRead,
   emitMessageDeleted,
@@ -14,8 +15,9 @@ import {
 
 const router = express.Router();
 const startConversationSchema = Joi.object({
-  itemId: Joi.string().required()
-});
+  itemId: Joi.string(),
+  sellerId: Joi.string()
+}).xor("itemId", "sellerId");
 const sendMessageSchema = Joi.object({
   text: Joi.string().trim().min(1).max(1000).required()
 });
@@ -83,46 +85,67 @@ router.post("/conversations", async (req: AuthRequest, res, next) => {
       abortEarly: false,
       stripUnknown: true
     });
-    if (error || !mongoose.isValidObjectId(value?.itemId)) {
-      res.status(400).json({ success: false, message: "A valid item is required" });
+    const targetId = value?.itemId || value?.sellerId;
+    if (error || !mongoose.isValidObjectId(targetId)) {
+      res.status(400).json({ success: false, message: "A valid item or seller is required" });
       return;
     }
 
-    const item = await Item.findOne({
-      _id: value.itemId,
-      listingType: { $in: ["sale", "rent"] },
-      availabilityStatus: "active"
-    }).select("user");
+    const item = value.itemId ? await Item.findOne({
+        _id: value.itemId,
+        listingType: { $in: ["sale", "rent"] },
+        availabilityStatus: "active"
+      }).select("user") : null;
+    const sellerId = item?.user || value.sellerId;
 
-    if (!item) {
+    if (value.itemId && !item) {
       res.status(404).json({ success: false, message: "Listing not found" });
       return;
     }
-    if (String(item.user) === String(req.userId)) {
-      res.status(400).json({ success: false, message: "You cannot contact yourself about your own listing" });
+    if (!value.itemId && !await User.exists({ _id: sellerId })) {
+      res.status(404).json({ success: false, message: "Seller not found" });
+      return;
+    }
+    if (String(sellerId) === String(req.userId)) {
+      res.status(400).json({ success: false, message: "You cannot contact yourself" });
       return;
     }
 
-    let conversation = await Conversation.findOne({
-      item: item._id,
-      participants: { $all: [req.userId, item.user], $size: 2 }
-    });
+    const existingConversations = await Conversation.find({
+      participants: { $all: [req.userId, sellerId], $size: 2 }
+    }).sort({ createdAt: 1 });
+    let conversation = existingConversations[0] || null;
     let created = false;
     if (!conversation) {
       conversation = await Conversation.create({
-        item: item._id,
-        participants: [req.userId, item.user],
+        item: null,
+        participants: [req.userId, sellerId],
         readState: [
           { user: req.userId, lastReadAt: new Date() },
-          { user: item.user, lastReadAt: new Date() }
+          { user: sellerId, lastReadAt: new Date() }
         ]
       });
       created = true;
+    } else {
+      const duplicateIds = existingConversations.slice(1).map(({ _id }) => _id);
+      if (duplicateIds.length > 0) {
+        const messages = existingConversations
+          .flatMap((existing) => existing.messages)
+          .sort((first, second) => first.sentAt.getTime() - second.sentAt.getTime());
+        conversation.item = null;
+        conversation.messages.splice(0, conversation.messages.length, ...messages);
+        conversation.lastMessageAt = messages[messages.length - 1]?.sentAt || conversation.lastMessageAt;
+        await conversation.save();
+        await Conversation.deleteMany({ _id: { $in: duplicateIds } });
+      } else if (conversation.item) {
+        conversation.item = null;
+        await conversation.save();
+      }
     }
 
     await joinParticipantsToConversation(String(conversation._id), [
       String(req.userId),
-      String(item.user)
+      String(sellerId)
     ]);
 
     await conversation.populate(conversationPopulate);

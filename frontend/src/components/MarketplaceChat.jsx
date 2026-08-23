@@ -251,7 +251,7 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
             const lastMessage = conversation.messages.at(-1);
             return <button type="button" key={conversation.id} className={`${activeConversation?.id === conversation.id ? "active " : ""}${conversation.unreadCount ? "unread" : ""}`} onClick={() => selectConversation(conversation.id)}>
               <img src={conversation.otherUser?.avatar || "/images/avatars/fashion-avatar-v2.png"} alt="" />
-              <span><strong>{conversation.otherUser?.name}</strong><small>{conversation.item?.name}</small><em>{lastMessage?.text || "Conversation started"}</em></span>
+              <span><strong>{conversation.otherUser?.name}</strong><small>{conversation.item?.name || "Seller conversation"}</small><em>{lastMessage?.text || "Conversation started"}</em></span>
               {conversation.unreadCount > 0 && <b>{conversation.unreadCount}</b>}
             </button>;
           })}
@@ -259,9 +259,9 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
 
         <article>
           {!activeConversation ? <div className="market-chat-placeholder"><i className="fa-regular fa-message" /><p>Select a conversation</p></div> : <>
-            <div className="market-chat-person"><img src={activeConversation.otherUser?.avatar || "/images/avatars/fashion-avatar-v2.png"} alt="" /><span><strong>{activeConversation.otherUser?.name}</strong><small>{activeConversation.item?.name}</small></span></div>
+            <div className="market-chat-person"><img src={activeConversation.otherUser?.avatar || "/images/avatars/fashion-avatar-v2.png"} alt="" /><span><strong>{activeConversation.otherUser?.name}</strong><small>{activeConversation.item?.name || "Seller conversation"}</small></span></div>
             <div className="market-chat-history">
-              {activeConversation.messages.length === 0 && <p className="market-chat-first">Start the conversation about this piece.</p>}
+              {activeConversation.messages.length === 0 && <p className="market-chat-first">{activeConversation.item ? "Start the conversation about this piece." : "Start a conversation with this seller."}</p>}
               {activeConversation.messages.map((message) => {
                 const mine = String(message.senderId) === currentUserId;
                 const canDelete = mine && !message.deletedAt && now - new Date(message.sentAt).getTime() <= 10 * 60 * 1000;

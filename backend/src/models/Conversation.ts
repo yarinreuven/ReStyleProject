@@ -36,7 +36,7 @@ const conversationSchema = new mongoose.Schema(
     item: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Item",
-      required: true
+      default: null
     },
     messages: {
       type: [messageSchema],

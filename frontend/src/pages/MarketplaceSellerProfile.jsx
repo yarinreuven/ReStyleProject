@@ -38,6 +38,8 @@ export default function MarketplaceSellerProfile() {
   const [items, setItems] = useState([]);
   const [filter, setFilter] = useState("ALL");
   const [status, setStatus] = useState("loading");
+  const [contacting, setContacting] = useState(false);
+  const [contactError, setContactError] = useState("");
   const { user, token, logout } = useAuth();
 
   useEffect(() => {
@@ -77,6 +79,28 @@ export default function MarketplaceSellerProfile() {
   const isOwnProfile = seller && String(user.id || user._id) === String(seller.id);
   const sellerAvatar = seller?.avatar || "/images/avatars/fashion-avatar-v2.png";
 
+  async function contactSeller() {
+    try {
+      setContacting(true);
+      setContactError("");
+      const { data } = await axios.post(
+        "http://localhost:3001/api/messages/conversations",
+        { sellerId: seller.id },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      navigate(`/marketplace?chat=${data.conversation.id}`);
+    } catch (error) {
+      if (error.response?.status === 401) {
+        logout();
+        navigate("/login", { replace: true });
+        return;
+      }
+      setContactError(error.response?.data?.message || "Could not open this conversation.");
+    } finally {
+      setContacting(false);
+    }
+  }
+
   if (!user || !token) return null;
 
   return (
@@ -109,7 +133,14 @@ export default function MarketplaceSellerProfile() {
               <p>{seller.bio || "Sharing beautiful wardrobe pieces with the ReStyle community."}</p>
               <strong>{seller.activeListingCount} active {seller.activeListingCount === 1 ? "listing" : "listings"}</strong>
             </div>
-            {isOwnProfile && <button type="button" onClick={() => navigate("/marketplace?view=mine")}><i className="fa-regular fa-rectangle-list" /> Go to My Listings</button>}
+            <div className="seller-profile-actions">
+              {isOwnProfile ? (
+                <button type="button" onClick={() => navigate("/marketplace?view=mine")}><i className="fa-regular fa-rectangle-list" /> Go to My Listings</button>
+              ) : (
+                <button type="button" onClick={contactSeller} disabled={contacting}><i className="fa-regular fa-comment-dots" /> {contacting ? "Opening conversation..." : "Contact seller"}</button>
+              )}
+              {contactError && <p role="alert">{contactError}</p>}
+            </div>
           </section>
 
           <section className="seller-listings" aria-labelledby="sellerListingsTitle">
