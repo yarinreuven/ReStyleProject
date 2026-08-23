@@ -9,7 +9,12 @@ interface SocketTokenPayload {
 }
 
 let io: Server | null = null;
-const developmentOrigins = ["http://localhost:5173", "http://127.0.0.1:5173"];
+const developmentOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:5175",
+  "http://127.0.0.1:5175"
+];
 
 export function getAllowedOrigins() {
   return [...new Set([
