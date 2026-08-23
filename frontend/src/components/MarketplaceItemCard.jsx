@@ -28,7 +28,7 @@ function MarketplaceItemCard({ item, ownerActions, onOpen, onSellerOpen }) {
         <span className={`market-item-badge ${isRental ? "rent" : "sale"}`}>
           {item.listingType}
         </span>
-        {ownerActions && item.availabilityStatus !== "active" && (
+        {item.availabilityStatus !== "active" && (
           <span className="market-unavailable-badge">UNAVAILABLE</span>
         )}
         <MarketplaceFavoriteButton

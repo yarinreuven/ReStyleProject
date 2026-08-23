@@ -7,6 +7,7 @@ import MyCloset from "./pages/MyCloset";
 import Profile from "./pages/Profile";
 import OutfitBuilder from "./pages/OutfitBuilder";
 import Marketplace from "./pages/Marketplace";
+import MarketplaceFavorites from "./pages/MarketplaceFavorites";
 import MarketplaceItemDetails from "./pages/MarketplaceItemDetails";
 import MarketplaceSellerProfile from "./pages/MarketplaceSellerProfile";
 import Messages from "./pages/Messages";
@@ -44,6 +45,7 @@ function App() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/outfit-builder" element={<OutfitBuilder />} />
           <Route path="/marketplace" element={<Marketplace />} />
+          <Route path="/marketplace/favorites" element={<MarketplaceFavorites />} />
           <Route path="/marketplace/items/:itemId" element={<MarketplaceItemDetails />} />
           <Route path="/marketplace/sellers/:userId" element={<MarketplaceSellerProfile />} />
           <Route path="/messages" element={<Messages />} />

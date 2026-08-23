@@ -1,0 +1,103 @@
+.marketplace-favorites-page{
+  min-height:100vh;
+  background:var(--market-cream);
+}
+
+.market-favorites-main{
+  width:min(1380px,calc(100% - 64px));
+  margin:0 auto;
+  padding:76px 0 90px;
+}
+
+.market-favorites-intro{
+  max-width:680px;
+  margin-bottom:48px;
+}
+
+.market-favorites-intro>span{
+  color:var(--market-rose-deep);
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:1.8px;
+}
+
+.market-favorites-intro h1{
+  margin:12px 0 8px;
+  color:var(--market-ink);
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:clamp(44px,6vw,74px);
+  font-weight:500;
+  letter-spacing:-2px;
+}
+
+.market-favorites-intro p{
+  color:var(--market-muted);
+  font-size:15px;
+}
+
+.market-favorites-list .market-masonry{
+  grid-template-columns:repeat(4,minmax(0,1fr));
+}
+
+.market-favorites-heading{
+  display:flex;
+  align-items:end;
+  justify-content:space-between;
+  gap:20px;
+  margin-bottom:24px;
+  padding-bottom:14px;
+  border-bottom:1px solid var(--market-line);
+}
+
+.market-favorites-heading h2{
+  margin:0;
+  color:var(--market-ink);
+  font-family:Georgia,"Times New Roman",serif;
+  font-size:30px;
+  font-weight:500;
+}
+
+.market-favorites-heading span{
+  color:var(--market-muted);
+  font-size:11px;
+}
+
+.market-favorites-main .market-feed-state{
+  min-height:360px;
+}
+
+.market-favorites-main .market-feed-state>button{
+  margin-top:8px;
+  padding:12px 22px;
+  border:0;
+  border-radius:3px;
+  color:white;
+  background:var(--market-ink);
+  font-size:10px;
+  font-weight:700;
+}
+
+.market-favorites-main .market-feed-state>button:hover{
+  background:var(--market-rose-deep);
+}
+
+.market-account-menu>button[aria-current="page"]{
+  color:var(--market-rose-deep);
+  background:var(--market-rose-soft);
+}
+
+@media(max-width:1250px){
+  .market-favorites-list .market-masonry{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+
+@media(max-width:900px){
+  .market-favorites-main{width:min(100% - 36px,760px);padding-top:54px}
+  .market-favorites-list .market-masonry{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+}
+
+@media(max-width:560px){
+  .market-favorites-main{width:calc(100% - 28px);padding-top:42px}
+  .market-favorites-intro{margin-bottom:34px}
+  .market-favorites-intro h1{font-size:42px;letter-spacing:-1px}
+  .market-favorites-list .market-masonry{grid-template-columns:1fr}
+}
