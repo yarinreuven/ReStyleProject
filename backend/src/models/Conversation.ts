@@ -21,7 +21,11 @@ const messageSchema = new mongoose.Schema(
     deletedAt: {
       type: Date,
       default: null
-    }
+    },
+    hiddenFor: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
+    }]
   },
   { _id: true }
 );
@@ -46,6 +50,15 @@ const conversationSchema = new mongoose.Schema(
       _id: false,
       user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
       lastReadAt: { type: Date, default: Date.now }
+    }],
+    hiddenFor: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User"
+    }],
+    clearedState: [{
+      _id: false,
+      user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+      clearedAt: { type: Date, required: true }
     }],
     lastMessageAt: {
       type: Date,

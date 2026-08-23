@@ -8,7 +8,6 @@ import Item from "../models/Item.ts";
 import User from "../models/User.ts";
 import {
   emitConversationRead,
-  emitMessageDeleted,
   emitNewMessage,
   joinParticipantsToConversation
 } from "../services/socketService.ts";
@@ -36,8 +35,15 @@ function formatConversation(conversation: any, currentUserId: string) {
   const lastReadAt = object.readState?.find(
     (state: any) => String(state.user) === String(currentUserId)
   )?.lastReadAt;
+  const clearedAt = object.clearedState?.find(
+    (state: any) => String(state.user) === String(currentUserId)
+  )?.clearedAt;
   const unreadCount = (object.messages || []).filter((message: any) =>
     String(message.sender?._id || message.sender) !== String(currentUserId) &&
+    (!clearedAt || new Date(message.sentAt) > new Date(clearedAt)) &&
+    !(message.hiddenFor || []).some(
+      (hiddenUserId: any) => String(hiddenUserId) === String(currentUserId)
+    ) &&
     (!lastReadAt || new Date(message.sentAt) > new Date(lastReadAt))
   ).length;
 
@@ -55,7 +61,14 @@ function formatConversation(conversation: any, currentUserId: string) {
       listingType: object.item.listingType,
       availabilityStatus: object.item.availabilityStatus
     } : null,
-    messages: (object.messages || []).map((message: any) => ({
+    messages: (object.messages || [])
+      .filter((message: any) =>
+        !clearedAt || new Date(message.sentAt) > new Date(clearedAt)
+      )
+      .filter((message: any) => !(message.hiddenFor || []).some(
+        (hiddenUserId: any) => String(hiddenUserId) === String(currentUserId)
+      ))
+      .map((message: any) => ({
       id: message._id,
       senderId: message.sender?._id || message.sender,
       senderName: message.sender?.firstName
@@ -64,7 +77,7 @@ function formatConversation(conversation: any, currentUserId: string) {
       text: message.text,
       sentAt: message.sentAt,
       deletedAt: message.deletedAt
-    })),
+      })),
     lastMessageAt: object.lastMessageAt,
     unreadCount,
     createdAt: object.createdAt
@@ -143,6 +156,11 @@ router.post("/conversations", async (req: AuthRequest, res, next) => {
       }
     }
 
+    conversation.hiddenFor = conversation.hiddenFor.filter(
+      (hiddenUserId) => String(hiddenUserId) !== String(req.userId)
+    );
+    await conversation.save();
+
     await joinParticipantsToConversation(String(conversation._id), [
       String(req.userId),
       String(sellerId)
@@ -160,7 +178,10 @@ router.post("/conversations", async (req: AuthRequest, res, next) => {
 
 router.get("/conversations", async (req: AuthRequest, res, next) => {
   try {
-    const conversations = await Conversation.find({ participants: req.userId })
+    const conversations = await Conversation.find({
+      participants: req.userId,
+      hiddenFor: { $ne: req.userId }
+    })
       .populate(conversationPopulate)
       .sort({ lastMessageAt: -1 });
     res.json({
@@ -182,7 +203,8 @@ router.get("/conversations/:conversationId", async (req: AuthRequest, res, next)
     }
     const conversation = await Conversation.findOne({
       _id: req.params.conversationId,
-      participants: req.userId
+      participants: req.userId,
+      hiddenFor: { $ne: req.userId }
     }).populate(conversationPopulate);
 
     if (!conversation) {
@@ -227,6 +249,7 @@ router.post("/conversations/:conversationId/messages", async (req: AuthRequest, 
       text: value.text,
       sentAt: new Date()
     } as any);
+    conversation.hiddenFor.splice(0, conversation.hiddenFor.length);
     conversation.lastMessageAt = new Date();
     await conversation.save();
     await conversation.populate(conversationPopulate);
@@ -279,6 +302,43 @@ router.post("/conversations/:conversationId/read", async (req: AuthRequest, res,
   }
 });
 
+router.delete("/conversations/:conversationId", async (req: AuthRequest, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.conversationId)) {
+      res.status(404).json({ success: false, message: "Conversation not found" });
+      return;
+    }
+
+    const conversation = await Conversation.findOne({
+      _id: req.params.conversationId,
+      participants: req.userId
+    });
+    if (!conversation) {
+      res.status(404).json({ success: false, message: "Conversation not found" });
+      return;
+    }
+
+    if (!conversation.hiddenFor.some(
+      (hiddenUserId) => String(hiddenUserId) === String(req.userId)
+    )) {
+      conversation.hiddenFor.push(new mongoose.Types.ObjectId(req.userId));
+    }
+    const clearedState = conversation.clearedState.find(
+      (state: any) => String(state.user) === String(req.userId)
+    );
+    if (clearedState) clearedState.clearedAt = new Date();
+    else conversation.clearedState.push({
+      user: new mongoose.Types.ObjectId(req.userId),
+      clearedAt: new Date()
+    } as any);
+    await conversation.save();
+
+    res.json({ success: true });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.delete(
   "/conversations/:conversationId/messages/:messageId",
   async (req: AuthRequest, res, next) => {
@@ -305,7 +365,9 @@ router.delete(
         res.status(404).json({ success: false, message: "Message not found" });
         return;
       }
-      if (message.deletedAt) {
+      if (message.hiddenFor.some(
+        (hiddenUserId: any) => String(hiddenUserId) === String(req.userId)
+      )) {
         res.status(400).json({ success: false, message: "This message was already deleted" });
         return;
       }
@@ -319,21 +381,13 @@ router.delete(
         return;
       }
 
-      message.text = "הודעה זו נמחקה";
-      message.deletedAt = new Date();
+      message.hiddenFor.push(new mongoose.Types.ObjectId(req.userId));
       await conversation.save();
-      emitMessageDeleted(
-        String(conversation._id),
-        String(message._id),
-        message.deletedAt
-      );
 
       res.json({
         success: true,
         message: {
-          id: message._id,
-          text: message.text,
-          deletedAt: message.deletedAt
+          id: message._id
         }
       });
     } catch (error) {

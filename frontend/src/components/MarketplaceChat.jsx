@@ -35,6 +35,16 @@ function applyDeletedMessage(conversation, deletedMessage) {
   };
 }
 
+function removeMessage(conversation, messageId) {
+  if (!conversation) return conversation;
+  return {
+    ...conversation,
+    messages: conversation.messages.filter(
+      (message) => String(message.id) !== String(messageId)
+    )
+  };
+}
+
 export default function MarketplaceChat({ token, user, initialConversationId }) {
   usePageStyles("marketplace-chat.css");
   const socketRef = useRef(null);
@@ -46,6 +56,8 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
   const [activeConversation, setActiveConversation] = useState(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [deletingConversation, setDeletingConversation] = useState(false);
+  const [conversationToDelete, setConversationToDelete] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
@@ -213,20 +225,39 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
         `${API_URL}/conversations/${activeConversation.id}/messages/${message.id}`,
         requestConfig
       );
-      const deletedMessage = {
-        conversationId: activeConversation.id,
-        messageId: String(data.message.id),
-        text: data.message.text,
-        deletedAt: data.message.deletedAt
-      };
-      setActiveConversation((current) => applyDeletedMessage(current, deletedMessage));
+      const deletedMessageId = String(data.message.id);
+      setActiveConversation((current) => removeMessage(current, deletedMessageId));
       setConversations((current) => current.map((conversation) =>
         conversation.id === activeConversation.id
-          ? applyDeletedMessage(conversation, deletedMessage)
+          ? removeMessage(conversation, deletedMessageId)
           : conversation
       ));
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Could not delete this message.");
+    }
+  }
+
+  async function deleteConversation() {
+    if (!conversationToDelete || deletingConversation) return;
+    try {
+      setDeletingConversation(true);
+      setError("");
+      await axios.delete(
+        `${API_URL}/conversations/${conversationToDelete.id}`,
+        requestConfig
+      );
+      setConversations((current) => current.filter(
+        (conversation) => conversation.id !== conversationToDelete.id
+      ));
+      if (activeConversation?.id === conversationToDelete.id) {
+        activeIdRef.current = null;
+        setActiveConversation(null);
+      }
+      setConversationToDelete(null);
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Could not delete this conversation.");
+    } finally {
+      setDeletingConversation(false);
     }
   }
 
@@ -249,11 +280,14 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
         <aside>
           {loading ? <div className="market-chat-loading">Loading...</div> : conversations.length === 0 ? <div className="market-chat-empty"><i className="fa-regular fa-comments" /><p>No conversations yet.</p></div> : conversations.map((conversation) => {
             const lastMessage = conversation.messages.at(-1);
-            return <button type="button" key={conversation.id} className={`${activeConversation?.id === conversation.id ? "active " : ""}${conversation.unreadCount ? "unread" : ""}`} onClick={() => selectConversation(conversation.id)}>
-              <img src={conversation.otherUser?.avatar || "/images/avatars/fashion-avatar-v2.png"} alt="" />
-              <span><strong>{conversation.otherUser?.name}</strong><small>{conversation.item?.name || "Seller conversation"}</small><em>{lastMessage?.text || "Conversation started"}</em></span>
-              {conversation.unreadCount > 0 && <b>{conversation.unreadCount}</b>}
-            </button>;
+            return <div key={conversation.id} className={`market-chat-conversation${activeConversation?.id === conversation.id ? " active" : ""}${conversation.unreadCount ? " unread" : ""}`}>
+              <button type="button" className="market-chat-conversation-open" onClick={() => selectConversation(conversation.id)}>
+                <img src={conversation.otherUser?.avatar || "/images/avatars/fashion-avatar-v2.png"} alt="" />
+                <span><strong>{conversation.otherUser?.name}</strong><small>{conversation.item?.name || "Seller conversation"}</small><em>{lastMessage?.text || "Conversation started"}</em></span>
+                {conversation.unreadCount > 0 && <b>{conversation.unreadCount}</b>}
+              </button>
+              <button type="button" className="market-chat-conversation-delete" onClick={() => setConversationToDelete(conversation)} aria-label={`Delete conversation with ${conversation.otherUser?.name || "seller"}`}><i className="fa-regular fa-trash-can" /></button>
+            </div>;
           })}
         </aside>
 
@@ -272,6 +306,16 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
           </>}
         </article>
       </div>
+      {conversationToDelete && <div className="market-chat-confirm-backdrop" role="presentation">
+        <section className="market-chat-confirm" role="alertdialog" aria-modal="true" aria-labelledby="deleteConversationTitle">
+          <span><i className="fa-regular fa-trash-can" /></span>
+          <h3 id="deleteConversationTitle">Are you sure you want to delete this conversation?</h3>
+          <div>
+            <button type="button" onClick={() => setConversationToDelete(null)} disabled={deletingConversation}>Cancel</button>
+            <button type="button" className="confirm" onClick={deleteConversation} disabled={deletingConversation}>{deletingConversation ? "Deleting..." : "Delete"}</button>
+          </div>
+        </section>
+      </div>}
     </section>}
   </>;
 }
