@@ -602,6 +602,14 @@ export default function MyCloset() {
                 My Profile
               </button>
 
+              <button
+                type="button"
+                onClick={() => navigate("/marketplace/favorites")}
+              >
+                <i className="fa-regular fa-heart" />
+                Marketplace Saved Items
+              </button>
+
               <div className="account-menu-divider" />
 
               <button

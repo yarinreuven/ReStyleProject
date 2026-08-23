@@ -130,7 +130,7 @@ export default function MarketplaceFavorites() {
                 <i className="fa-regular fa-user" /> My Profile
               </button>
               <button type="button" aria-current="page">
-                <i className="fa-solid fa-heart" /> Saved Items
+                <i className="fa-solid fa-heart" /> Marketplace Saved Items
               </button>
               <div className="market-account-divider" />
               <button type="button" className="market-logout" onClick={logOut}>
@@ -144,7 +144,7 @@ export default function MarketplaceFavorites() {
       <main className="market-favorites-main">
         <section className="market-favorites-intro">
           <span>SAVED FOR YOU</span>
-          <h1>Saved Items</h1>
+          <h1>Marketplace Saved Items</h1>
           <p>Pieces you loved, saved in one place.</p>
         </section>
 

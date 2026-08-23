@@ -318,7 +318,7 @@ export default function Marketplace() {
                 <i className="fa-regular fa-user" /> My Profile
               </button>
               <button type="button" onClick={() => navigate("/marketplace/favorites")}>
-                <i className="fa-regular fa-heart" /> Saved Items
+                <i className="fa-regular fa-heart" /> Marketplace Saved Items
               </button>
               <div className="market-account-divider" />
               <button type="button" className="market-logout" onClick={logout}>

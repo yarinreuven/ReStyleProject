@@ -174,6 +174,22 @@ export default function Profile() {
         <p className="profile-help">JPG, PNG or WEBP, up to 5MB</p>
         {message && <p className="profile-success">{message}</p>}
         {error && <p className="profile-error">{error}</p>}
+
+        <div className="profile-marketplace-saved">
+          <span className="profile-marketplace-icon" aria-hidden="true">
+            <i className="fa-regular fa-heart" />
+          </span>
+          <div>
+            <h3>Marketplace Saved Items</h3>
+            <p>Pieces you saved from the Marketplace.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate("/marketplace/favorites")}
+          >
+            View saved items
+          </button>
+        </div>
       </section>
     </main>
   );
