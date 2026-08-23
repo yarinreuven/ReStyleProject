@@ -39,6 +39,7 @@ export default function MarketplaceSellerProfile() {
   const [filter, setFilter] = useState("ALL");
   const [status, setStatus] = useState("loading");
   const [contacting, setContacting] = useState(false);
+  const [blocking, setBlocking] = useState(false);
   const [contactError, setContactError] = useState("");
   const { user, token, logout } = useAuth();
 
@@ -66,7 +67,14 @@ export default function MarketplaceSellerProfile() {
         navigate("/login", { replace: true });
         return;
       }
-      setStatus(error.response?.status === 404 ? "not-found" : "error");
+      const errorCode = error.response?.data?.code;
+      setStatus(
+        errorCode === "CURRENT_USER_BLOCKED_SELLER"
+          ? "blocked-by-me"
+          : errorCode === "SELLER_BLOCKED_CURRENT_USER"
+            ? "blocked-by-them"
+            : error.response?.status === 404 ? "not-found" : "error"
+      );
     });
 
     return () => { cancelled = true; };
@@ -101,6 +109,31 @@ export default function MarketplaceSellerProfile() {
     }
   }
 
+  async function blockSeller() {
+    if (!window.confirm("Block this user? Neither of you will be able to view the other's profile or send messages.")) return;
+    try {
+      setBlocking(true);
+      setContactError("");
+      await axios.post(
+        `http://localhost:3001/api/auth/blocked-users/${seller.id}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setSeller(null);
+      setItems([]);
+      setStatus("blocked-by-me");
+    } catch (error) {
+      if (error.response?.status === 401) {
+        logout();
+        navigate("/login", { replace: true });
+        return;
+      }
+      setContactError(error.response?.data?.message || "Could not block this user.");
+    } finally {
+      setBlocking(false);
+    }
+  }
+
   if (!user || !token) return null;
 
   return (
@@ -123,6 +156,8 @@ export default function MarketplaceSellerProfile() {
 
         {status === "loading" && <section className="seller-profile-state" role="status"><span className="market-loading-spinner" /><h1>Loading seller profile...</h1></section>}
         {status === "not-found" && <section className="seller-profile-state"><i className="fa-regular fa-circle-xmark" /><h1>Seller not found</h1><p>This public seller profile is not available.</p><button type="button" onClick={() => navigate("/marketplace")}>Browse Marketplace</button></section>}
+        {status === "blocked-by-them" && <section className="seller-profile-state seller-profile-blocked"><i className="fa-solid fa-user-slash" /><h1>This account is unavailable</h1><p>You cannot view this account.</p></section>}
+        {status === "blocked-by-me" && <section className="seller-profile-state seller-profile-blocked"><i className="fa-solid fa-user-slash" /><h1>You blocked this account</h1><p>This profile is hidden because you blocked this user.</p><button type="button" onClick={() => navigate("/settings")}>Manage Blocked Users</button></section>}
         {status === "error" && <section className="seller-profile-state"><i className="fa-solid fa-triangle-exclamation" /><h1>We could not load this profile</h1><p>Please try again in a moment.</p></section>}
 
         {status === "ready" && seller && <>
@@ -137,7 +172,10 @@ export default function MarketplaceSellerProfile() {
               {isOwnProfile ? (
                 <button type="button" onClick={() => navigate("/marketplace?view=mine")}><i className="fa-regular fa-rectangle-list" /> Go to My Listings</button>
               ) : (
-                <button type="button" onClick={contactSeller} disabled={contacting}><i className="fa-regular fa-comment-dots" /> {contacting ? "Opening conversation..." : "Contact seller"}</button>
+                <>
+                  <button type="button" onClick={contactSeller} disabled={contacting || blocking}><i className="fa-regular fa-comment-dots" /> {contacting ? "Opening conversation..." : "Contact seller"}</button>
+                  <button className="seller-block-button" type="button" onClick={blockSeller} disabled={contacting || blocking}><i className="fa-solid fa-user-slash" /> {blocking ? "Blocking..." : "Block user"}</button>
+                </>
               )}
               {contactError && <p role="alert">{contactError}</p>}
             </div>

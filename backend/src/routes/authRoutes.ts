@@ -1,7 +1,8 @@
-import { Router } from "express";
+import { Router, type NextFunction, type Request, type Response } from "express";
 import multer from "multer";
 import mongoose from "mongoose";
 import {
+  blockUser,
   changePassword,
   deleteProfileImage,
   deleteVirtualModelImage,
@@ -87,16 +88,25 @@ router.get(
   getBlockedUsers
 );
 
+function validateUserId(req: Request, res: Response, next: NextFunction) {
+  if (!mongoose.isValidObjectId(req.params.userId)) {
+    res.status(400).json({ success: false, message: "Invalid user ID" });
+    return;
+  }
+  next();
+}
+
+router.post(
+  "/blocked-users/:userId",
+  authenticateToken,
+  validateUserId,
+  blockUser
+);
+
 router.delete(
   "/blocked-users/:userId",
   authenticateToken,
-  (req, res, next) => {
-    if (!mongoose.isValidObjectId(req.params.userId)) {
-      res.status(400).json({ success: false, message: "Invalid user ID" });
-      return;
-    }
-    next();
-  },
+  validateUserId,
   unblockUser
 );
 

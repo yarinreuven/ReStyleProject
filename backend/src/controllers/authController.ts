@@ -171,6 +171,37 @@ export async function getBlockedUsers(
   }
 }
 
+export async function blockUser(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const targetUserId = req.params.userId;
+
+    if (String(targetUserId) === String(req.userId)) {
+      res.status(400).json({ success: false, message: "You cannot block yourself" });
+      return;
+    }
+
+    if (!await User.exists({ _id: targetUserId })) {
+      res.status(404).json({ success: false, message: "User not found" });
+      return;
+    }
+
+    await User.findByIdAndUpdate(req.userId, {
+      $addToSet: { blockedUsers: targetUserId }
+    });
+
+    res.json({
+      success: true,
+      message: "User blocked successfully"
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function unblockUser(
   req: AuthRequest,
   res: Response,

@@ -146,12 +146,32 @@ router.get("/mine", async (req: AuthRequest, res, next) => {
 
 router.get("/sellers/:userId", async (req: AuthRequest, res, next) => {
   try {
-    if (!mongoose.isValidObjectId(req.params.userId)) {
+    const sellerUserId = String(req.params.userId);
+
+    if (!mongoose.isValidObjectId(sellerUserId)) {
       res.status(404).json({ success: false, message: "Seller not found" });
       return;
     }
 
-    const seller = await User.findById(req.params.userId)
+    const [currentUserBlockedSeller, sellerBlockedCurrentUser] = await Promise.all([
+      User.exists({ _id: req.userId, blockedUsers: sellerUserId }),
+      User.exists({ _id: sellerUserId, blockedUsers: req.userId })
+    ]);
+
+    if (currentUserBlockedSeller || sellerBlockedCurrentUser) {
+      res.status(403).json({
+        success: false,
+        code: currentUserBlockedSeller
+          ? "CURRENT_USER_BLOCKED_SELLER"
+          : "SELLER_BLOCKED_CURRENT_USER",
+        message: currentUserBlockedSeller
+          ? "You blocked this account"
+          : "This account is unavailable"
+      });
+      return;
+    }
+
+    const seller = await User.findById(sellerUserId)
       .select("firstName lastName profileImage publicBio");
 
     if (!seller) {

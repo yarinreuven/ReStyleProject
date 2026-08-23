@@ -22,6 +22,15 @@ const sendMessageSchema = Joi.object({
   text: Joi.string().trim().min(1).max(1000).required()
 });
 
+async function usersAreBlocked(firstUserId: string, secondUserId: string) {
+  return Boolean(await User.exists({
+    $or: [
+      { _id: firstUserId, blockedUsers: secondUserId },
+      { _id: secondUserId, blockedUsers: firstUserId }
+    ]
+  }));
+}
+
 function imageToDataUrl(image?: { data?: Buffer; contentType?: string } | null) {
   if (!image?.data || !image.contentType) return "";
   return `data:${image.contentType};base64,${image.data.toString("base64")}`;
@@ -122,6 +131,14 @@ router.post("/conversations", async (req: AuthRequest, res, next) => {
     }
     if (String(sellerId) === String(req.userId)) {
       res.status(400).json({ success: false, message: "You cannot contact yourself" });
+      return;
+    }
+    if (await usersAreBlocked(String(req.userId), String(sellerId))) {
+      res.status(403).json({
+        success: false,
+        code: "USER_BLOCKED",
+        message: "Messages are unavailable because of a block between these accounts"
+      });
       return;
     }
 
@@ -242,6 +259,18 @@ router.post("/conversations/:conversationId/messages", async (req: AuthRequest, 
     });
     if (!conversation) {
       res.status(404).json({ success: false, message: "Conversation not found" });
+      return;
+    }
+
+    const otherUserId = conversation.participants.find(
+      (participantId) => String(participantId) !== String(req.userId)
+    );
+    if (!otherUserId || await usersAreBlocked(String(req.userId), String(otherUserId))) {
+      res.status(403).json({
+        success: false,
+        code: "USER_BLOCKED",
+        message: "Messages are unavailable because of a block between these accounts"
+      });
       return;
     }
 
