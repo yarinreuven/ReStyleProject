@@ -89,13 +89,10 @@ export function emitConversationRead(conversationId: string, userId: string) {
 
 export function emitMessageDeleted(
   conversationId: string,
-  messageId: string,
-  deletedAt: Date
+  messageId: string
 ) {
   io?.to(`conversation:${conversationId}`).emit("message:deleted", {
     conversationId,
-    messageId,
-    text: "הודעה זו נמחקה",
-    deletedAt
+    messageId
   });
 }

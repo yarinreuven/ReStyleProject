@@ -8,6 +8,7 @@ import Item from "../models/Item.ts";
 import User from "../models/User.ts";
 import {
   emitConversationRead,
+  emitMessageDeleted,
   emitNewMessage,
   joinParticipantsToConversation
 } from "../services/socketService.ts";
@@ -365,9 +366,7 @@ router.delete(
         res.status(404).json({ success: false, message: "Message not found" });
         return;
       }
-      if (message.hiddenFor.some(
-        (hiddenUserId: any) => String(hiddenUserId) === String(req.userId)
-      )) {
+      if (message.deletedAt) {
         res.status(400).json({ success: false, message: "This message was already deleted" });
         return;
       }
@@ -381,13 +380,18 @@ router.delete(
         return;
       }
 
-      message.hiddenFor.push(new mongoose.Types.ObjectId(req.userId));
+      const deletedMessageId = String(message._id);
+      message.deleteOne();
       await conversation.save();
+      emitMessageDeleted(
+        String(conversation._id),
+        deletedMessageId
+      );
 
       res.json({
         success: true,
         message: {
-          id: message._id
+          id: deletedMessageId
         }
       });
     } catch (error) {

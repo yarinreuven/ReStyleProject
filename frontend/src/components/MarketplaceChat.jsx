@@ -27,20 +27,8 @@ function applyDeletedMessage(conversation, deletedMessage) {
   if (!conversation) return conversation;
   return {
     ...conversation,
-    messages: conversation.messages.map((message) =>
-      String(message.id) === String(deletedMessage.messageId)
-        ? { ...message, text: deletedMessage.text, deletedAt: deletedMessage.deletedAt }
-        : message
-    )
-  };
-}
-
-function removeMessage(conversation, messageId) {
-  if (!conversation) return conversation;
-  return {
-    ...conversation,
     messages: conversation.messages.filter(
-      (message) => String(message.id) !== String(messageId)
+      (message) => String(message.id) !== String(deletedMessage.messageId)
     )
   };
 }
@@ -58,6 +46,8 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
   const [sending, setSending] = useState(false);
   const [deletingConversation, setDeletingConversation] = useState(false);
   const [conversationToDelete, setConversationToDelete] = useState(null);
+  const [deletingMessage, setDeletingMessage] = useState(false);
+  const [messageToDelete, setMessageToDelete] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
@@ -217,23 +207,30 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
     }
   }
 
-  async function deleteMessage(message) {
-    if (!activeConversation || message.deletedAt) return;
+  async function deleteMessage() {
+    if (!activeConversation || !messageToDelete || deletingMessage) return;
     try {
+      setDeletingMessage(true);
       setError("");
       const { data } = await axios.delete(
-        `${API_URL}/conversations/${activeConversation.id}/messages/${message.id}`,
+        `${API_URL}/conversations/${activeConversation.id}/messages/${messageToDelete.id}`,
         requestConfig
       );
-      const deletedMessageId = String(data.message.id);
-      setActiveConversation((current) => removeMessage(current, deletedMessageId));
+      const deletedMessage = {
+        conversationId: activeConversation.id,
+        messageId: String(data.message.id)
+      };
+      setActiveConversation((current) => applyDeletedMessage(current, deletedMessage));
       setConversations((current) => current.map((conversation) =>
         conversation.id === activeConversation.id
-          ? removeMessage(conversation, deletedMessageId)
+          ? applyDeletedMessage(conversation, deletedMessage)
           : conversation
       ));
+      setMessageToDelete(null);
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Could not delete this message.");
+    } finally {
+      setDeletingMessage(false);
     }
   }
 
@@ -299,7 +296,7 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
               {activeConversation.messages.map((message) => {
                 const mine = String(message.senderId) === currentUserId;
                 const canDelete = mine && !message.deletedAt && now - new Date(message.sentAt).getTime() <= 10 * 60 * 1000;
-                return <div key={message.id} className={`market-chat-bubble${mine ? " mine" : ""}${message.deletedAt ? " deleted" : ""}`}><p>{message.text}</p><div className="market-chat-message-meta"><time>{timeLabel(message.sentAt)}</time>{canDelete && <button type="button" onClick={() => deleteMessage(message)} aria-label="Delete message"><i className="fa-regular fa-trash-can" /></button>}</div></div>;
+                return <div key={message.id} className={`market-chat-bubble${mine ? " mine" : ""}${message.deletedAt ? " deleted" : ""}`}><p>{message.text}</p><div className="market-chat-message-meta"><time>{timeLabel(message.sentAt)}</time>{canDelete && <button type="button" onClick={() => setMessageToDelete(message)} aria-label="Delete message"><i className="fa-regular fa-trash-can" /></button>}</div></div>;
               })}
             </div>
             <form onSubmit={sendMessage}><input value={draft} onChange={(event) => setDraft(event.target.value)} maxLength="1000" placeholder="Write a message..." aria-label="Message" /><button type="submit" disabled={!draft.trim() || sending}><i className="fa-solid fa-paper-plane" /></button>{sending && <small>Sending...</small>}</form>
@@ -313,6 +310,17 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
           <div>
             <button type="button" onClick={() => setConversationToDelete(null)} disabled={deletingConversation}>Cancel</button>
             <button type="button" className="confirm" onClick={deleteConversation} disabled={deletingConversation}>{deletingConversation ? "Deleting..." : "Delete"}</button>
+          </div>
+        </section>
+      </div>}
+      {messageToDelete && <div className="market-chat-confirm-backdrop" role="presentation">
+        <section className="market-chat-confirm" role="alertdialog" aria-modal="true" aria-labelledby="deleteMessageTitle">
+          <span><i className="fa-regular fa-trash-can" /></span>
+          <h3 id="deleteMessageTitle">Are you sure you want to delete this message?</h3>
+          <p>This message will be deleted for both you and the other person.</p>
+          <div>
+            <button type="button" onClick={() => setMessageToDelete(null)} disabled={deletingMessage}>Cancel</button>
+            <button type="button" className="confirm" onClick={deleteMessage} disabled={deletingMessage}>{deletingMessage ? "Deleting..." : "Delete"}</button>
           </div>
         </section>
       </div>}
