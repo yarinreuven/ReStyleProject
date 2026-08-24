@@ -7,9 +7,7 @@ import {
   authenticateToken,
   type AuthRequest
 } from "../middleware/auth.ts";
-import { createCatVtonImage } from "../services/catVtonService.ts";
 import { createGeminiTryOnImage } from "../services/geminiTryOnService.ts";
-import { createOpenAiTryOnImage } from "../services/openAiTryOnService.ts";
 
 const router = express.Router();
 const tryOnUpload = multer({
@@ -663,7 +661,6 @@ router.post(
       const top = orderedItems.find((item) => item.category === "Tops");
       const bottom = orderedItems.find((item) => item.category === "Bottoms");
       const dress = orderedItems.find((item) => item.category === "Dresses");
-      const jacket = orderedItems.find((item) => item.category === "Jackets");
 
       if (!dress && (!top || !bottom)) {
         res.status(400).json({
@@ -691,28 +688,6 @@ router.post(
         data: item.image!.data,
         contentType: item.image!.contentType
       }));
-      let openAiFailure = "";
-
-      try {
-        const generated = await createOpenAiTryOnImage(
-          req.file.buffer,
-          req.file.mimetype,
-          tryOnInputs
-        );
-
-        res.json({
-          success: true,
-          renderer: "openai",
-          tryOnImage: `data:${generated.contentType};base64,${generated.data.toString("base64")}`
-        });
-        return;
-      } catch (openAiError) {
-        openAiFailure = openAiError instanceof Error
-          ? openAiError.message
-          : "Unknown OpenAI image error";
-        console.error("OpenAI try-on error; falling back to Gemini:", openAiError);
-      }
-
       try {
         const generated = await createGeminiTryOnImage(
           req.file.buffer,
@@ -727,82 +702,19 @@ router.post(
         });
         return;
       } catch (geminiError) {
-        console.error("Gemini try-on error; falling back to CatVTON:", geminiError);
-      }
-
-      const fullLookExtras = orderedItems.filter((item) =>
-        ["Shoes", "Bags", "Accessories"].includes(item.category)
-      );
-
-      if (fullLookExtras.length > 0) {
-        const needsOpenAiBilling = /billing|quota|credit|limit/i.test(openAiFailure);
-
+        console.error("Gemini try-on error:", geminiError);
         res.status(502).json({
           success: false,
-          message: needsOpenAiBilling
-            ? "The full outfit renderer needs available OpenAI API billing or credits to dress the avatar in the selected clothes, shoes and bag."
-            : "The full outfit renderer is unavailable right now. A partial image without the selected shoes or bag will not be shown."
-        });
-        return;
-      }
-
-      const garments = dress
-        ? [
-            { item: dress, type: "overall" as const },
-            ...(jacket ? [{ item: jacket, type: "upper" as const }] : [])
-          ]
-        : [
-            { item: bottom!, type: "lower" as const },
-            { item: top!, type: "upper" as const },
-            ...(jacket ? [{ item: jacket, type: "upper" as const }] : [])
-          ];
-
-      let currentImage = req.file.buffer;
-      let currentContentType = req.file.mimetype;
-
-      try {
-        for (const garment of garments) {
-          const result = await createCatVtonImage(
-            currentImage,
-            garment.item.image!.data,
-            garment.type
-          );
-
-          currentImage = result.data;
-          currentContentType = result.contentType;
-        }
-
-        res.json({
-          success: true,
-          renderer: "catvton-fallback",
-          tryOnImage: `data:${currentContentType};base64,${currentImage.toString("base64")}`
-        });
-        return;
-      } catch (catVtonError) {
-        console.error("CatVTON try-on error:", catVtonError);
-        const needsOpenAiBilling = /billing|quota|credit|limit/i.test(openAiFailure);
-
-        res.status(502).json({
-          success: false,
-          message: needsOpenAiBilling
-            ? "Virtual try-on needs available OpenAI API billing or credits. The other fitting services are currently at their quota."
-            : "The virtual try-on services could not create the fitted image right now. Please try again shortly."
+          message: "The virtual try-on service could not create the fitted image right now. Please try again shortly."
         });
         return;
       }
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "";
-
-      console.error(
-        "CatVTON error:",
-        errorMessage || error
-      );
+      console.error("Virtual try-on error:", error);
 
       res.status(502).json({
         success: false,
-        message: errorMessage.includes("NSFW safety placeholder")
-          ? "The virtual fitting service incorrectly blocked this image. Please try again with the safe illustrated model or a clear, fully clothed photo."
-          : "The free virtual try-on is busy or its daily quota has ended. Please try again later."
+        message: "The virtual try-on service could not create the fitted image right now. Please try again shortly."
       });
     }
   }
