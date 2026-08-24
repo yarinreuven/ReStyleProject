@@ -16,15 +16,22 @@ import {
   authenticateToken,
   type AuthRequest
 } from "../middleware/auth.ts";
+import { createUserRateLimit } from "../middleware/userRateLimit.ts";
 import {
   createGeminiTryOnImage,
-  validateGeminiTryOnImage
+  GeminiTryOnServiceError
 } from "../services/geminiTryOnService.ts";
+import {
+  normalizeAnalyzedWardrobeItem,
+  normalizeGeminiCategory,
+  type AnalyzedWardrobeItem
+} from "../services/geminiStylistValidationService.ts";
 import {
   createBalancedWardrobeShortlist,
   DETECTED_CATEGORIES,
   isDetectedCategory,
   normalizeProjectCategory,
+  outfitCohesionValidationError,
   selectedOutfitValidationError,
   type DetectedCategory,
   type SelectedOutfitItem,
@@ -32,10 +39,10 @@ import {
 } from "../services/outfitSelectionService.ts";
 import {
   hasForbiddenTryOnOverrides,
+  generatedImageAcceptedForUserReview,
   existingTryOnAction,
   isApprovedAvatarId,
   orderTryOnItems,
-  qualityValidationError,
   resourceOwnershipError,
   uploadedAvatarValidationError,
   validateTryOnComposition,
@@ -46,6 +53,7 @@ import {
   buildTryOnRequestKey,
   finalizeTryOnQuota,
   getTryOnQuotaStatus,
+  isTryOnQuotaBypassEnabled,
   refundTryOnReservation,
   reserveTryOnQuota,
   TRY_ON_LIMIT_CODE,
@@ -56,6 +64,18 @@ import {
 } from "../services/tryOnQuotaService.ts";
 
 const router = express.Router();
+const generateRateLimit = createUserRateLimit({
+  maxRequests: 5,
+  windowMs: 10 * 60 * 1000,
+  code: "OUTFIT_GENERATE_RATE_LIMITED",
+  message: "You are creating looks too quickly. Please wait a few minutes and try again."
+});
+const tryOnRateLimit = createUserRateLimit({
+  maxRequests: 3,
+  windowMs: 10 * 60 * 1000,
+  code: "TRY_ON_RATE_LIMITED",
+  message: "You are creating virtual try-ons too quickly. Please wait a few minutes and try again."
+});
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const APPROVED_AVATARS = {
   "female-illustrated": path.join(
@@ -104,16 +124,95 @@ interface GeminiResponse {
     };
   }>;
   error?: {
+    code?: number;
     message?: string;
+    status?: string;
   };
 }
 
 const GEMINI_STYLIST_MODEL = "gemini-3.1-flash-lite";
+const GEMINI_STYLIST_MAX_ITEMS = 14;
+const GEMINI_STYLIST_IMAGE_EDGE = 640;
+const GEMINI_STYLIST_JPEG_QUALITY = 65;
+const GEMINI_STYLIST_MAX_REQUEST_BYTES = 18 * 1024 * 1024;
+const GEMINI_STYLIST_RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    title: { type: "STRING" },
+    explanation: { type: "STRING" },
+    analyzedItems: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          itemId: { type: "STRING" },
+          isValid: { type: "BOOLEAN" },
+          detectedCategory: {
+            type: "STRING",
+            enum: [...DETECTED_CATEGORIES, "None"]
+          },
+          eventSuitable: { type: "BOOLEAN" },
+          styleSuitable: { type: "BOOLEAN" },
+          weatherSuitable: { type: "BOOLEAN" }
+        },
+        required: [
+          "itemId", "isValid", "detectedCategory", "eventSuitable",
+          "styleSuitable", "weatherSuitable"
+        ]
+      }
+    },
+    selectedItems: {
+      type: "ARRAY",
+      items: {
+        type: "OBJECT",
+        properties: {
+          itemId: { type: "STRING" },
+          detectedCategory: { type: "STRING", enum: [...DETECTED_CATEGORIES] },
+          reason: { type: "STRING" }
+        },
+        required: ["itemId", "detectedCategory", "reason"]
+      }
+    },
+    cohesion: {
+      type: "OBJECT",
+      properties: {
+        colorsCoordinate: { type: "BOOLEAN" },
+        formalityCoordinates: { type: "BOOLEAN" },
+        silhouettesCoordinate: { type: "BOOLEAN" },
+        occasionCoordinates: { type: "BOOLEAN" },
+        reason: { type: "STRING" }
+      },
+      required: [
+        "colorsCoordinate", "formalityCoordinates", "silhouettesCoordinate",
+        "occasionCoordinates", "reason"
+      ]
+    },
+    stylingTips: { type: "ARRAY", items: { type: "STRING" } }
+  },
+  required: [
+    "title", "explanation", "analyzedItems", "selectedItems", "cohesion", "stylingTips"
+  ]
+} as const;
+
+function isNoCostAiMockMode() {
+  return process.env.NODE_ENV !== "production" && process.env.RESTYLE_AI_MOCK_MODE === "1";
+}
+
+function isLocalTryOnQuotaBypass() {
+  return isTryOnQuotaBypassEnabled(
+    process.env.NODE_ENV,
+    process.env.RESTYLE_DISABLE_TRYON_QUOTA
+  );
+}
 
 async function requestGeminiStylist(
   apiKey: string,
   requestBody: object
 ): Promise<{ response: Response; data: GeminiResponse; model: string }> {
+  const serializedBody = JSON.stringify(requestBody);
+  if (Buffer.byteLength(serializedBody, "utf8") > GEMINI_STYLIST_MAX_REQUEST_BYTES) {
+    throw new Error("GEMINI_STYLIST_PAYLOAD_TOO_LARGE");
+  }
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_STYLIST_MODEL}:generateContent`,
     {
@@ -122,7 +221,7 @@ async function requestGeminiStylist(
         "x-goog-api-key": apiKey,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(requestBody),
+      body: serializedBody,
       signal: AbortSignal.timeout(90 * 1000)
     }
   );
@@ -135,50 +234,14 @@ interface OutfitSuggestion {
   explanation: string;
   analyzedItems: AnalyzedWardrobeItem[];
   selectedItems: SelectedOutfitItem[];
+  cohesion: {
+    colorsCoordinate: boolean;
+    formalityCoordinates: boolean;
+    silhouettesCoordinate: boolean;
+    occasionCoordinates: boolean;
+    reason: string;
+  };
   stylingTips: string[];
-}
-
-interface AnalyzedWardrobeItem {
-  itemId: string;
-  isValid: boolean;
-  detectedCategory: DetectedCategory | "None";
-  colorFamily: string;
-  visualStyle: string;
-  seasonSuitability: string[];
-  formality: number;
-  silhouette: string;
-  eventSuitable: boolean;
-  styleSuitable: boolean;
-  weatherSuitable: boolean;
-}
-
-const VALID_SEASONS = new Set([
-  "Summer", "Winter", "Spring", "Fall", "All Season"
-]);
-
-function isValidAnalyzedWardrobeItem(
-  value: unknown,
-  candidateIds: Set<string>
-): value is AnalyzedWardrobeItem {
-  if (!value || typeof value !== "object") return false;
-  const analysis = value as AnalyzedWardrobeItem;
-  const categoryIsValid = analysis.detectedCategory === "None" ||
-    isDetectedCategory(analysis.detectedCategory);
-
-  return Boolean(
-    typeof analysis.itemId === "string" &&
-    candidateIds.has(analysis.itemId) && typeof analysis.isValid === "boolean" &&
-    categoryIsValid && analysis.isValid === (analysis.detectedCategory !== "None") &&
-    typeof analysis.colorFamily === "string" &&
-    typeof analysis.visualStyle === "string" &&
-    Array.isArray(analysis.seasonSuitability) &&
-    analysis.seasonSuitability.every((season) => VALID_SEASONS.has(season)) &&
-    Number.isInteger(analysis.formality) && analysis.formality >= 1 && analysis.formality <= 5 &&
-    typeof analysis.silhouette === "string" &&
-    typeof analysis.eventSuitable === "boolean" &&
-    typeof analysis.styleSuitable === "boolean" &&
-    typeof analysis.weatherSuitable === "boolean"
-  );
 }
 
 function isSafeStylistText(value: unknown) {
@@ -291,6 +354,7 @@ function tryOnSuccessResponse(input: {
 
 router.post(
   "/generate",
+  generateRateLimit,
   async (req: AuthRequest, res, next) => {
     try {
       if (!req.userId || !mongoose.isValidObjectId(req.userId)) {
@@ -349,6 +413,68 @@ router.post(
         return;
       }
 
+      if (isNoCostAiMockMode()) {
+        const byCategory = new Map<string, typeof imageItems[number]>();
+        for (const item of imageItems) {
+          const detectedCategory = normalizeProjectCategory(item.category);
+          if (detectedCategory && !byCategory.has(detectedCategory)) {
+            byCategory.set(detectedCategory, item);
+          }
+        }
+        const baseCategories = byCategory.has("Dress")
+          ? ["Dress"]
+          : byCategory.has("Top") && byCategory.has("Bottom")
+            ? ["Top", "Bottom"]
+            : [];
+        if (baseCategories.length === 0) {
+          res.status(422).json({
+            success: false,
+            message: "Your wardrobe needs a dress, or both a top and a bottom, for the no-cost test."
+          });
+          return;
+        }
+        const selectedCategories = [
+          ...baseCategories,
+          ...["Jacket", "Shoes", "Bag", "Accessory"].filter((category) => byCategory.has(category))
+        ];
+        const mockItems = selectedCategories.map((detectedCategory) => ({
+          item: byCategory.get(detectedCategory)!,
+          detectedCategory: detectedCategory as DetectedCategory
+        }));
+        const savedSelection = await OutfitSelection.create({
+          user: req.userId,
+          title: "No-cost test look",
+          explanation: "This deterministic look was assembled locally without calling Gemini.",
+          stylingTips: ["This is a local flow test; no AI credits were used."],
+          items: mockItems.map(({ item, detectedCategory }) => ({
+            item: item._id,
+            detectedCategory,
+            reason: "Selected locally for the no-cost end-to-end test"
+          }))
+        });
+        res.json({
+          success: true,
+          mockMode: true,
+          selectionId: savedSelection._id,
+          outfit: {
+            selectionId: savedSelection._id,
+            title: savedSelection.title,
+            explanation: savedSelection.explanation,
+            stylingTips: savedSelection.stylingTips,
+            items: mockItems.map(({ item, detectedCategory }) => ({
+              _id: item._id,
+              name: item.name,
+              category: item.category,
+              detectedCategory,
+              selectionReason: "Selected locally for the no-cost end-to-end test",
+              color: item.color,
+              image: `data:${item.image.contentType};base64,${item.image.data.toString("base64")}`
+            }))
+          }
+        });
+        return;
+      }
+
       const shortlistedItems = createBalancedWardrobeShortlist(
         imageItems.map((item) => ({
           item,
@@ -358,7 +484,7 @@ router.post(
           wearCount: item.wearCount,
           lastWornAt: item.lastWornAt
         })),
-        30
+        GEMINI_STYLIST_MAX_ITEMS
       );
       const candidateIds = new Set(shortlistedItems.map(({ id }) => id));
       const wardrobe = shortlistedItems.map(({ item, id }) => ({
@@ -383,7 +509,7 @@ router.post(
         "You are ReStyle, a personal fashion stylist.",
         "First inspect every attached image yourself.",
         "Return exactly one analyzedItems entry for every attached item ID. Mark isValid false and detectedCategory None for rejected images.",
-        "For each valid image report its visually detected category, dominant color family, visual style, suitable seasons, formality from 1 (very casual) to 5 (formal), silhouette or volume, and separate booleans for whether it is truly suitable for the requested event, requested style and requested weather.",
+        "For each image return only its visually detected category and separate booleans for whether it is truly suitable for the requested event, requested style and requested weather.",
         "Accept a valid item image when it shows either one clear product by itself or one person clearly wearing the intended product. When worn, the intended product must remain unambiguous and its color, cut, shape and design must be reliably visible.",
         "Normal accompanying clothes on one person are allowed only when the intended product and its category are visually clear. Reject closet scenes, clothing racks, piles, collages, screenshots, groups of people, full-outfit photos where no single intended product is clear, and images where the intended product is distant, blurred, hidden, heavily cropped or too small.",
         "Create one cohesive outfit using ONLY valid item IDs whose attached images clearly show real wearable items.",
@@ -402,6 +528,8 @@ router.post(
         "For Work choose polished, professional and practical pieces. For Party choose festive, expressive evening-appropriate pieces. For Formal choose refined dressy pieces. For Date choose stylish occasion-appropriate pieces. For Casual choose relaxed everyday pieces. For a custom event infer its real dress code from the user's description.",
         "After satisfying the event, match the requested style and weather, then coordinate categories, colors and season.",
         "Coordinate silhouettes and volumes, match shoes to the base, match the bag to the shoes and overall look, and keep the accessory restrained.",
+        "Before returning the outfit, evaluate the selected pieces together as one complete look. All selected colors, formality levels, silhouettes and the requested occasion must coordinate; individual suitability is not enough.",
+        "Set every cohesion boolean to true only when the complete outfit genuinely works together. If any cohesion check would be false, revise the selection. If no cohesive selection exists, return an empty selectedItems array and explain why.",
         "Use wearCount and lastWornAt for variety only after suitability and harmony; never choose an unsuitable item merely because it was worn less recently.",
         "Do not select a piece merely because it exists. If the wardrobe has no complete outfit that fits the event, return an empty selectedItems array.",
         "Prefer favorites only when the request says preferFavorites is true.",
@@ -409,14 +537,20 @@ router.post(
         "Every styling tip must refer only to a selected or available valid wardrobe item. Do not suggest buying or adding anything.",
         "If no attached image shows a valid wardrobe item, return an empty selectedItems array.",
         "Keep the explanation concise and encouraging.",
+        "Return one JSON object matching the provided response schema. The cohesion reason must briefly explain why the selected pieces work together. Keep stylingTips to between one and three short strings.",
         JSON.stringify({ request: value, wardrobe })
       ].join("\n");
 
       const imageParts = (await Promise.all(shortlistedItems.map(async ({ item, id }) => {
         const inspectionImage = await sharp(item.image.data)
           .rotate()
-          .resize({ width: 896, height: 896, fit: "inside", withoutEnlargement: true })
-          .jpeg({ quality: 80, mozjpeg: true })
+          .resize({
+            width: GEMINI_STYLIST_IMAGE_EDGE,
+            height: GEMINI_STYLIST_IMAGE_EDGE,
+            fit: "inside",
+            withoutEnlargement: true
+          })
+          .jpeg({ quality: GEMINI_STYLIST_JPEG_QUALITY, mozjpeg: true })
           .toBuffer();
 
         return [
@@ -447,69 +581,20 @@ router.post(
           ],
           generationConfig: {
             responseMimeType: "application/json",
-            responseSchema: {
-              type: "OBJECT",
-              properties: {
-                title: { type: "STRING" },
-                explanation: { type: "STRING" },
-                analyzedItems: {
-                  type: "ARRAY",
-                  minItems: 1,
-                  maxItems: 30,
-                  items: {
-                    type: "OBJECT",
-                    properties: {
-                      itemId: { type: "STRING" },
-                      isValid: { type: "BOOLEAN" },
-                      detectedCategory: { type: "STRING", enum: [...DETECTED_CATEGORIES, "None"] },
-                      colorFamily: { type: "STRING" },
-                      visualStyle: { type: "STRING" },
-                      seasonSuitability: { type: "ARRAY", items: { type: "STRING", enum: ["Summer", "Winter", "Spring", "Fall", "All Season"] } },
-                      formality: { type: "INTEGER", minimum: 1, maximum: 5 },
-                      silhouette: { type: "STRING" },
-                      eventSuitable: { type: "BOOLEAN" },
-                      styleSuitable: { type: "BOOLEAN" },
-                      weatherSuitable: { type: "BOOLEAN" }
-                    },
-                    required: ["itemId", "isValid", "detectedCategory", "colorFamily", "visualStyle", "seasonSuitability", "formality", "silhouette", "eventSuitable", "styleSuitable", "weatherSuitable"]
-                  }
-                },
-                selectedItems: {
-                  type: "ARRAY",
-                  minItems: 0,
-                  maxItems: 7,
-                  items: {
-                    type: "OBJECT",
-                    properties: {
-                      itemId: { type: "STRING" },
-                      detectedCategory: {
-                        type: "STRING",
-                        enum: DETECTED_CATEGORIES
-                      },
-                      reason: { type: "STRING" }
-                    },
-                    required: ["itemId", "detectedCategory", "reason"]
-                  }
-                },
-                stylingTips: {
-                  type: "ARRAY",
-                  items: { type: "STRING" },
-                  minItems: 1,
-                  maxItems: 3
-                }
-              },
-              required: [
-                "title",
-                "explanation",
-                "analyzedItems",
-                "selectedItems",
-                "stylingTips"
-              ]
-            }
+            responseSchema: GEMINI_STYLIST_RESPONSE_SCHEMA
           }
         });
       } catch (geminiError) {
-        console.error("Gemini wardrobe inspection request failed:", geminiError);
+        if (geminiError instanceof Error &&
+          geminiError.message === "GEMINI_STYLIST_PAYLOAD_TOO_LARGE") {
+          res.status(413).json({
+            success: false,
+            code: "GEMINI_STYLIST_PAYLOAD_TOO_LARGE",
+            message: "The wardrobe request is still too large after safe image optimization."
+          });
+          return;
+        }
+        console.error("Gemini wardrobe inspection request failed");
         res.status(503).json({
           success: false,
           message: "The wardrobe image inspection took too long or is temporarily unavailable. Please try again."
@@ -520,18 +605,28 @@ router.post(
       const { response: aiResponse, data: aiData, model: usedModel } = geminiResult;
 
       if (!aiResponse.ok) {
-        console.error(
-          `Gemini API error from ${GEMINI_STYLIST_MODEL}:`,
-          aiData.error?.message
-        );
+        console.error("Gemini stylist request failed", {
+          model: GEMINI_STYLIST_MODEL,
+          httpStatus: aiResponse.status,
+          providerCode: aiData.error?.code,
+          providerStatus: aiData.error?.status
+        });
       } else {
         console.info(`Gemini stylist completed with ${usedModel}`);
       }
 
       if (!aiResponse.ok) {
+        const message = aiResponse.status === 429
+          ? "The AI styling allowance is temporarily busy or exhausted. Please check your Gemini quota and try again later."
+          : aiResponse.status === 401 || aiResponse.status === 403
+            ? "Gemini access was rejected. Check that the Gemini API is enabled and that this API key is allowed to use it."
+            : aiResponse.status === 400 || aiResponse.status === 413
+              ? "The wardrobe image request was too large or was rejected by Gemini. Try with fewer or smaller wardrobe images."
+              : "The wardrobe images could not be inspected right now. Please try again shortly.";
         res.status(503).json({
           success: false,
-          message: "The wardrobe images could not be inspected right now. Please try again shortly."
+          code: "GEMINI_STYLIST_REQUEST_FAILED",
+          message
         });
         return;
       }
@@ -550,7 +645,7 @@ router.post(
       try {
         aiSuggestion = JSON.parse(outputText) as OutfitSuggestion;
       } catch (parseError) {
-        console.error("Gemini wardrobe inspection returned invalid JSON:", parseError);
+        console.error("Gemini wardrobe inspection returned invalid JSON");
         res.status(502).json({
           success: false,
           message: "The wardrobe inspection returned an incomplete result. Please try again."
@@ -563,6 +658,12 @@ router.post(
         !Array.isArray(aiSuggestion.stylingTips) ||
         aiSuggestion.stylingTips.length < 1 || aiSuggestion.stylingTips.length > 3 ||
         aiSuggestion.stylingTips.some((tip) => !isSafeStylistText(tip)) ||
+        !aiSuggestion.cohesion ||
+        typeof aiSuggestion.cohesion.colorsCoordinate !== "boolean" ||
+        typeof aiSuggestion.cohesion.formalityCoordinates !== "boolean" ||
+        typeof aiSuggestion.cohesion.silhouettesCoordinate !== "boolean" ||
+        typeof aiSuggestion.cohesion.occasionCoordinates !== "boolean" ||
+        !isSafeStylistText(aiSuggestion.cohesion.reason) ||
         !Array.isArray(aiSuggestion.analyzedItems) ||
         aiSuggestion.analyzedItems.length !== shortlistedItems.length ||
         !Array.isArray(aiSuggestion.selectedItems)) {
@@ -577,14 +678,16 @@ router.post(
       const analysisById = new Map<string, AnalyzedWardrobeItem>();
       let invalidAnalysis = false;
 
-      for (const analysis of aiSuggestion.analyzedItems) {
-        if (!isValidAnalyzedWardrobeItem(analysis, candidateIds) ||
-          analyzedIds.has(analysis.itemId)) {
+      const normalizedAnalyses: AnalyzedWardrobeItem[] = [];
+      for (const rawAnalysis of aiSuggestion.analyzedItems) {
+        const analysis = normalizeAnalyzedWardrobeItem(rawAnalysis, candidateIds);
+        if (!analysis || analyzedIds.has(analysis.itemId)) {
           invalidAnalysis = true;
           break;
         }
         analyzedIds.add(analysis.itemId);
         analysisById.set(analysis.itemId, analysis);
+        normalizedAnalyses.push(analysis);
       }
 
       if (invalidAnalysis || analyzedIds.size !== shortlistedItems.length ||
@@ -592,6 +695,32 @@ router.post(
         res.status(502).json({
           success: false,
           message: "The wardrobe image inspection was incomplete. Please try again."
+        });
+        return;
+      }
+
+      aiSuggestion.analyzedItems = normalizedAnalyses;
+
+      const normalizedSelections = aiSuggestion.selectedItems.map((selection) => {
+        const detectedCategory = normalizeGeminiCategory(selection?.detectedCategory);
+        return detectedCategory && detectedCategory !== "None"
+          ? { ...selection, detectedCategory }
+          : null;
+      });
+      if (normalizedSelections.some((selection) => !selection)) {
+        res.status(502).json({
+          success: false,
+          message: "The wardrobe inspection returned an invalid outfit selection. Please try again."
+        });
+        return;
+      }
+      aiSuggestion.selectedItems = normalizedSelections as SelectedOutfitItem[];
+
+      if (aiSuggestion.selectedItems.length > 0 &&
+        outfitCohesionValidationError(aiSuggestion.cohesion)) {
+        res.status(422).json({
+          success: false,
+          message: outfitCohesionValidationError(aiSuggestion.cohesion)
         });
         return;
       }
@@ -657,7 +786,7 @@ router.post(
       );
 
       if (validationError || selectedIds.some((id) => !verifiedItemsById.has(id))) {
-        console.warn(`Gemini outfit selection rejected: ${validationError || "ownership verification failed"}`);
+        console.warn("Gemini outfit selection was rejected by server validation");
         res.status(422).json({
           success: false,
           message: "The AI stylist could not create a valid complete look from your wardrobe. Please adjust your request and try again."
@@ -731,6 +860,7 @@ router.get("/try-on/status", async (req: AuthRequest, res, next) => {
 
 router.post(
   "/try-on",
+  tryOnRateLimit,
   tryOnUpload.single("modelImage"),
   async (req: AuthRequest, res, next) => {
     try {
@@ -756,7 +886,7 @@ router.post(
         return;
       }
       if (selection.user.toString() !== req.userId) {
-        res.status(403).json({ success: false, message: "You cannot use another user's outfit" });
+        res.status(403).json({ success: false, message: "You cannot use this saved outfit" });
         return;
       }
       const selectionItems: TryOnItemDescriptor[] = [];
@@ -856,10 +986,24 @@ router.post(
         detectedCategory: entry.detectedCategory,
         name: itemsById.get(entry.itemId)!.name
       }));
+      if (isNoCostAiMockMode()) {
+        const quota = await getTryOnQuotaStatus(req.userId);
+        if (!quota) throw new Error("TRY_ON_QUOTA_STATUS_NOT_FOUND");
+        res.json(tryOnSuccessResponse({
+          selectionId: selection._id,
+          imageData: avatar.data,
+          contentType: avatar.contentType,
+          items: responseItems,
+          quota,
+          cached: false
+        }));
+        return;
+      }
       let existing = await TryOnResult.findOne({ requestKey });
       if (existing?.status === "succeeded" && existing.image?.data && existing.image.contentType) {
         let quota = await getTryOnQuotaStatus(req.userId);
-        if (!existing.quotaCommitted && existing.reservationToken && existing.reservationType) {
+        if (!isLocalTryOnQuotaBypass() && !existing.quotaCommitted &&
+          existing.reservationToken && existing.reservationType) {
           quota = await finalizeTryOnQuota(
             req.userId,
             existing.reservationToken,
@@ -900,7 +1044,7 @@ router.post(
         const stale = await TryOnResult.findOneAndUpdate(
           { _id: existing._id, status: "pending", attemptId: existing.attemptId },
           { $set: { status: "failed", failureCode: "STALE_RESERVATION" } },
-          { new: true }
+          { returnDocument: "after" }
         );
         if (stale?.reservationToken) {
           await refundTryOnReservation(req.userId, stale.reservationToken);
@@ -910,7 +1054,9 @@ router.post(
 
       const reservationToken = randomUUID();
       const attemptId = randomUUID();
-      const reservation = await reserveTryOnQuota(req.userId, reservationToken);
+      const reservation = isLocalTryOnQuotaBypass()
+        ? { type: "free" as ReservationType, status: await getTryOnQuotaStatus(req.userId) }
+        : await reserveTryOnQuota(req.userId, reservationToken);
       if (!reservation) {
         res.status(403).json({
           success: false,
@@ -936,7 +1082,7 @@ router.post(
                 avatarIdentity: avatar.identity
               }
             },
-            { new: true }
+            { returnDocument: "after" }
           );
           if (!claimed) throw new Error("TRY_ON_REQUEST_ALREADY_CLAIMED");
         } else {
@@ -957,7 +1103,8 @@ router.post(
         const raced = await TryOnResult.findOne({ requestKey });
         if (raced?.status === "succeeded" && raced.image?.data && raced.image.contentType) {
           let quota = await getTryOnQuotaStatus(req.userId);
-          if (!raced.quotaCommitted && raced.reservationToken && raced.reservationType) {
+          if (!isLocalTryOnQuotaBypass() && !raced.quotaCommitted &&
+            raced.reservationToken && raced.reservationType) {
             quota = await finalizeTryOnQuota(
               req.userId,
               raced.reservationToken,
@@ -994,26 +1141,8 @@ router.post(
           avatar.contentType,
           tryOnInputs
         );
-        const quality = await validateGeminiTryOnImage(
-          generated.data,
-          generated.contentType,
-          avatar.data,
-          avatar.contentType,
-          tryOnInputs
-        );
-        const qualityError = qualityValidationError(quality, orderedSelectionItems);
-        if (qualityError) {
-          await TryOnResult.updateOne(
-            { requestKey, attemptId, status: "pending" },
-            { $set: { status: "failed", failureCode: "QUALITY_VALIDATION_FAILED" } }
-          );
-          await refundTryOnReservation(req.userId, reservationToken);
-          res.status(502).json({
-            success: false,
-            message: "The generated try-on was incomplete. Please try again later."
-          });
-          return;
-        }
+        console.info(`Gemini try-on image completed with ${generated.model}`);
+        const quality = generatedImageAcceptedForUserReview(orderedSelectionItems);
         if (generated.data.length > 10 * 1024 * 1024) {
           throw new Error("TRY_ON_IMAGE_TOO_LARGE");
         }
@@ -1032,15 +1161,18 @@ router.post(
               failureCode: null
             }
           },
-          { new: true }
+          { returnDocument: "after" }
         );
         if (!saved) throw new Error("TRY_ON_RESULT_SAVE_CONFLICT");
-        const quota = await finalizeTryOnQuota(
-          req.userId,
-          reservationToken,
-          reservation.type,
-          requestKey
-        );
+        const quota = isLocalTryOnQuotaBypass()
+          ? await getTryOnQuotaStatus(req.userId)
+          : await finalizeTryOnQuota(
+              req.userId,
+              reservationToken,
+              reservation.type,
+              requestKey
+            );
+        if (!quota) throw new Error("TRY_ON_QUOTA_STATUS_NOT_FOUND");
         await TryOnResult.updateOne(
           { _id: saved._id, quotaCommitted: false },
           { $set: { quotaCommitted: true } }
@@ -1058,10 +1190,22 @@ router.post(
         const failed = await TryOnResult.findOneAndUpdate(
           { requestKey, attemptId, status: "pending" },
           { $set: { status: "failed", failureCode: "GENERATION_FAILED" } },
-          { new: true }
+          { returnDocument: "after" }
         );
         if (failed) await refundTryOnReservation(req.userId, reservationToken);
-        console.error("Gemini try-on error:", geminiError);
+        console.error("Gemini try-on request failed", geminiError instanceof GeminiTryOnServiceError
+          ? {
+              stage: geminiError.stage,
+              code: geminiError.code,
+              httpStatus: geminiError.httpStatus,
+              providerStatus: geminiError.providerStatus
+            }
+          : {
+              stage: "unknown",
+              code: geminiError instanceof Error && geminiError.name === "TimeoutError"
+                ? "TIMEOUT"
+                : "UNEXPECTED_ERROR"
+            });
         res.status(502).json({
           success: false,
           message: "The virtual try-on service could not create the fitted image right now. Please try again shortly."

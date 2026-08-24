@@ -38,10 +38,8 @@ export default function OutfitBuilder() {
   const navigate = useNavigate();
   const { user, token, logout } = useAuth();
   const modelFileInputRef = useRef(null);
-  const tryOnButtonRef = useRef(null);
   const modalCloseButtonRef = useRef(null);
   const planModalRef = useRef(null);
-  const retryTimerRef = useRef(null);
   const defaultAvatarUrl = getDefaultAvatarUrl(user);
   const [eventType, setEventType] = useState("Work");
   const [customEvent, setCustomEvent] = useState("");
@@ -61,7 +59,6 @@ export default function OutfitBuilder() {
   const [tryOnImage, setTryOnImage] = useState("");
   const [tryOnItems, setTryOnItems] = useState([]);
   const [tryOnError, setTryOnError] = useState("");
-  const [isRetryBlocked, setIsRetryBlocked] = useState(false);
   const [quota, setQuota] = useState(null);
   const [isQuotaLoading, setIsQuotaLoading] = useState(false);
   const [quotaError, setQuotaError] = useState("");
@@ -70,13 +67,19 @@ export default function OutfitBuilder() {
   const userId = user?.id || user?._id;
   const sessionKey = userId ? `restyle:outfit-builder:${userId}` : "";
 
-  function persistBuilderState(nextOutfit, nextSelectionId, nextModelChoice = modelChoice) {
+  function persistBuilderState(
+    nextOutfit,
+    nextSelectionId,
+    nextModelChoice = modelChoice,
+    nextTryOnImage = ""
+  ) {
     if (!sessionKey) return;
     try {
       sessionStorage.setItem(sessionKey, JSON.stringify({
         selectionId: nextSelectionId,
         outfit: nextOutfit,
-        modelChoice: nextModelChoice
+        modelChoice: nextModelChoice,
+        tryOnImage: nextTryOnImage
       }));
     } catch {
       // The current screen still works if browser storage is unavailable or full.
@@ -115,9 +118,10 @@ export default function OutfitBuilder() {
     if (!sessionKey) return;
     try {
       const saved = JSON.parse(sessionStorage.getItem(sessionKey));
-      if (saved?.selectionId && saved?.outfit?.items?.length) {
+      if (saved?.selectionId && saved?.outfit?.items?.length && saved?.tryOnImage) {
         setSelectionId(saved.selectionId);
         setOutfit(saved.outfit);
+        setTryOnImage(saved.tryOnImage);
         setModelChoice(saved.modelChoice === "personal" ? "personal" : "illustrated");
         setIsPreview(true);
       }
@@ -132,7 +136,6 @@ export default function OutfitBuilder() {
 
   useEffect(() => {
     if (!isPlansOpen) return undefined;
-    const opener = tryOnButtonRef.current;
     modalCloseButtonRef.current?.focus();
     const closeOnEscape = (event) => {
       if (event.key === "Escape") setIsPlansOpen(false);
@@ -153,11 +156,8 @@ export default function OutfitBuilder() {
     document.addEventListener("keydown", closeOnEscape);
     return () => {
       document.removeEventListener("keydown", closeOnEscape);
-      opener?.focus();
     };
   }, [isPlansOpen]);
-
-  useEffect(() => () => window.clearTimeout(retryTimerRef.current), []);
 
   useEffect(() => {
     let objectUrl = "";
@@ -260,6 +260,15 @@ export default function OutfitBuilder() {
       window.alert("Please describe your event.");
       return;
     }
+    if (!quota) {
+      setAiError(quotaError || "Your try-on allowance is still loading. Please wait a moment.");
+      return;
+    }
+    if (quota.freeTryOnsRemaining === 0 && quota.tryOnCredits === 0) {
+      setPlansMessage("");
+      setIsPlansOpen(true);
+      return;
+    }
 
     try {
       setIsCreating(true);
@@ -291,6 +300,7 @@ export default function OutfitBuilder() {
       setTryOnError("");
       setIsPreview(true);
       persistBuilderState(data.outfit, nextSelectionId);
+      await createVirtualTryOn(nextSelectionId, data.outfit);
     } catch (error) {
       if (error.response?.status === 401) {
         logout();
@@ -307,8 +317,11 @@ export default function OutfitBuilder() {
     }
   }
 
-  async function createVirtualTryOn() {
-    if (!selectionId || !outfit?.items?.length || isTryingOn || isRetryBlocked) {
+  async function createVirtualTryOn(
+    requestedSelectionId = selectionId,
+    requestedOutfit = outfit
+  ) {
+    if (!requestedSelectionId || !requestedOutfit?.items?.length || isTryingOn) {
       return;
     }
     if (!quota) {
@@ -325,7 +338,7 @@ export default function OutfitBuilder() {
       setIsTryingOn(true);
       setTryOnError("");
       const body = new FormData();
-      body.append("selectionId", selectionId);
+      body.append("selectionId", requestedSelectionId);
       if (modelChoice === "personal") {
         body.append("avatarSource", "personal");
       } else {
@@ -341,7 +354,7 @@ export default function OutfitBuilder() {
       setTryOnItems(Array.isArray(data.items)
         ? data.items.map((item) => ({
             ...item,
-            image: outfit.items.find((outfitItem) =>
+            image: requestedOutfit.items.find((outfitItem) =>
               String(outfitItem._id) === String(item.itemId)
             )?.image || ""
           }))
@@ -352,6 +365,12 @@ export default function OutfitBuilder() {
         subscriptionPlan: data.subscriptionPlan,
         tryOnCredits: data.tryOnCredits
       });
+      persistBuilderState(
+        requestedOutfit,
+        requestedSelectionId,
+        modelChoice,
+        data.tryOnImage
+      );
     } catch (error) {
       if (error.response?.status === 401) {
         logout();
@@ -367,9 +386,6 @@ export default function OutfitBuilder() {
       if (error.response?.status === 409 &&
         error.response?.data?.code === "TRY_ON_ALREADY_IN_PROGRESS") {
         setTryOnError("Your virtual try-on is already being created. Please wait a moment.");
-        setIsRetryBlocked(true);
-        window.clearTimeout(retryTimerRef.current);
-        retryTimerRef.current = window.setTimeout(() => setIsRetryBlocked(false), 5000);
         return;
       }
       setTryOnError(
@@ -555,10 +571,10 @@ export default function OutfitBuilder() {
             <button
               type="submit"
               className="style-me-button"
-              disabled={isCreating}
+              disabled={isCreating || isQuotaLoading}
             >
               <span className="button-stars">✦</span>
-              {isCreating ? "Creating your look..." : "Style Me"}
+              {isCreating ? "Creating your complete look..." : "Style Me"}
               <i className="fa-solid fa-arrow-right" />
             </button>
           </form>
@@ -595,8 +611,8 @@ export default function OutfitBuilder() {
               ) : (
                 <div className="try-on-ready">
                   <i className="fa-solid fa-wand-magic-sparkles" />
-                  <strong>Your selected wardrobe look is ready</strong>
-                  <span>Review every piece below, then try the look on when you are ready.</span>
+                  <strong>Your virtual look could not be completed</strong>
+                  <span>Edit your request and create a new complete look.</span>
                 </div>
               )}
             </div>
@@ -617,50 +633,6 @@ export default function OutfitBuilder() {
             </section>
 
             {tryOnError && <p className="ai-error">{tryOnError}</p>}
-
-            {tryOnError && !isTryingOn && (
-              <div className="try-on-actions">
-                {quota && <p>{quota.freeTryOnsRemaining} of 3 free try-ons remaining</p>}
-                <button
-                  type="button"
-                  className="try-on-button"
-                  disabled={isTryingOn || isRetryBlocked}
-                  onClick={createVirtualTryOn}
-                >
-                  <i className="fa-solid fa-rotate-right" />
-                  Try Again
-                </button>
-              </div>
-            )}
-
-            {!tryOnError && !tryOnImage && (
-              <div className="try-on-actions">
-                {isQuotaLoading ? (
-                  <p role="status">Loading your try-on allowance…</p>
-                ) : quotaError ? (
-                  <div className="quota-error" role="alert">
-                    <span>{quotaError}</span>
-                    <button type="button" onClick={loadQuotaStatus}>Retry allowance</button>
-                  </div>
-                ) : quota ? (
-                  <>
-                    <p>{quota.freeTryOnsRemaining} of 3 free try-ons remaining</p>
-                    {quota.tryOnCredits > 0 && (
-                      <small>Additional try-on credits: {quota.tryOnCredits}</small>
-                    )}
-                  </>
-                ) : null}
-                <button
-                  ref={tryOnButtonRef}
-                  type="button"
-                  className="try-on-button"
-                  disabled={isTryingOn || isQuotaLoading || Boolean(quotaError) || !quota}
-                  onClick={createVirtualTryOn}
-                >
-                  Try this look on
-                </button>
-              </div>
-            )}
 
             {tryOnImage && quota && (
               <div className="try-on-quota-result">

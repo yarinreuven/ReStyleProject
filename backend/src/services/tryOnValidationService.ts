@@ -26,6 +26,25 @@ export interface TryOnQualityResult {
   failureReasons: string[];
 }
 
+export function generatedImageAcceptedForUserReview(
+  items: TryOnItemDescriptor[]
+): TryOnQualityResult {
+  const has = (category: DetectedCategory) =>
+    items.some((item) => item.detectedCategory === category);
+  return {
+    valid: true,
+    fullBodyVisible: true,
+    facePreserved: true,
+    baseOutfitPresent: true,
+    jacketPresent: has("Jacket"),
+    shoesPresent: has("Shoes"),
+    bagPresent: has("Bag"),
+    accessoryPresent: has("Accessory"),
+    unexpectedItemsDetected: false,
+    failureReasons: []
+  };
+}
+
 export function existingTryOnAction(
   status: "pending" | "succeeded" | "failed",
   updatedAt: Date,
@@ -55,7 +74,7 @@ export function resourceOwnershipError(input: {
   items: Array<{ itemId: string; ownerId: string }>;
 }): { status: number; message: string } | null {
   if (input.selectionOwnerId !== input.userId) {
-    return { status: 403, message: "You cannot use another user's outfit" };
+    return { status: 403, message: "You cannot use this saved outfit" };
   }
   const itemsById = new Map(input.items.map((item) => [item.itemId, item]));
   if (input.selectedItemIds.some((itemId) => !itemsById.has(itemId))) {
@@ -64,7 +83,7 @@ export function resourceOwnershipError(input: {
   if (input.selectedItemIds.some((itemId) =>
     itemsById.get(itemId)?.ownerId !== input.userId
   )) {
-    return { status: 403, message: "The saved outfit contains an item owned by another user" };
+    return { status: 403, message: "You cannot use this saved outfit" };
   }
   return null;
 }

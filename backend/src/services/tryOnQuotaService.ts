@@ -17,6 +17,10 @@ export interface QuotaStatus {
   subscriptionPlan: "free" | "mini" | "style";
 }
 
+export function isTryOnQuotaBypassEnabled(nodeEnv: string | undefined, flag: string | undefined) {
+  return nodeEnv !== "production" && flag === "1";
+}
+
 interface Reservation {
   token: string;
   type: ReservationType;
@@ -174,7 +178,7 @@ export async function reserveTryOnQuota(
         }
       }
     ],
-    { new: true, runValidators: false }
+    { returnDocument: "after", runValidators: false, updatePipeline: true }
   ).select("freeTryOnsUsed tryOnCredits subscriptionPlan +tryOnReservations");
   if (!user) return null;
   const reservation = (user.tryOnReservations as Reservation[]).find((entry) => entry.token === token);
@@ -205,7 +209,7 @@ export async function finalizeTryOnQuota(
       $addToSet: { completedTryOnRequestKeys: requestKey },
       $inc: increment
     },
-    { new: true }
+    { returnDocument: "after" }
   ).select("freeTryOnsUsed tryOnCredits subscriptionPlan");
   if (user) return statusFromUser(user);
 

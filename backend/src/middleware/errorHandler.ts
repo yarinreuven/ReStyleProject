@@ -12,7 +12,23 @@ import type {
     res: Response,
     next: NextFunction
   ) => {
-    console.error(error);
+    console.error("Unhandled request error:", error.message);
+
+    const requestError = error as Error & { status?: number; type?: string };
+    if (requestError.status === 413) {
+      res.status(413).json({
+        success: false,
+        message: "Request body is too large"
+      });
+      return;
+    }
+    if (requestError.status === 400 && requestError.type === "entity.parse.failed") {
+      res.status(400).json({
+        success: false,
+        message: "Request body is invalid"
+      });
+      return;
+    }
 
     if (error instanceof multer.MulterError) {
       const isTooLarge = error.code === "LIMIT_FILE_SIZE";

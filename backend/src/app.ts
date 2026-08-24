@@ -13,7 +13,8 @@ import { getAllowedOrigins } from "./services/socketService.ts";
 const app = express();
 
 app.use(cors({ origin: getAllowedOrigins(), credentials: true }));
-app.use(express.json());
+app.use(express.json({ limit: "7mb" }));
+app.use(express.urlencoded({ extended: true, limit: "7mb" }));
 
 app.get("/", (req, res) => {
   res.send("ReStyle API is running");

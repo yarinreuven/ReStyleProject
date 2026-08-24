@@ -33,6 +33,20 @@ export interface VerifiedCandidate {
   weatherSuitable: boolean;
 }
 
+export interface OutfitCohesion {
+  colorsCoordinate: boolean;
+  formalityCoordinates: boolean;
+  silhouettesCoordinate: boolean;
+  occasionCoordinates: boolean;
+}
+
+export function outfitCohesionValidationError(cohesion: OutfitCohesion) {
+  return cohesion.colorsCoordinate && cohesion.formalityCoordinates &&
+    cohesion.silhouettesCoordinate && cohesion.occasionCoordinates
+    ? ""
+    : "Your wardrobe does not contain a cohesive look for this request. Try different preferences or add more suitable items.";
+}
+
 const PROJECT_TO_DETECTED_CATEGORY: Record<string, DetectedCategory> = {
   Dresses: "Dress",
   Tops: "Top",

@@ -3,7 +3,8 @@ import sharp, { type Metadata } from "sharp";
 import type { DetectedCategory } from "./outfitSelectionService.ts";
 import type { TryOnQualityResult } from "./tryOnValidationService.ts";
 
-export const GEMINI_TRY_ON_IMAGE_MODEL = "gemini-3.1-flash-lite-image";
+export const GEMINI_TRY_ON_IMAGE_MODEL = "gemini-3.1-flash-image";
+export const GEMINI_TRY_ON_IMAGE_FALLBACK_MODEL = "gemini-3.1-flash-lite-image";
 export const GEMINI_TRY_ON_QUALITY_MODEL = "gemini-3.1-flash-lite";
 
 export interface OutfitImageInput {
@@ -22,8 +23,24 @@ interface GeminiResponsePart {
 }
 
 interface GeminiResponse {
-  candidates?: Array<{ content?: { parts?: GeminiResponsePart[] } }>;
-  error?: { message?: string };
+  candidates?: Array<{
+    content?: { parts?: GeminiResponsePart[] };
+    finishReason?: string;
+  }>;
+  promptFeedback?: { blockReason?: string };
+  error?: { code?: number; message?: string; status?: string };
+}
+
+export class GeminiTryOnServiceError extends Error {
+  constructor(
+    public readonly stage: "generation" | "validation",
+    public readonly code: string,
+    public readonly httpStatus?: number,
+    public readonly providerStatus?: string
+  ) {
+    super(code);
+    this.name = "GeminiTryOnServiceError";
+  }
 }
 
 export function extractGeminiImagePayload(result: GeminiResponse) {
@@ -48,6 +65,44 @@ function inlineImage(data: Buffer, contentType: string) {
       data: data.toString("base64")
     }
   };
+}
+
+export function buildTryOnGenerationParts(
+  avatarImage: Buffer,
+  avatarContentType: string,
+  items: OutfitImageInput[]
+) {
+  const inventory = items
+    .map((item, index) =>
+      `${index + 1}. itemId=${item.itemId}; detectedCategory=${item.detectedCategory}; name=${item.name}`
+    )
+    .join("\n");
+  const instructions = [
+    "Create exactly one polished vertical 1K full-body virtual try-on image.",
+    "The labeled PERSON/AVATAR reference is the identity source. Preserve the face, identity, skin tone, hair, body structure, proportions and pose as closely as possible.",
+    "For an illustrated avatar, preserve the illustration style and character identity. For a real person, preserve their real appearance and do not redesign the face.",
+    "Keep the head, both hands, full body, both legs and both shoes completely inside the frame.",
+    "Use every selected wardrobe reference and no unselected fashion item.",
+    "Preserve each selected item's color, print, fabric, cut, length and distinctive details.",
+    "A Dress replaces Top and Bottom. Otherwise both the Top and Bottom must be visible and no dress may be added.",
+    "A Jacket must be the outermost clothing layer. Shoes must be worn on both feet and fully visible.",
+    "Place the selected Bag naturally in a hand or on a shoulder. Place the selected Accessory in its natural location.",
+    "Use a clean background that does not hide the outfit.",
+    "Do not add text, logos, watermark, collage, product cards, jewelry, belts, bags, shoes, garments or accessories that were not provided.",
+    "Selected wardrobe inventory:",
+    inventory
+  ].join("\n");
+  return [
+    { text: instructions },
+    { text: "PERSON/AVATAR REFERENCE. Preserve this identity and show the complete body." },
+    inlineImage(avatarImage, avatarContentType),
+    ...items.flatMap((item) => [
+      {
+        text: `WARDROBE REFERENCE itemId=${item.itemId}; detectedCategory=${item.detectedCategory}. This exact selected item must appear.`
+      },
+      inlineImage(item.data, item.contentType)
+    ])
+  ];
 }
 
 async function assertValidReturnedImage(data: Buffer, contentType: string) {
@@ -77,74 +132,58 @@ async function assertValidReturnedImage(data: Buffer, contentType: string) {
 export async function createGeminiTryOnImage(
   avatarImage: Buffer,
   avatarContentType: string,
-  items: OutfitImageInput[]
-): Promise<{ data: Buffer; contentType: string }> {
-  const inventory = items
-    .map((item, index) =>
-      `${index + 1}. itemId=${item.itemId}; detectedCategory=${item.detectedCategory}; name=${item.name}`
-    )
-    .join("\n");
-  const instructions = [
-    "Create exactly one polished vertical 1K full-body virtual try-on image.",
-    "The labeled PERSON/AVATAR reference is the identity source. Preserve the face, identity, skin tone, hair, body structure, proportions and pose as closely as possible.",
-    "For an illustrated avatar, preserve the illustration style and character identity. For a real person, preserve their real appearance and do not redesign the face.",
-    "Keep the head, both hands, full body, both legs and both shoes completely inside the frame.",
-    "Use every selected wardrobe reference and no unselected fashion item.",
-    "Preserve each selected item's color, print, fabric, cut, length and distinctive details.",
-    "A Dress replaces Top and Bottom. Otherwise both the Top and Bottom must be visible and no dress may be added.",
-    "A Jacket must be the outermost clothing layer. Shoes must be worn on both feet and fully visible.",
-    "Place the selected Bag naturally in a hand or on a shoulder. Place the selected Accessory in its natural location.",
-    "Use a clean background that does not hide the outfit.",
-    "Do not add text, logos, watermark, collage, product cards, jewelry, belts, bags, shoes, garments or accessories that were not provided.",
-    "Selected wardrobe inventory:",
-    inventory
-  ].join("\n");
-  const parts = [
-    { text: instructions },
-    { text: "PERSON/AVATAR REFERENCE. Preserve this identity and show the complete body." },
-    inlineImage(avatarImage, avatarContentType),
-    ...items.flatMap((item) => [
+  items: OutfitImageInput[],
+  fetchImpl: typeof fetch = fetch
+): Promise<{ data: Buffer; contentType: string; model: string }> {
+  const parts = buildTryOnGenerationParts(avatarImage, avatarContentType, items);
+
+  const request = async (model: string) => {
+    const response = await fetchImpl(
+      `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent`,
       {
-        text: `WARDROBE REFERENCE itemId=${item.itemId}; detectedCategory=${item.detectedCategory}. This exact selected item must appear.`
-      },
-      inlineImage(item.data, item.contentType)
-    ])
-  ];
-
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_TRY_ON_IMAGE_MODEL}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "x-goog-api-key": apiKey(),
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts }],
-        generationConfig: {
-          responseModalities: ["IMAGE"],
-          responseFormat: {
-            image: {
-              aspectRatio: "3:4",
-              imageSize: "1K"
-            }
-          }
-        }
-      }),
-      signal: AbortSignal.timeout(3 * 60 * 1000)
+        method: "POST",
+        headers: {
+          "x-goog-api-key": apiKey(),
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts }],
+          generationConfig: { responseModalities: ["IMAGE"] }
+        }),
+        signal: AbortSignal.timeout(3 * 60 * 1000)
+      }
+    );
+    const result = await response.json() as GeminiResponse;
+    if (!response.ok) {
+      throw new GeminiTryOnServiceError(
+        "generation",
+        "PROVIDER_REQUEST_REJECTED",
+        response.status,
+        result.error?.status
+      );
     }
-  );
-  const result = await response.json() as GeminiResponse;
-  if (!response.ok) {
-    throw new Error(`Gemini image generation failed: ${result.error?.message || response.status}`);
+
+    const imagePayload = extractGeminiImagePayload(result);
+    if (!imagePayload) {
+      throw new GeminiTryOnServiceError(
+        "generation",
+        result.promptFeedback?.blockReason ? "PROMPT_BLOCKED" : "NO_FINAL_IMAGE",
+        response.status,
+        result.promptFeedback?.blockReason || result.candidates?.[0]?.finishReason
+      );
+    }
+
+    const data = Buffer.from(imagePayload.imageData, "base64");
+    await assertValidReturnedImage(data, imagePayload.contentType);
+    return { data, contentType: imagePayload.contentType, model };
+  };
+
+  try {
+    return await request(GEMINI_TRY_ON_IMAGE_MODEL);
+  } catch (error) {
+    if (!(error instanceof GeminiTryOnServiceError) || error.httpStatus !== 429) throw error;
+    return request(GEMINI_TRY_ON_IMAGE_FALLBACK_MODEL);
   }
-
-  const imagePayload = extractGeminiImagePayload(result);
-  if (!imagePayload) throw new Error("Gemini did not return a final try-on image");
-
-  const data = Buffer.from(imagePayload.imageData, "base64");
-  await assertValidReturnedImage(data, imagePayload.contentType);
-  return { data, contentType: imagePayload.contentType };
 }
 
 export async function validateGeminiTryOnImage(
@@ -213,13 +252,25 @@ export async function validateGeminiTryOnImage(
   );
   const result = await response.json() as GeminiResponse;
   if (!response.ok) {
-    throw new Error(`Gemini try-on validation failed: ${result.error?.message || response.status}`);
+    throw new GeminiTryOnServiceError(
+      "validation",
+      "PROVIDER_REQUEST_REJECTED",
+      response.status,
+      result.error?.status
+    );
   }
   const text = result.candidates?.[0]?.content?.parts?.find((part) => part.text)?.text;
-  if (!text) throw new Error("Gemini try-on validation returned no result");
+  if (!text) {
+    throw new GeminiTryOnServiceError(
+      "validation",
+      result.promptFeedback?.blockReason ? "PROMPT_BLOCKED" : "NO_VALIDATION_RESULT",
+      response.status,
+      result.promptFeedback?.blockReason || result.candidates?.[0]?.finishReason
+    );
+  }
   try {
     return JSON.parse(text) as TryOnQualityResult;
   } catch {
-    throw new Error("Gemini try-on validation returned invalid JSON");
+    throw new GeminiTryOnServiceError("validation", "INVALID_VALIDATION_JSON");
   }
 }
