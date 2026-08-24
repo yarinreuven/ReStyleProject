@@ -1,4 +1,5 @@
 import express from "express";
+import { createHash, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import Joi from "joi";
@@ -9,6 +10,7 @@ import sharp, { type Metadata } from "sharp";
 
 import Item from "../models/Item.ts";
 import OutfitSelection from "../models/OutfitSelection.ts";
+import TryOnResult from "../models/TryOnResult.ts";
 import User from "../models/User.ts";
 import {
   authenticateToken,
@@ -30,6 +32,7 @@ import {
 } from "../services/outfitSelectionService.ts";
 import {
   hasForbiddenTryOnOverrides,
+  existingTryOnAction,
   isApprovedAvatarId,
   orderTryOnItems,
   qualityValidationError,
@@ -39,6 +42,18 @@ import {
   type AvatarSource,
   type TryOnItemDescriptor
 } from "../services/tryOnValidationService.ts";
+import {
+  buildTryOnRequestKey,
+  finalizeTryOnQuota,
+  getTryOnQuotaStatus,
+  refundTryOnReservation,
+  reserveTryOnQuota,
+  TRY_ON_LIMIT_CODE,
+  TRY_ON_LIMIT_MESSAGE,
+  TRY_ON_RESERVATION_TTL_MS,
+  type QuotaStatus,
+  type ReservationType
+} from "../services/tryOnQuotaService.ts";
 
 const router = express.Router();
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
@@ -198,7 +213,7 @@ async function validateAvatarImage(
 async function resolveTryOnAvatar(
   req: AuthRequest,
   source: AvatarSource
-): Promise<{ status: number; error: string; data?: Buffer; contentType?: string }> {
+): Promise<{ status: number; error: string; data?: Buffer; contentType?: string; identity?: string }> {
   if (source === "preset") {
     if (req.file || !isApprovedAvatarId(req.body.avatarId)) {
       return { status: 400, error: "Choose an approved illustrated avatar" };
@@ -207,7 +222,7 @@ async function resolveTryOnAvatar(
     const validated = await validateAvatarImage(data, "image/png");
     return validated.error
       ? { status: 400, error: validated.error }
-      : { status: 200, error: "", data, contentType: "image/png" };
+      : { status: 200, error: "", data, contentType: "image/png", identity: req.body.avatarId };
   }
 
   if (source === "personal") {
@@ -229,7 +244,8 @@ async function resolveTryOnAvatar(
           status: 200,
           error: "",
           data: user.virtualModelImage.data,
-          contentType: user.virtualModelImage.contentType
+          contentType: user.virtualModelImage.contentType,
+          identity: createHash("sha256").update(user.virtualModelImage.data).digest("hex")
         };
   }
 
@@ -244,11 +260,32 @@ async function resolveTryOnAvatar(
           status: 200,
           error: "",
           data: req.file.buffer,
-          contentType: req.file.mimetype
+          contentType: req.file.mimetype,
+          identity: createHash("sha256").update(req.file.buffer).digest("hex")
         };
   }
 
   return { status: 400, error: "Choose a valid avatar source" };
+}
+
+function tryOnSuccessResponse(input: {
+  selectionId: mongoose.Types.ObjectId;
+  imageData: Buffer;
+  contentType: string;
+  items: Array<{ itemId: string; detectedCategory: DetectedCategory; name: string }>;
+  quota: QuotaStatus;
+  cached: boolean;
+}) {
+  return {
+    success: true,
+    renderer: "gemini",
+    selectionId: input.selectionId,
+    tryOnImage: `data:${input.contentType};base64,${input.imageData.toString("base64")}`,
+    items: input.items,
+    validation: { valid: true },
+    ...input.quota,
+    cached: input.cached
+  };
 }
 
 
@@ -675,6 +712,23 @@ router.post(
   }
 );
 
+router.get("/try-on/status", async (req: AuthRequest, res, next) => {
+  try {
+    if (!req.userId || !mongoose.isValidObjectId(req.userId)) {
+      res.status(401).json({ success: false, message: "Authentication is required" });
+      return;
+    }
+    const quota = await getTryOnQuotaStatus(req.userId);
+    if (!quota) {
+      res.status(404).json({ success: false, message: "User account not found" });
+      return;
+    }
+    res.json(quota);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post(
   "/try-on",
   tryOnUpload.single("modelImage"),
@@ -786,8 +840,151 @@ router.post(
 
       const avatarSource = req.body.avatarSource as AvatarSource;
       const avatar = await resolveTryOnAvatar(req, avatarSource);
-      if (avatar.error || !avatar.data || !avatar.contentType) {
+      if (avatar.error || !avatar.data || !avatar.contentType || !avatar.identity) {
         res.status(avatar.status).json({ success: false, message: avatar.error });
+        return;
+      }
+
+      const requestKey = buildTryOnRequestKey({
+        userId: req.userId,
+        selectionId: selection._id.toString(),
+        avatarSource,
+        avatarIdentity: avatar.identity
+      });
+      const responseItems = orderedSelectionItems.map((entry) => ({
+        itemId: entry.itemId,
+        detectedCategory: entry.detectedCategory,
+        name: itemsById.get(entry.itemId)!.name
+      }));
+      let existing = await TryOnResult.findOne({ requestKey });
+      if (existing?.status === "succeeded" && existing.image?.data && existing.image.contentType) {
+        let quota = await getTryOnQuotaStatus(req.userId);
+        if (!existing.quotaCommitted && existing.reservationToken && existing.reservationType) {
+          quota = await finalizeTryOnQuota(
+            req.userId,
+            existing.reservationToken,
+            existing.reservationType as ReservationType,
+            requestKey
+          );
+          await TryOnResult.updateOne(
+            { _id: existing._id, quotaCommitted: false },
+            { $set: { quotaCommitted: true } }
+          );
+        }
+        if (!quota) throw new Error("TRY_ON_QUOTA_STATUS_NOT_FOUND");
+        res.json(tryOnSuccessResponse({
+          selectionId: selection._id,
+          imageData: existing.image.data,
+          contentType: existing.image.contentType,
+          items: responseItems,
+          quota,
+          cached: true
+        }));
+        return;
+      }
+      if (existing?.status === "pending") {
+        const updatedAt = existing.updatedAt as Date;
+        if (existingTryOnAction(
+          "pending",
+          updatedAt,
+          new Date(),
+          TRY_ON_RESERVATION_TTL_MS
+        ) === "in-progress") {
+          res.status(409).json({
+            success: false,
+            code: "TRY_ON_ALREADY_IN_PROGRESS",
+            message: "This virtual try-on is already being created. Please wait a moment."
+          });
+          return;
+        }
+        const stale = await TryOnResult.findOneAndUpdate(
+          { _id: existing._id, status: "pending", attemptId: existing.attemptId },
+          { $set: { status: "failed", failureCode: "STALE_RESERVATION" } },
+          { new: true }
+        );
+        if (stale?.reservationToken) {
+          await refundTryOnReservation(req.userId, stale.reservationToken);
+        }
+        existing = stale;
+      }
+
+      const reservationToken = randomUUID();
+      const attemptId = randomUUID();
+      const reservation = await reserveTryOnQuota(req.userId, reservationToken);
+      if (!reservation) {
+        res.status(403).json({
+          success: false,
+          code: TRY_ON_LIMIT_CODE,
+          message: TRY_ON_LIMIT_MESSAGE
+        });
+        return;
+      }
+
+      try {
+        if (existing) {
+          const claimed = await TryOnResult.findOneAndUpdate(
+            { _id: existing._id, status: "failed" },
+            {
+              $set: {
+                attemptId,
+                status: "pending",
+                reservationToken,
+                reservationType: reservation.type,
+                quotaCommitted: false,
+                failureCode: null,
+                avatarSource,
+                avatarIdentity: avatar.identity
+              }
+            },
+            { new: true }
+          );
+          if (!claimed) throw new Error("TRY_ON_REQUEST_ALREADY_CLAIMED");
+        } else {
+          await TryOnResult.create({
+            owner: req.userId,
+            selection: selection._id,
+            requestKey,
+            attemptId,
+            status: "pending",
+            reservationToken,
+            reservationType: reservation.type,
+            avatarSource,
+            avatarIdentity: avatar.identity
+          });
+        }
+      } catch (claimError) {
+        await refundTryOnReservation(req.userId, reservationToken);
+        const raced = await TryOnResult.findOne({ requestKey });
+        if (raced?.status === "succeeded" && raced.image?.data && raced.image.contentType) {
+          let quota = await getTryOnQuotaStatus(req.userId);
+          if (!raced.quotaCommitted && raced.reservationToken && raced.reservationType) {
+            quota = await finalizeTryOnQuota(
+              req.userId,
+              raced.reservationToken,
+              raced.reservationType as ReservationType,
+              requestKey
+            );
+            await TryOnResult.updateOne(
+              { _id: raced._id, quotaCommitted: false },
+              { $set: { quotaCommitted: true } }
+            );
+          }
+          if (!quota) throw new Error("TRY_ON_QUOTA_STATUS_NOT_FOUND");
+          res.json(tryOnSuccessResponse({
+            selectionId: selection._id,
+            imageData: raced.image.data,
+            contentType: raced.image.contentType,
+            items: responseItems,
+            quota,
+            cached: true
+          }));
+          return;
+        }
+        res.status(409).json({
+          success: false,
+          code: "TRY_ON_ALREADY_IN_PROGRESS",
+          message: "This virtual try-on is already being created. Please wait a moment."
+        });
         return;
       }
 
@@ -806,27 +1003,64 @@ router.post(
         );
         const qualityError = qualityValidationError(quality, orderedSelectionItems);
         if (qualityError) {
+          await TryOnResult.updateOne(
+            { requestKey, attemptId, status: "pending" },
+            { $set: { status: "failed", failureCode: "QUALITY_VALIDATION_FAILED" } }
+          );
+          await refundTryOnReservation(req.userId, reservationToken);
           res.status(502).json({
             success: false,
             message: "The generated try-on was incomplete. Please try again later."
           });
           return;
         }
-
-        res.json({
-          success: true,
-          renderer: "gemini",
+        if (generated.data.length > 10 * 1024 * 1024) {
+          throw new Error("TRY_ON_IMAGE_TOO_LARGE");
+        }
+        const saved = await TryOnResult.findOneAndUpdate(
+          { requestKey, attemptId, status: "pending" },
+          {
+            $set: {
+              status: "succeeded",
+              image: { data: generated.data, contentType: generated.contentType },
+              items: responseItems.map((entry) => ({
+                item: entry.itemId,
+                name: entry.name,
+                detectedCategory: entry.detectedCategory
+              })),
+              validation: quality,
+              failureCode: null
+            }
+          },
+          { new: true }
+        );
+        if (!saved) throw new Error("TRY_ON_RESULT_SAVE_CONFLICT");
+        const quota = await finalizeTryOnQuota(
+          req.userId,
+          reservationToken,
+          reservation.type,
+          requestKey
+        );
+        await TryOnResult.updateOne(
+          { _id: saved._id, quotaCommitted: false },
+          { $set: { quotaCommitted: true } }
+        );
+        res.json(tryOnSuccessResponse({
           selectionId: selection._id,
-          tryOnImage: `data:${generated.contentType};base64,${generated.data.toString("base64")}`,
-          items: orderedSelectionItems.map((entry) => ({
-            itemId: entry.itemId,
-            detectedCategory: entry.detectedCategory,
-            name: itemsById.get(entry.itemId)!.name
-          })),
-          validation: { valid: true }
-        });
+          imageData: generated.data,
+          contentType: generated.contentType,
+          items: responseItems,
+          quota,
+          cached: false
+        }));
         return;
       } catch (geminiError) {
+        const failed = await TryOnResult.findOneAndUpdate(
+          { requestKey, attemptId, status: "pending" },
+          { $set: { status: "failed", failureCode: "GENERATION_FAILED" } },
+          { new: true }
+        );
+        if (failed) await refundTryOnReservation(req.userId, reservationToken);
         console.error("Gemini try-on error:", geminiError);
         res.status(502).json({
           success: false,

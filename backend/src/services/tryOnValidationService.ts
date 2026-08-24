@@ -26,8 +26,25 @@ export interface TryOnQualityResult {
   failureReasons: string[];
 }
 
+export function existingTryOnAction(
+  status: "pending" | "succeeded" | "failed",
+  updatedAt: Date,
+  now: Date,
+  pendingTtlMs: number
+): "cache" | "in-progress" | "retry" {
+  if (status === "succeeded") return "cache";
+  if (status === "pending" && updatedAt.getTime() >= now.getTime() - pendingTtlMs) {
+    return "in-progress";
+  }
+  return "retry";
+}
+
 export function hasForbiddenTryOnOverrides(body: Record<string, unknown>) {
-  return ["itemIds", "detectedCategory", "detectedCategories", "userId", "owner"]
+  return [
+    "itemIds", "detectedCategory", "detectedCategories", "userId", "owner",
+    "freeTryOnsUsed", "freeTryOnsRemaining", "tryOnCredits", "subscriptionPlan",
+    "tryOnReservations", "reservationToken", "quotaCommitted"
+  ]
     .some((field) => body[field] !== undefined);
 }
 

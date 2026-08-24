@@ -62,6 +62,41 @@ const userSchema = new mongoose.Schema(
       contentType: String
     },
 
+    freeTryOnsUsed: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 3
+    },
+
+    tryOnCredits: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+
+    subscriptionPlan: {
+      type: String,
+      enum: ["free", "mini", "style"],
+      default: "free"
+    },
+
+    tryOnReservations: {
+      type: [{
+        token: { type: String, required: true },
+        type: { type: String, enum: ["free", "credit"], required: true },
+        createdAt: { type: Date, required: true }
+      }],
+      default: [],
+      select: false
+    },
+
+    completedTryOnRequestKeys: {
+      type: [String],
+      default: [],
+      select: false
+    },
+
     blockedUsers: [{
       type: mongoose.Schema.Types.ObjectId,
       ref: "User"
