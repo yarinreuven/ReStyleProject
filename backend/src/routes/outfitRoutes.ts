@@ -1,6 +1,8 @@
 import express from "express";
 import Joi from "joi";
+import mongoose from "mongoose";
 import multer from "multer";
+import sharp from "sharp";
 
 import Item from "../models/Item.ts";
 import {
@@ -8,6 +10,16 @@ import {
   type AuthRequest
 } from "../middleware/auth.ts";
 import { createGeminiTryOnImage } from "../services/geminiTryOnService.ts";
+import {
+  createBalancedWardrobeShortlist,
+  DETECTED_CATEGORIES,
+  isDetectedCategory,
+  normalizeProjectCategory,
+  selectedOutfitValidationError,
+  type DetectedCategory,
+  type SelectedOutfitItem,
+  type VerifiedCandidate
+} from "../services/outfitSelectionService.ts";
 
 const router = express.Router();
 const tryOnUpload = multer({
@@ -51,7 +63,7 @@ interface GeminiResponse {
   };
 }
 
-const GEMINI_STYLIST_MODEL = "gemini-3.5-flash";
+const GEMINI_STYLIST_MODEL = "gemini-3.1-flash-lite";
 
 async function requestGeminiStylist(
   apiKey: string,
@@ -77,19 +89,14 @@ interface OutfitSuggestion {
   title: string;
   explanation: string;
   analyzedItems: AnalyzedWardrobeItem[];
-  selectedItems: Array<{
-    id: string;
-    detectedCategory: "Tops" | "Bottoms" | "Dresses" | "Jackets" | "Shoes" | "Bags" | "Accessories";
-  }>;
+  selectedItems: SelectedOutfitItem[];
   stylingTips: string[];
 }
 
-type OutfitCategory = OutfitSuggestion["selectedItems"][number]["detectedCategory"];
-
 interface AnalyzedWardrobeItem {
-  id: string;
+  itemId: string;
   isValid: boolean;
-  detectedCategory: OutfitCategory | "None";
+  detectedCategory: DetectedCategory | "None";
   colorFamily: string;
   visualStyle: string;
   seasonSuitability: string[];
@@ -100,213 +107,53 @@ interface AnalyzedWardrobeItem {
   weatherSuitable: boolean;
 }
 
-interface WardrobeCandidate {
-  id: string;
-  name: string;
-  category: OutfitSuggestion["selectedItems"][number]["detectedCategory"];
-  season: string;
-  style: string;
-  favorite: boolean;
-  wearCount: number;
-  lastWornAt?: Date | null;
-  color: string;
-  analysis: AnalyzedWardrobeItem;
+const VALID_SEASONS = new Set([
+  "Summer", "Winter", "Spring", "Fall", "All Season"
+]);
+
+function isValidAnalyzedWardrobeItem(
+  value: unknown,
+  candidateIds: Set<string>
+): value is AnalyzedWardrobeItem {
+  if (!value || typeof value !== "object") return false;
+  const analysis = value as AnalyzedWardrobeItem;
+  const categoryIsValid = analysis.detectedCategory === "None" ||
+    isDetectedCategory(analysis.detectedCategory);
+
+  return Boolean(
+    typeof analysis.itemId === "string" &&
+    candidateIds.has(analysis.itemId) && typeof analysis.isValid === "boolean" &&
+    categoryIsValid && analysis.isValid === (analysis.detectedCategory !== "None") &&
+    typeof analysis.colorFamily === "string" &&
+    typeof analysis.visualStyle === "string" &&
+    Array.isArray(analysis.seasonSuitability) &&
+    analysis.seasonSuitability.every((season) => VALID_SEASONS.has(season)) &&
+    Number.isInteger(analysis.formality) && analysis.formality >= 1 && analysis.formality <= 5 &&
+    typeof analysis.silhouette === "string" &&
+    typeof analysis.eventSuitable === "boolean" &&
+    typeof analysis.styleSuitable === "boolean" &&
+    typeof analysis.weatherSuitable === "boolean"
+  );
 }
 
-const COMPLEMENTARY_CATEGORIES: OutfitCategory[] = [
-  "Jackets", "Shoes", "Bags", "Accessories"
-];
-
-const weatherSeasons: Record<string, string[]> = {
-  Warm: ["Summer", "Spring", "All Season"],
-  Mild: ["Spring", "Fall", "All Season"],
-  Cold: ["Winter", "Fall", "All Season"],
-  Rainy: ["Fall", "Winter", "All Season"]
-};
-
-function normalizedColor(value: string) {
-  const color = value.toLowerCase();
-  const neutrals = ["black", "white", "gray", "grey", "beige", "cream", "brown", "navy", "denim"];
-  return neutrals.some((neutral) => color.includes(neutral)) ? "neutral" : color;
+function isSafeStylistText(value: unknown) {
+  return typeof value === "string" && value.trim().length > 0 &&
+    !/(?:https?:\/\/|www\.|\bbuy\b|\bpurchase\b|\bshop\b)/i.test(value);
 }
 
-function targetFormality(event: string) {
-  const normalizedEvent = event.toLowerCase();
-  if (/formal|wedding|gala|ceremony/.test(normalizedEvent)) return 5;
-  if (/work|office|business|interview/.test(normalizedEvent)) return 4;
-  if (/party|date|dinner|evening/.test(normalizedEvent)) return 3;
-  if (/sport|gym|workout/.test(normalizedEvent)) return 1;
-  return 2;
-}
-
-function candidateScore(item: WardrobeCandidate, request: { event: string; style: string; weather: string; preferFavorites: boolean }) {
-  let score = item.analysis.eventSuitable && item.analysis.styleSuitable && item.analysis.weatherSuitable ? 12 : 0;
-  if (item.analysis.visualStyle.toLowerCase().includes(request.style.toLowerCase()) || item.style === request.style) score += 6;
-  if (item.analysis.seasonSuitability.some((season) => weatherSeasons[request.weather]?.includes(season)) || weatherSeasons[request.weather]?.includes(item.season)) score += 4;
-  score -= Math.abs(item.analysis.formality - targetFormality(request.event)) * 2;
-  if (request.preferFavorites && item.favorite) score += 2;
-  score += Math.max(0, 3 - Math.min(item.wearCount || 0, 10) * 0.25);
-  if (item.lastWornAt) score += Math.min(2, (Date.now() - new Date(item.lastWornAt).getTime()) / (1000 * 60 * 60 * 24 * 30));
-  return score;
-}
-
-function harmonyScore(items: WardrobeCandidate[]) {
-  const colors = items.map((item) => normalizedColor(item.analysis.colorFamily || item.color));
-  const nonNeutralColors = new Set(colors.filter((color) => color !== "neutral"));
-  let score = nonNeutralColors.size <= 1 ? 4 : nonNeutralColors.size === 2 ? 2 : -3;
-  const voluminousPieces = items.filter((item) =>
-    /oversized|wide|voluminous|full|puffy|loose/i.test(item.analysis.silhouette)
-  ).length;
-  if (voluminousPieces > 1) score -= 3;
-  return score;
-}
-
-function isRequestSuitable(item: WardrobeCandidate, request: { event: string }) {
-  return item.analysis.eventSuitable && item.analysis.styleSuitable &&
-    item.analysis.weatherSuitable &&
-    Math.abs(item.analysis.formality - targetFormality(request.event)) <= 1;
-}
-
-function createLocalOutfitSuggestion(
-  wardrobe: WardrobeCandidate[],
-  request: {
-    event: string;
-    style: string;
-    weather: string;
-    preferFavorites: boolean;
-  }
-): OutfitSuggestion {
-  const pool = wardrobe.filter((item) => isRequestSuitable(item, request));
-  const tops = pool.filter((item) => item.category === "Tops");
-  const bottoms = pool.filter((item) => item.category === "Bottoms");
-  const dresses = pool.filter((item) => item.category === "Dresses");
-  const bases: WardrobeCandidate[][] = [
-    ...dresses.map((dress) => [dress]),
-    ...tops.flatMap((top) => bottoms.map((bottom) => [top, bottom]))
-  ];
-  const selected = [...(bases.sort((left, right) =>
-    right.reduce((sum, item) => sum + candidateScore(item, request), harmonyScore(right)) -
-    left.reduce((sum, item) => sum + candidateScore(item, request), harmonyScore(left))
-  )[0] || [])];
-
-  if (selected.length > 0) {
-    for (const category of COMPLEMENTARY_CATEGORIES) {
-      const candidates = wardrobe.filter((item) =>
-        item.category === category && isRequestSuitable(item, request)
-      );
-      if (candidates.length === 0) continue;
-      if (category === "Jackets" && !["Cold", "Rainy"].includes(request.weather)) continue;
-      const best = candidates.sort((left, right) =>
-        candidateScore(right, request) + harmonyScore([...selected, right]) -
-        candidateScore(left, request) - harmonyScore([...selected, left])
-      )[0];
-      if (best) selected.push(best);
-    }
-  }
-
-  const selectedNames = selected.map((item) => item.name);
-
-  return {
-    title: `${request.style} ${request.event} Look`,
-    explanation: selectedNames.length > 0
-      ? `${selectedNames.join(", ")} form a coordinated ${request.style.toLowerCase()} look with compatible colors, season and formality for ${request.event.toLowerCase()}.`
-      : "Your wardrobe does not yet contain a complete outfit for this request.",
-    selectedItems: selected.map((item) => ({
-      id: item.id,
-      detectedCategory: item.category
-    })),
-    stylingTips: [
-      selectedNames.length > 0
-        ? `Wear the selected pieces together as a complete coordinated look for ${request.event}.`
-        : "Add a dress, or both a top and a bottom, to create a complete look."
-    ],
-    analyzedItems: wardrobe.map((item) => item.analysis)
-  };
-}
-
-function selectionValidationError(
-  selections: OutfitSuggestion["selectedItems"],
-  validWardrobe: WardrobeCandidate[],
-  request: { event: string }
-) {
-  const validById = new Map(validWardrobe.map((item) => [item.id, item]));
-  const ids = selections.map((selection) => selection.id);
-  if (new Set(ids).size !== ids.length) return "The selected outfit contains duplicate items";
-
-  for (const selection of selections) {
-    const item = validById.get(selection.id);
-    if (!item) return "The selected outfit contains an invalid wardrobe item";
-    if (item.category !== selection.detectedCategory) return "The selected outfit contains a category mismatch";
-    if (!item.analysis.eventSuitable) return "The selected outfit contains an item that is unsuitable for the requested event";
-    if (!item.analysis.styleSuitable) return "The selected outfit does not match the requested style";
-    if (!item.analysis.weatherSuitable) return "The selected outfit does not match the requested weather and season";
-    if (Math.abs(item.analysis.formality - targetFormality(request.event)) > 1) {
-      return "The selected outfit does not match the required level of formality";
-    }
-  }
-
-  const count = (category: OutfitCategory) =>
-    selections.filter((selection) => selection.detectedCategory === category).length;
-  const dressCount = count("Dresses");
-  const topCount = count("Tops");
-  const bottomCount = count("Bottoms");
-  const hasDressBase = dressCount === 1 && topCount === 0 && bottomCount === 0;
-  const hasSeparatesBase = dressCount === 0 && topCount === 1 && bottomCount === 1;
-
-  if (!hasDressBase && !hasSeparatesBase) {
-    return "A complete outfit needs exactly one dress, or exactly one top and one bottom";
-  }
-
-  for (const category of COMPLEMENTARY_CATEGORIES) {
-    if (count(category) > 1) return `The outfit may include at most one ${category.toLowerCase()} item`;
-  }
-
-  for (const category of ["Shoes", "Bags", "Accessories"] as OutfitCategory[]) {
-    const categoryExists = validWardrobe.some((item) => item.category === category);
-    if (categoryExists && count(category) !== 1) {
-      return `The outfit must include one valid ${category.toLowerCase()} item from the wardrobe`;
-    }
-  }
-
-  return "";
-}
-
-function incompleteWardrobeMessage(
-  validWardrobe: WardrobeCandidate[],
-  request: { event: string }
-) {
-  const categories = new Set(validWardrobe.map((item) => item.category));
-  const hasDress = categories.has("Dresses");
-  const hasTop = categories.has("Tops");
-  const hasBottom = categories.has("Bottoms");
-
-  if (!hasDress && !hasTop && !hasBottom) {
-    return "A complete look cannot be created because your wardrobe has no valid dress, top or bottom image.";
-  }
-  if (!hasDress && !hasTop) {
-    return "A complete look cannot be created because your wardrobe needs a valid top or dress image.";
-  }
-  if (!hasDress && !hasBottom) {
-    return "A complete look cannot be created because your wardrobe needs a valid bottom or dress image.";
-  }
-  const suitable = validWardrobe.filter((item) => isRequestSuitable(item, request));
-  const suitableCategories = new Set(suitable.map((item) => item.category));
-  if (!suitableCategories.has("Dresses") &&
-    !(suitableCategories.has("Tops") && suitableCategories.has("Bottoms"))) {
-    return `Your wardrobe has a complete base, but no valid dress or top-and-bottom combination matches the event, style, weather and formality you selected.`;
-  }
-  for (const category of ["Shoes", "Bags", "Accessories"] as OutfitCategory[]) {
-    if (categories.has(category) && !suitableCategories.has(category)) {
-      return `A complete look cannot be created because the valid ${category.toLowerCase()} in your wardrobe do not match the event, style, weather and formality you selected.`;
-    }
-  }
-  return "A complete, suitable look could not be created for this event from the valid items in your wardrobe.";
-}
 
 router.post(
   "/generate",
   async (req: AuthRequest, res, next) => {
     try {
+      if (!req.userId || !mongoose.isValidObjectId(req.userId)) {
+        res.status(401).json({
+          success: false,
+          message: "Authentication is required"
+        });
+        return;
+      }
+
       const { error, value } = outfitRequestSchema.validate(req.body, {
         abortEarly: false,
         stripUnknown: true
@@ -331,7 +178,7 @@ router.post(
       }
 
       const items = await Item.find({ user: req.userId }).select(
-        "name category color season style favorite wearCount lastWornAt image"
+        "name category color season style favorite wearCount lastWornAt brand size condition description image"
       );
 
       if (items.length === 0) {
@@ -341,18 +188,6 @@ router.post(
         });
         return;
       }
-
-      const wardrobe = items.map((item) => ({
-        id: item._id.toString(),
-        name: item.name,
-        category: item.category,
-        color: item.color,
-        season: item.season,
-        style: item.style,
-        favorite: item.favorite,
-        wearCount: item.wearCount,
-        lastWornAt: item.lastWornAt
-      }));
 
       const supportedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
       const imageItems = items.filter((item) =>
@@ -367,24 +202,55 @@ router.post(
         return;
       }
 
+      const shortlistedItems = createBalancedWardrobeShortlist(
+        imageItems.map((item) => ({
+          item,
+          id: item._id.toString(),
+          category: item.category,
+          favorite: item.favorite,
+          wearCount: item.wearCount,
+          lastWornAt: item.lastWornAt
+        })),
+        30
+      );
+      const candidateIds = new Set(shortlistedItems.map(({ id }) => id));
+      const wardrobe = shortlistedItems.map(({ item, id }) => ({
+        itemId: id,
+        name: item.name,
+        category: item.category,
+        normalizedClaimedCategory: normalizeProjectCategory(item.category),
+        color: item.color,
+        season: item.season,
+        occasion: value.event,
+        style: item.style,
+        favorite: item.favorite,
+        wearCount: item.wearCount,
+        lastWornAt: item.lastWornAt,
+        brand: item.brand,
+        size: item.size,
+        condition: item.condition,
+        description: item.description
+      }));
+
       const prompt = [
         "You are ReStyle, a personal fashion stylist.",
         "First inspect every attached image yourself.",
         "Return exactly one analyzedItems entry for every attached item ID. Mark isValid false and detectedCategory None for rejected images.",
         "For each valid image report its visually detected category, dominant color family, visual style, suitable seasons, formality from 1 (very casual) to 5 (formal), silhouette or volume, and separate booleans for whether it is truly suitable for the requested event, requested style and requested weather.",
-        "Ignore an item completely unless its image shows exactly one clear, dominant clothing product with its full shape and design visible.",
-        "Reject closet scenes, clothing racks, piles, collages, people wearing clothes, full outfits with several garments, and images where the item is distant, cropped or unclear.",
+        "Accept a valid item image when it shows either one clear product by itself or one person clearly wearing the intended product. When worn, the intended product must remain unambiguous and its color, cut, shape and design must be reliably visible.",
+        "Normal accompanying clothes on one person are allowed only when the intended product and its category are visually clear. Reject closet scenes, clothing racks, piles, collages, screenshots, groups of people, full-outfit photos where no single intended product is clear, and images where the intended product is distant, blurred, hidden, heavily cropped or too small.",
         "Create one cohesive outfit using ONLY valid item IDs whose attached images clearly show real wearable items.",
         "Never trust an item's name or category when its image contradicts them.",
         "Never invent, recommend or mention any clothing, shoes, bag or accessory that is not among the valid attached wardrobe images.",
-        "A complete outfit MUST contain exactly one of these two bases: (1) one Tops item plus one Bottoms item, or (2) one Dresses item. Never combine a dress with a top or bottom.",
-        "Jackets, Shoes, Bags and Accessories never count as the required outfit base.",
-        "Jackets means outerwear worn over the completed outfit, including jackets, coats, blazers and trench coats. It never means a long-sleeve shirt, blouse, sweatshirt or ordinary sweater.",
+        "Use only these normalized detectedCategory values: Dress, Top, Bottom, Jacket, Shoes, Bag, Accessory. Use None only for an invalid analyzed image.",
+        "A complete outfit MUST contain exactly one of these two bases: (1) one Top plus one Bottom, or (2) one Dress. Never combine a Dress with a Top or Bottom.",
+        "Jacket, Shoes, Bag and Accessory never count as the required outfit base.",
+        "Jacket means outerwear worn over the completed outfit, including jackets, coats, blazers and trench coats. It never means a long-sleeve shirt, blouse, sweatshirt or ordinary sweater.",
         "A jacket is an optional outer layer. Include at most one suitable jacket when it improves the outfit for the requested event and weather.",
         "If at least one valid Shoes item exists, the completed outfit MUST include exactly one suitable pair of shoes.",
         "If at least one valid Bags item exists, the completed outfit MUST include exactly one suitable bag. If at least one valid Accessories item exists, it MUST include exactly one suitable accessory without overloading the look.",
         "Select exactly one top and one bottom OR exactly one dress, plus at most one jacket, one pair of shoes, one bag and one accessory.",
-        "Return each selected item's visually detected category, based on the image rather than its claimed metadata.",
+        "Return each selected item's itemId, visually detected category based on the image rather than claimed metadata, and a short reason.",
         "The requested event is a HARD constraint, not a suggestion. The outfit must be genuinely appropriate for that event.",
         "For Work choose polished, professional and practical pieces. For Party choose festive, expressive evening-appropriate pieces. For Formal choose refined dressy pieces. For Date choose stylish occasion-appropriate pieces. For Casual choose relaxed everyday pieces. For a custom event infer its real dress code from the user's description.",
         "After satisfying the event, match the requested style and weather, then coordinate categories, colors and season.",
@@ -399,20 +265,30 @@ router.post(
         JSON.stringify({ request: value, wardrobe })
       ].join("\n");
 
-      const imageParts = imageItems.flatMap((item) => [
+      const imageParts = (await Promise.all(shortlistedItems.map(async ({ item, id }) => {
+        const inspectionImage = await sharp(item.image.data)
+          .rotate()
+          .resize({ width: 896, height: 896, fit: "inside", withoutEnlargement: true })
+          .jpeg({ quality: 80, mozjpeg: true })
+          .toBuffer();
+
+        return [
           {
-            text: `The next image belongs to item ID ${item._id.toString()} (${item.name}, claimed category: ${item.category}).`
+            text: `The next image belongs only to internal itemId ${id}. Its claimed category ${item.category} is supporting metadata, not visual truth.`
           },
           {
             inline_data: {
-              mime_type: item.image.contentType,
-              data: item.image.data.toString("base64")
+              mime_type: "image/jpeg",
+              data: inspectionImage.toString("base64")
             }
           }
-        ]);
+        ];
+      }))).flat();
 
-      const { response: aiResponse, data: aiData, model: usedModel } =
-        await requestGeminiStylist(apiKey, {
+      let geminiResult: Awaited<ReturnType<typeof requestGeminiStylist>>;
+
+      try {
+        geminiResult = await requestGeminiStylist(apiKey, {
           contents: [
             {
               role: "user",
@@ -431,12 +307,14 @@ router.post(
                 explanation: { type: "STRING" },
                 analyzedItems: {
                   type: "ARRAY",
+                  minItems: 1,
+                  maxItems: 30,
                   items: {
                     type: "OBJECT",
                     properties: {
-                      id: { type: "STRING" },
+                      itemId: { type: "STRING" },
                       isValid: { type: "BOOLEAN" },
-                      detectedCategory: { type: "STRING", enum: ["Tops", "Bottoms", "Dresses", "Jackets", "Shoes", "Bags", "Accessories", "None"] },
+                      detectedCategory: { type: "STRING", enum: [...DETECTED_CATEGORIES, "None"] },
                       colorFamily: { type: "STRING" },
                       visualStyle: { type: "STRING" },
                       seasonSuitability: { type: "ARRAY", items: { type: "STRING", enum: ["Summer", "Winter", "Spring", "Fall", "All Season"] } },
@@ -446,29 +324,24 @@ router.post(
                       styleSuitable: { type: "BOOLEAN" },
                       weatherSuitable: { type: "BOOLEAN" }
                     },
-                    required: ["id", "isValid", "detectedCategory", "colorFamily", "visualStyle", "seasonSuitability", "formality", "silhouette", "eventSuitable", "styleSuitable", "weatherSuitable"]
+                    required: ["itemId", "isValid", "detectedCategory", "colorFamily", "visualStyle", "seasonSuitability", "formality", "silhouette", "eventSuitable", "styleSuitable", "weatherSuitable"]
                   }
                 },
                 selectedItems: {
                   type: "ARRAY",
+                  minItems: 0,
+                  maxItems: 7,
                   items: {
                     type: "OBJECT",
                     properties: {
-                      id: { type: "STRING" },
+                      itemId: { type: "STRING" },
                       detectedCategory: {
                         type: "STRING",
-                        enum: [
-                          "Tops",
-                          "Bottoms",
-                          "Dresses",
-                          "Jackets",
-                          "Shoes",
-                          "Bags",
-                          "Accessories"
-                        ]
-                      }
+                        enum: DETECTED_CATEGORIES
+                      },
+                      reason: { type: "STRING" }
                     },
-                    required: ["id", "detectedCategory"]
+                    required: ["itemId", "detectedCategory", "reason"]
                   }
                 },
                 stylingTips: {
@@ -488,6 +361,16 @@ router.post(
             }
           }
         });
+      } catch (geminiError) {
+        console.error("Gemini wardrobe inspection request failed:", geminiError);
+        res.status(503).json({
+          success: false,
+          message: "The wardrobe image inspection took too long or is temporarily unavailable. Please try again."
+        });
+        return;
+      }
+
+      const { response: aiResponse, data: aiData, model: usedModel } = geminiResult;
 
       if (!aiResponse.ok) {
         console.error(
@@ -507,33 +390,58 @@ router.post(
       }
 
       const outputText = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!outputText) throw new Error("The Gemini response did not include output text");
-
-      const aiSuggestion = JSON.parse(outputText) as OutfitSuggestion;
-      const itemsById = new Map(items.map((item) => [item._id.toString(), item]));
-      const analyzedIds = new Set<string>();
-      const validWardrobe: WardrobeCandidate[] = [];
-
-      for (const analysis of Array.isArray(aiSuggestion.analyzedItems) ? aiSuggestion.analyzedItems : []) {
-        const item = itemsById.get(analysis.id);
-        if (!item || analyzedIds.has(analysis.id)) continue;
-        analyzedIds.add(analysis.id);
-        if (!analysis.isValid || analysis.detectedCategory === "None" || !item.image?.data || !item.image.contentType) continue;
-        validWardrobe.push({
-          id: analysis.id,
-          name: item.name,
-          category: analysis.detectedCategory,
-          color: item.color,
-          season: item.season,
-          style: item.style,
-          favorite: item.favorite,
-          wearCount: item.wearCount,
-          lastWornAt: item.lastWornAt,
-          analysis
+      if (!outputText) {
+        res.status(502).json({
+          success: false,
+          message: "The wardrobe inspection returned no result. Please try again."
         });
+        return;
       }
 
-      if (analyzedIds.size !== imageItems.length || imageItems.some((item) => !analyzedIds.has(item._id.toString()))) {
+      let aiSuggestion: OutfitSuggestion;
+
+      try {
+        aiSuggestion = JSON.parse(outputText) as OutfitSuggestion;
+      } catch (parseError) {
+        console.error("Gemini wardrobe inspection returned invalid JSON:", parseError);
+        res.status(502).json({
+          success: false,
+          message: "The wardrobe inspection returned an incomplete result. Please try again."
+        });
+        return;
+      }
+
+      if (!aiSuggestion || !isSafeStylistText(aiSuggestion.title) ||
+        !isSafeStylistText(aiSuggestion.explanation) ||
+        !Array.isArray(aiSuggestion.stylingTips) ||
+        aiSuggestion.stylingTips.length < 1 || aiSuggestion.stylingTips.length > 3 ||
+        aiSuggestion.stylingTips.some((tip) => !isSafeStylistText(tip)) ||
+        !Array.isArray(aiSuggestion.analyzedItems) ||
+        aiSuggestion.analyzedItems.length !== shortlistedItems.length ||
+        !Array.isArray(aiSuggestion.selectedItems)) {
+        res.status(502).json({
+          success: false,
+          message: "The wardrobe inspection returned an incomplete result. Please try again."
+        });
+        return;
+      }
+
+      const analyzedIds = new Set<string>();
+      const analysisById = new Map<string, AnalyzedWardrobeItem>();
+      let invalidAnalysis = false;
+
+      for (const analysis of aiSuggestion.analyzedItems) {
+        if (!isValidAnalyzedWardrobeItem(analysis, candidateIds) ||
+          analyzedIds.has(analysis.itemId)) {
+          invalidAnalysis = true;
+          break;
+        }
+        analyzedIds.add(analysis.itemId);
+        analysisById.set(analysis.itemId, analysis);
+      }
+
+      if (invalidAnalysis || analyzedIds.size !== shortlistedItems.length ||
+        shortlistedItems.some(({ id }) => !analyzedIds.has(id))) {
         res.status(502).json({
           success: false,
           message: "The wardrobe image inspection was incomplete. Please try again."
@@ -541,35 +449,78 @@ router.post(
         return;
       }
 
-      const hasCompleteBase = validWardrobe.some((item) => item.category === "Dresses") ||
-        (validWardrobe.some((item) => item.category === "Tops") && validWardrobe.some((item) => item.category === "Bottoms"));
+      const validAnalyses = aiSuggestion.analyzedItems.filter((analysis) =>
+        analysis.isValid && analysis.detectedCategory !== "None"
+      );
+      const hasCompleteBase = validAnalyses.some((analysis) => analysis.detectedCategory === "Dress") ||
+        (validAnalyses.some((analysis) => analysis.detectedCategory === "Top") &&
+          validAnalyses.some((analysis) => analysis.detectedCategory === "Bottom"));
+
       if (!hasCompleteBase) {
-        res.status(422).json({ success: false, message: incompleteWardrobeMessage(validWardrobe, value) });
+        res.status(422).json({
+          success: false,
+          message: "Your wardrobe does not contain enough valid items for a complete look. Add a dress, or both a top and a bottom."
+        });
         return;
       }
 
-      let suggestion = aiSuggestion;
-      let validationError = selectionValidationError(
-        Array.isArray(aiSuggestion.selectedItems) ? aiSuggestion.selectedItems : [],
-        validWardrobe,
-        value
+      if (aiSuggestion.selectedItems.some((selection) =>
+        !selection || typeof selection.itemId !== "string" ||
+        !mongoose.isValidObjectId(selection.itemId) ||
+        !isDetectedCategory(selection.detectedCategory) ||
+        !isSafeStylistText(selection.reason)
+      )) {
+        res.status(502).json({
+          success: false,
+          message: "The AI stylist returned an invalid wardrobe selection. Please try again."
+        });
+        return;
+      }
+      const selectedIds = aiSuggestion.selectedItems.map((selection) => selection.itemId);
+
+      const verifiedItems = await Item.find({
+        _id: { $in: [...candidateIds] },
+        user: req.userId
+      }).select("name category color image");
+      const verifiedItemsById = new Map(
+        verifiedItems.map((item) => [item._id.toString(), item])
+      );
+      const verifiedCandidates = new Map<string, VerifiedCandidate>();
+
+      for (const { id } of shortlistedItems) {
+        const analysis = analysisById.get(id);
+        const item = verifiedItemsById.get(id);
+        if (!analysis || !analysis.isValid || analysis.detectedCategory === "None") continue;
+        verifiedCandidates.set(id, {
+          ownerVerified: Boolean(item),
+          hasValidImage: Boolean(
+            item?.image?.data?.length && item.image.contentType &&
+            supportedImageTypes.has(item.image.contentType)
+          ),
+          detectedCategory: analysis.detectedCategory,
+          eventSuitable: analysis.eventSuitable,
+          styleSuitable: analysis.styleSuitable,
+          weatherSuitable: analysis.weatherSuitable
+        });
+      }
+
+      const validationError = selectedOutfitValidationError(
+        aiSuggestion.selectedItems,
+        verifiedCandidates
       );
 
-      if (validationError) {
-        console.warn(`Gemini outfit selection rejected: ${validationError}. Using validated local fallback.`);
-        suggestion = createLocalOutfitSuggestion(validWardrobe, value);
-        validationError = selectionValidationError(suggestion.selectedItems, validWardrobe, value);
-      }
-
-      if (validationError || suggestion.selectedItems.length === 0) {
-        res.status(422).json({ success: false, message: incompleteWardrobeMessage(validWardrobe, value) });
+      if (validationError || selectedIds.some((id) => !verifiedItemsById.has(id))) {
+        console.warn(`Gemini outfit selection rejected: ${validationError || "ownership verification failed"}`);
+        res.status(422).json({
+          success: false,
+          message: "The AI stylist could not create a valid complete look from your wardrobe. Please adjust your request and try again."
+        });
         return;
       }
 
-      const selectedIds = suggestion.selectedItems.map((selection) => selection.id);
-
       const selectedItems = selectedIds.map((id) => {
-        const item = itemsById.get(id)!;
+        const item = verifiedItemsById.get(id)!;
+        const selection = aiSuggestion.selectedItems.find((entry) => entry.itemId === id)!;
         const image = item.image?.data && item.image?.contentType
           ? `data:${item.image.contentType};base64,${item.image.data.toString("base64")}`
           : "";
@@ -578,9 +529,8 @@ router.post(
           _id: item._id,
           name: item.name,
           category: item.category,
-          detectedCategory: suggestion.selectedItems.find((selection) =>
-            selection.id === id
-          )?.detectedCategory,
+          detectedCategory: selection.detectedCategory,
+          selectionReason: selection.reason,
           color: item.color,
           image
         };
@@ -589,9 +539,9 @@ router.post(
       res.json({
         success: true,
         outfit: {
-          title: suggestion.title,
-          explanation: suggestion.explanation,
-          stylingTips: suggestion.stylingTips,
+          title: aiSuggestion.title,
+          explanation: aiSuggestion.explanation,
+          stylingTips: aiSuggestion.stylingTips,
           items: selectedItems
         }
       });
