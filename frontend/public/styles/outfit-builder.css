@@ -657,6 +657,33 @@ textarea {
     line-height: 1.6;
 }
 
+.try-on-ready {
+    width: min(100%, 560px);
+    min-height: 230px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.78);
+    border-radius: 26px;
+    background: rgba(255, 255, 255, 0.46);
+    color: #806d73;
+    text-align: center;
+}
+
+.try-on-ready i {
+    color: #c45777;
+    font-size: 30px;
+}
+
+.try-on-ready strong {
+    color: #5f444d;
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+}
+
 @keyframes try-on-spin {
     to { transform: rotate(360deg); }
 }
@@ -761,6 +788,123 @@ textarea {
 .try-on-button:disabled {
   cursor: wait;
   opacity: 0.68;
+}
+
+.try-on-actions,
+.try-on-quota-result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  margin: 2px 0 16px;
+  color: #74545e;
+  text-align: center;
+}
+
+.try-on-actions p,
+.try-on-quota-result p {
+  margin: 0;
+  font-weight: 700;
+}
+
+.try-on-actions .try-on-button {
+  margin-top: 8px;
+  margin-bottom: 0;
+}
+
+.quota-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.quota-error button {
+  padding: 7px 14px;
+  border: 1px solid rgba(141, 65, 85, 0.25);
+  border-radius: 999px;
+  background: #fff;
+  color: #91445a;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.try-on-plan-overlay {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(44, 25, 31, 0.56);
+}
+
+.try-on-plan-modal {
+  position: relative;
+  width: min(100%, 650px);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  padding: 36px;
+  border-radius: 26px;
+  background: #fff9fb;
+  box-shadow: 0 30px 80px rgba(52, 24, 33, 0.28);
+  color: #674650;
+  text-align: center;
+}
+
+.try-on-plan-modal h2 {
+  margin: 0 35px 10px;
+  color: #603844;
+  font-family: 'Playfair Display', serif;
+}
+
+.try-on-plan-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 50%;
+  background: #f4e2e8;
+  color: #713e4e;
+  cursor: pointer;
+  font-size: 25px;
+}
+
+.try-on-plans {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  margin-top: 24px;
+}
+
+.try-on-plans article {
+  padding: 22px;
+  border: 1px solid rgba(190, 90, 119, 0.2);
+  border-radius: 20px;
+  background: #fff;
+}
+
+.try-on-plans h3,
+.try-on-plans p {
+  margin: 0 0 10px;
+}
+
+.try-on-plans button {
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: #b84f70;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.plans-coming-soon {
+  margin: 18px 0 0;
+  color: #9d4561;
+  font-weight: 700;
 }
 
 .model-photo-guidance {
@@ -896,6 +1040,14 @@ textarea {
 
     .model-choice-grid {
         grid-template-columns: 1fr;
+    }
+
+    .try-on-plans {
+        grid-template-columns: 1fr;
+    }
+
+    .try-on-plan-modal {
+        padding: 32px 18px 22px;
     }
 
     .look-preview {
