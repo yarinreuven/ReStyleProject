@@ -20,7 +20,7 @@ import type {
       res.status(isTooLarge ? 413 : 400).json({
         success: false,
         message: isTooLarge
-          ? "Profile image must be smaller than 5MB"
+          ? "Image must be smaller than 5MB"
           : error.message
       });
       return;
@@ -29,7 +29,8 @@ import type {
     if (
       [
         "Please choose a JPG, PNG or WEBP image",
-        "Marketplace images must be JPG, PNG or WEBP"
+        "Marketplace images must be JPG, PNG or WEBP",
+        "The virtual model must be a JPG, PNG or WEBP image"
       ].includes(error.message)
     ) {
       res.status(400).json({

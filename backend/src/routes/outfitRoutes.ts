@@ -1,15 +1,23 @@
 import express from "express";
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import Joi from "joi";
 import mongoose from "mongoose";
 import multer from "multer";
-import sharp from "sharp";
+import path from "node:path";
+import sharp, { type Metadata } from "sharp";
 
 import Item from "../models/Item.ts";
+import OutfitSelection from "../models/OutfitSelection.ts";
+import User from "../models/User.ts";
 import {
   authenticateToken,
   type AuthRequest
 } from "../middleware/auth.ts";
-import { createGeminiTryOnImage } from "../services/geminiTryOnService.ts";
+import {
+  createGeminiTryOnImage,
+  validateGeminiTryOnImage
+} from "../services/geminiTryOnService.ts";
 import {
   createBalancedWardrobeShortlist,
   DETECTED_CATEGORIES,
@@ -20,8 +28,30 @@ import {
   type SelectedOutfitItem,
   type VerifiedCandidate
 } from "../services/outfitSelectionService.ts";
+import {
+  hasForbiddenTryOnOverrides,
+  isApprovedAvatarId,
+  orderTryOnItems,
+  qualityValidationError,
+  resourceOwnershipError,
+  uploadedAvatarValidationError,
+  validateTryOnComposition,
+  type AvatarSource,
+  type TryOnItemDescriptor
+} from "../services/tryOnValidationService.ts";
 
 const router = express.Router();
+const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
+const APPROVED_AVATARS = {
+  "female-illustrated": path.join(
+    projectRoot,
+    "frontend/public/images/avatars/fashion-avatar-v2.png"
+  ),
+  "male-illustrated": path.join(
+    projectRoot,
+    "frontend/public/images/avatars/fashion-avatar-male.png"
+  )
+} as const;
 const tryOnUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
@@ -139,6 +169,86 @@ function isValidAnalyzedWardrobeItem(
 function isSafeStylistText(value: unknown) {
   return typeof value === "string" && value.trim().length > 0 &&
     !/(?:https?:\/\/|www\.|\bbuy\b|\bpurchase\b|\bshop\b)/i.test(value);
+}
+
+async function validateAvatarImage(
+  data: Buffer,
+  contentType: string
+): Promise<{ error: string; data: Buffer; contentType: string }> {
+  let metadata: Metadata;
+  try {
+    metadata = await sharp(data).metadata();
+  } catch {
+    return {
+      error: "The full-body image must be a genuine JPG, PNG or WEBP image",
+      data,
+      contentType
+    };
+  }
+  const error = uploadedAvatarValidationError({
+    declaredMimeType: contentType,
+    detectedFormat: metadata.format,
+    size: data.length,
+    width: metadata.width,
+    height: metadata.height
+  });
+  return { error, data, contentType };
+}
+
+async function resolveTryOnAvatar(
+  req: AuthRequest,
+  source: AvatarSource
+): Promise<{ status: number; error: string; data?: Buffer; contentType?: string }> {
+  if (source === "preset") {
+    if (req.file || !isApprovedAvatarId(req.body.avatarId)) {
+      return { status: 400, error: "Choose an approved illustrated avatar" };
+    }
+    const data = await readFile(APPROVED_AVATARS[req.body.avatarId]);
+    const validated = await validateAvatarImage(data, "image/png");
+    return validated.error
+      ? { status: 400, error: validated.error }
+      : { status: 200, error: "", data, contentType: "image/png" };
+  }
+
+  if (source === "personal") {
+    if (req.file || req.body.avatarId) {
+      return { status: 400, error: "The personal model must come from your saved account image" };
+    }
+    const user = await User.findById(req.userId).select("virtualModelImage");
+    if (!user) return { status: 404, error: "User account not found" };
+    if (!user.virtualModelImage?.data || !user.virtualModelImage.contentType) {
+      return { status: 404, error: "Your saved full-body image was not found" };
+    }
+    const validated = await validateAvatarImage(
+      user.virtualModelImage.data,
+      user.virtualModelImage.contentType
+    );
+    return validated.error
+      ? { status: 400, error: validated.error }
+      : {
+          status: 200,
+          error: "",
+          data: user.virtualModelImage.data,
+          contentType: user.virtualModelImage.contentType
+        };
+  }
+
+  if (source === "upload") {
+    if (!req.file?.buffer || req.body.avatarId) {
+      return { status: 400, error: "Choose a full-body JPG, PNG or WEBP image" };
+    }
+    const validated = await validateAvatarImage(req.file.buffer, req.file.mimetype);
+    return validated.error
+      ? { status: 400, error: validated.error }
+      : {
+          status: 200,
+          error: "",
+          data: req.file.buffer,
+          contentType: req.file.mimetype
+        };
+  }
+
+  return { status: 400, error: "Choose a valid avatar source" };
 }
 
 
@@ -518,6 +628,18 @@ router.post(
         return;
       }
 
+      const savedSelection = await OutfitSelection.create({
+        user: req.userId,
+        title: aiSuggestion.title,
+        explanation: aiSuggestion.explanation,
+        stylingTips: aiSuggestion.stylingTips,
+        items: aiSuggestion.selectedItems.map((selection) => ({
+          item: selection.itemId,
+          detectedCategory: selection.detectedCategory,
+          reason: selection.reason
+        }))
+      });
+
       const selectedItems = selectedIds.map((id) => {
         const item = verifiedItemsById.get(id)!;
         const selection = aiSuggestion.selectedItems.find((entry) => entry.itemId === id)!;
@@ -538,7 +660,9 @@ router.post(
 
       res.json({
         success: true,
+        selectionId: savedSelection._id,
         outfit: {
+          selectionId: savedSelection._id,
           title: aiSuggestion.title,
           explanation: aiSuggestion.explanation,
           stylingTips: aiSuggestion.stylingTips,
@@ -556,99 +680,150 @@ router.post(
   tryOnUpload.single("modelImage"),
   async (req: AuthRequest, res, next) => {
     try {
-      if (!req.file?.buffer) {
+      if (!req.userId || !mongoose.isValidObjectId(req.userId)) {
+        res.status(401).json({ success: false, message: "Authentication is required" });
+        return;
+      }
+      if (hasForbiddenTryOnOverrides(req.body)) {
         res.status(400).json({
           success: false,
-          message: "Choose an illustrated avatar or upload a full-body photo"
+          message: "The try-on must use the saved verified outfit selection"
+        });
+        return;
+      }
+      if (!mongoose.isValidObjectId(req.body.selectionId)) {
+        res.status(400).json({ success: false, message: "Choose a valid saved outfit" });
+        return;
+      }
+
+      const selection = await OutfitSelection.findById(req.body.selectionId);
+      if (!selection || selection.expiresAt <= new Date()) {
+        res.status(404).json({ success: false, message: "The saved outfit was not found or has expired" });
+        return;
+      }
+      if (selection.user.toString() !== req.userId) {
+        res.status(403).json({ success: false, message: "You cannot use another user's outfit" });
+        return;
+      }
+      const selectionItems: TryOnItemDescriptor[] = [];
+      for (const entry of selection.items) {
+        if (!isDetectedCategory(entry.detectedCategory)) {
+          res.status(400).json({ success: false, message: "The saved outfit contains an invalid category" });
+          return;
+        }
+        selectionItems.push({
+          itemId: entry.item.toString(),
+          detectedCategory: entry.detectedCategory
+        });
+      }
+      const compositionError = validateTryOnComposition(selectionItems);
+      if (compositionError) {
+        res.status(400).json({ success: false, message: compositionError });
+        return;
+      }
+
+      const itemIds = selectionItems.map((entry) => entry.itemId);
+      const items = await Item.find({ _id: { $in: itemIds } })
+        .select("name category image user");
+      const ownershipError = resourceOwnershipError({
+        userId: req.userId,
+        selectionOwnerId: selection.user.toString(),
+        selectedItemIds: itemIds,
+        items: items.map((item) => ({
+          itemId: item._id.toString(),
+          ownerId: item.user.toString()
+        }))
+      });
+      if (ownershipError) {
+        res.status(ownershipError.status).json({
+          success: false,
+          message: ownershipError.message
         });
         return;
       }
 
-      let itemIds: unknown;
-
-      try {
-        itemIds = JSON.parse(req.body.itemIds || "[]");
-      } catch {
-        itemIds = [];
+      const itemsById = new Map(items.map((item) => [item._id.toString(), item]));
+      const orderedSelectionItems = orderTryOnItems(selectionItems);
+      const tryOnInputs = [];
+      for (const entry of orderedSelectionItems) {
+        const item = itemsById.get(entry.itemId)!;
+        if (!item.image?.data || !item.image.contentType ||
+          !["image/jpeg", "image/png", "image/webp"].includes(item.image.contentType)) {
+          res.status(404).json({
+            success: false,
+            message: `The selected item "${item.name}" no longer has a valid image`
+          });
+          return;
+        }
+        let metadata: Metadata;
+        try {
+          metadata = await sharp(item.image.data).metadata();
+        } catch {
+          res.status(404).json({
+            success: false,
+            message: `The selected item "${item.name}" has a damaged image`
+          });
+          return;
+        }
+        const expectedFormat = item.image.contentType === "image/jpeg"
+          ? "jpeg"
+          : item.image.contentType.replace("image/", "");
+        if (metadata.format !== expectedFormat || !metadata.width || !metadata.height) {
+          res.status(404).json({
+            success: false,
+            message: `The selected item "${item.name}" has an invalid image format`
+          });
+          return;
+        }
+        tryOnInputs.push({
+          itemId: entry.itemId,
+          name: item.name,
+          detectedCategory: entry.detectedCategory,
+          data: item.image.data,
+          contentType: item.image.contentType
+        });
       }
 
-      if (
-        !Array.isArray(itemIds) ||
-        itemIds.length === 0 ||
-        itemIds.length > 6 ||
-        new Set(itemIds).size !== itemIds.length ||
-        itemIds.some((id) =>
-          typeof id !== "string" || !/^[a-f\d]{24}$/i.test(id)
-        )
-      ) {
-        res.status(400).json({
-          success: false,
-          message: "The selected outfit is not valid"
-        });
+      const avatarSource = req.body.avatarSource as AvatarSource;
+      const avatar = await resolveTryOnAvatar(req, avatarSource);
+      if (avatar.error || !avatar.data || !avatar.contentType) {
+        res.status(avatar.status).json({ success: false, message: avatar.error });
         return;
       }
 
-      const items = await Item.find({
-        _id: { $in: itemIds },
-        user: req.userId
-      }).select("name category image");
-
-      const itemById = new Map(
-        items.map((item) => [item._id.toString(), item])
-      );
-      const orderedItems = itemIds
-        .map((id) => itemById.get(id))
-        .filter((item): item is NonNullable<typeof item> => Boolean(item));
-
-      if (orderedItems.length !== itemIds.length) {
-        res.status(400).json({
-          success: false,
-          message: "One or more selected items no longer exist in your wardrobe"
-        });
-        return;
-      }
-
-      const top = orderedItems.find((item) => item.category === "Tops");
-      const bottom = orderedItems.find((item) => item.category === "Bottoms");
-      const dress = orderedItems.find((item) => item.category === "Dresses");
-
-      if (!dress && (!top || !bottom)) {
-        res.status(400).json({
-          success: false,
-          message: "A try-on needs a dress, or both a top and a bottom"
-        });
-        return;
-      }
-
-      const missingImage = orderedItems.find((item) =>
-        !item.image?.data || !item.image?.contentType
-      );
-
-      if (missingImage) {
-        res.status(400).json({
-          success: false,
-          message: `The item "${missingImage.name}" needs an image for virtual try-on`
-        });
-        return;
-      }
-
-      const tryOnInputs = orderedItems.map((item) => ({
-        name: item.name,
-        category: item.category,
-        data: item.image!.data,
-        contentType: item.image!.contentType
-      }));
       try {
         const generated = await createGeminiTryOnImage(
-          req.file.buffer,
-          req.file.mimetype,
+          avatar.data,
+          avatar.contentType,
           tryOnInputs
         );
+        const quality = await validateGeminiTryOnImage(
+          generated.data,
+          generated.contentType,
+          avatar.data,
+          avatar.contentType,
+          tryOnInputs
+        );
+        const qualityError = qualityValidationError(quality, orderedSelectionItems);
+        if (qualityError) {
+          res.status(502).json({
+            success: false,
+            message: "The generated try-on was incomplete. Please try again later."
+          });
+          return;
+        }
 
         res.json({
           success: true,
           renderer: "gemini",
-          tryOnImage: `data:${generated.contentType};base64,${generated.data.toString("base64")}`
+          selectionId: selection._id,
+          tryOnImage: `data:${generated.contentType};base64,${generated.data.toString("base64")}`,
+          items: orderedSelectionItems.map((entry) => ({
+            itemId: entry.itemId,
+            detectedCategory: entry.detectedCategory,
+            name: itemsById.get(entry.itemId)!.name
+          })),
+          validation: { valid: true }
         });
         return;
       } catch (geminiError) {
@@ -660,12 +835,7 @@ router.post(
         return;
       }
     } catch (error) {
-      console.error("Virtual try-on error:", error);
-
-      res.status(502).json({
-        success: false,
-        message: "The virtual try-on service could not create the fitted image right now. Please try again shortly."
-      });
+      next(error);
     }
   }
 );
