@@ -66,6 +66,9 @@ export default function Home() {
                 <button onClick={() => navigate("/marketplace/favorites")}>
                   <i className="fa-regular fa-heart" /> Marketplace Saved Items
                 </button>
+                <button onClick={() => navigate("/saved-looks")}>
+                  <i className="fa-regular fa-bookmark" /> My Saved Looks
+                </button>
                 <div className="dropdown-divider" />
                 <button id="logoutBtn" onClick={logout}><i className="fa-solid fa-right-from-bracket" /> Logout</button>
               </div>

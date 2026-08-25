@@ -129,8 +129,14 @@ export default function MarketplaceFavorites() {
               <button type="button" onClick={() => navigate("/profile")}>
                 <i className="fa-regular fa-user" /> My Profile
               </button>
+              <button type="button" onClick={() => navigate("/settings")}>
+                <i className="fa-solid fa-gear" /> Settings
+              </button>
               <button type="button" aria-current="page">
                 <i className="fa-solid fa-heart" /> Marketplace Saved Items
+              </button>
+              <button type="button" onClick={() => navigate("/saved-looks")}>
+                <i className="fa-regular fa-bookmark" /> My Saved Looks
               </button>
               <div className="market-account-divider" />
               <button type="button" className="market-logout" onClick={logOut}>

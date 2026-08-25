@@ -211,7 +211,9 @@ export default function MarketplaceItemDetails() {
             <div className="market-detail-menu">
               <strong>{user.firstName} {user.lastName}</strong><span>{user.email}</span>
               <button type="button" onClick={() => navigate("/profile")}><i className="fa-regular fa-user" /> My Profile</button>
+              <button type="button" onClick={() => navigate("/settings")}><i className="fa-solid fa-gear" /> Settings</button>
               <button type="button" onClick={() => navigate("/marketplace/favorites")}><i className="fa-regular fa-heart" /> Marketplace Saved Items</button>
+              <button type="button" onClick={() => navigate("/saved-looks")}><i className="fa-regular fa-bookmark" /> My Saved Looks</button>
               <button type="button" onClick={logout}><i className="fa-solid fa-arrow-right-from-bracket" /> Logout</button>
             </div>
           )}

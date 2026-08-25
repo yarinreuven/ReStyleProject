@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import MarketplaceItemCard from "../components/MarketplaceItemCard";
@@ -35,6 +35,8 @@ export default function MarketplaceSellerProfile() {
   usePageStyles("marketplace-seller.css");
   const navigate = useNavigate();
   const { userId } = useParams();
+  const accountMenuRef = useRef(null);
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [seller, setSeller] = useState(null);
   const [items, setItems] = useState([]);
   const [filter, setFilter] = useState("ALL");
@@ -47,6 +49,17 @@ export default function MarketplaceSellerProfile() {
   useEffect(() => {
     if (!user || !token) navigate("/login", { replace: true });
   }, [navigate, token, user]);
+
+  useEffect(() => {
+    function closeAccountMenu(event) {
+      if (accountMenuRef.current && !accountMenuRef.current.contains(event.target)) {
+        setAccountMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", closeAccountMenu);
+    return () => document.removeEventListener("mousedown", closeAccountMenu);
+  }, []);
 
   useEffect(() => {
     if (!token) return;
@@ -86,6 +99,11 @@ export default function MarketplaceSellerProfile() {
     [filter, items]
   );
   const isOwnProfile = seller && String(user.id || user._id) === String(seller.id);
+
+  function logOut() {
+    logout();
+    navigate("/login", { replace: true });
+  }
 
   async function contactSeller() {
     try {
@@ -146,9 +164,43 @@ export default function MarketplaceSellerProfile() {
           <button type="button" className="active" onClick={() => navigate("/marketplace")}>Marketplace</button>
           <button type="button" onClick={() => navigate("/outfit-builder")}>Outfit Builder</button>
         </nav>
-        <button type="button" className="seller-header-account" onClick={() => navigate("/profile")}>
-          <ProfileAvatar token={token} user={user} /><span>{user.firstName}</span>
-        </button>
+        <div className="market-account" ref={accountMenuRef}>
+          <button
+            type="button"
+            className="market-profile-btn seller-header-account"
+            onClick={() => setAccountMenuOpen((open) => !open)}
+            aria-label="Open account menu"
+            aria-expanded={accountMenuOpen}
+          >
+            <ProfileAvatar token={token} user={user} />
+            <span>{user.firstName}</span>
+            <i className="fa-solid fa-chevron-down" />
+          </button>
+          {accountMenuOpen && (
+            <div className="market-account-menu">
+              <div className="market-account-header">
+                <strong>{user.firstName} {user.lastName}</strong>
+                <span>{user.email}</span>
+              </div>
+              <button type="button" onClick={() => navigate("/profile")}>
+                <i className="fa-regular fa-user" /> My Profile
+              </button>
+              <button type="button" onClick={() => navigate("/settings")}>
+                <i className="fa-solid fa-gear" /> Settings
+              </button>
+              <button type="button" onClick={() => navigate("/marketplace/favorites")}>
+                <i className="fa-regular fa-heart" /> Marketplace Saved Items
+              </button>
+              <button type="button" onClick={() => navigate("/saved-looks")}>
+                <i className="fa-regular fa-bookmark" /> My Saved Looks
+              </button>
+              <div className="market-account-divider" />
+              <button type="button" className="market-logout" onClick={logOut}>
+                <i className="fa-solid fa-arrow-right-from-bracket" /> Logout
+              </button>
+            </div>
+          )}
+        </div>
       </header>
 
       <main className="seller-profile-main">
