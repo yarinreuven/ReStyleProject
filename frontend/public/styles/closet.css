@@ -635,19 +635,18 @@ select:focus-visible{
 
 .closet-grid{
     display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(270px,340px));
-    justify-content:start;
-    gap:26px;
+    grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:20px;
 }
 
 /* Keep saved favorites compact and consistent across differently sized uploads. */
 .closet-grid-favorites{
-  grid-template-columns:repeat(auto-fill,minmax(240px,280px));
+  grid-template-columns:repeat(4,minmax(0,1fr));
   gap:20px;
 }
 
 .closet-grid-favorites .item-media{
-  height:235px;
+  height:275px;
   background:#faf5f3;
 }
 
@@ -723,33 +722,38 @@ select:focus-visible{
 .item-card{
     overflow:hidden;
     position:relative;
-    border:1px solid rgba(109,70,80,.10);
-    border-radius:30px;
-    background:rgba(255,255,255,.94);
-    box-shadow:0 20px 50px rgba(76,47,55,.10);
+    border:1px solid rgba(154,84,102,.12);
+    border-radius:24px;
+    background:linear-gradient(160deg,rgba(255,255,255,.98),rgba(255,249,249,.94));
+    box-shadow:0 15px 38px rgba(76,47,55,.085);
     transition:.28s ease;
 }
 
 .item-card:hover{
-    box-shadow:0 25px 58px rgba(76,47,55,.14);
-    transform:translateY(-7px);
+    border-color:rgba(185,95,118,.24);
+    box-shadow:0 23px 48px rgba(76,47,55,.13);
+    transform:translateY(-5px);
 }
 
 .item-media{
-    height:330px;
+    height:275px;
     position:relative;
     overflow:hidden;
-    background:#f6ebed;
+    padding:10px;
+    background:
+        radial-gradient(circle at 50% 38%,rgba(255,255,255,.95),transparent 48%),
+        linear-gradient(145deg,#fbf5f4,#f2e4e7);
 }
 
 .item-media>img,.no-image{
     width:100%;
     height:100%;
-    object-fit:cover;
+    object-fit:contain;
 }
 
 .item-media>img{
     display:block;
+    border-radius:17px;
     transition:transform .55s cubic-bezier(.2,.8,.2,1);
 }
 
@@ -761,7 +765,7 @@ select:focus-visible{
     content:"";
     position:absolute;
     inset:auto 0 0;
-    height:32%;
+    height:24%;
     pointer-events:none;
     background:linear-gradient(0deg,rgba(39,28,32,.20),transparent);
 }
@@ -814,8 +818,8 @@ select:focus-visible{
 }
 
 .card-heart{
-    width:43px;
-    height:43px;
+    width:39px;
+    height:39px;
     display:flex;
     align-items:center;
     justify-content:center;
@@ -843,7 +847,7 @@ select:focus-visible{
 }
 
 .item-info{
-    padding:21px;
+    padding:17px;
 }
 
 .item-title-row{
@@ -864,7 +868,7 @@ select:focus-visible{
 
 .item-title-row h3{
     font-family:'Playfair Display',Georgia,serif;
-    font-size:24px;
+    font-size:21px;
     line-height:1.15;
 }
 
@@ -927,10 +931,10 @@ select:focus-visible{
 
 .wear-controls{
     display:grid;
-    grid-template-columns:78px 1fr;
-    gap:10px;
-    margin-top:17px;
-    padding:12px;
+    grid-template-columns:68px 1fr;
+    gap:8px;
+    margin-top:14px;
+    padding:10px;
     border:1px solid rgba(109,70,80,.08);
     border-radius:16px;
     background:#fffafa;
@@ -1420,6 +1424,11 @@ select:focus-visible{
         grid-template-columns:repeat(4,1fr);
     }
 
+    .closet-grid,
+    .closet-grid-favorites{
+        grid-template-columns:repeat(3,minmax(0,1fr));
+    }
+
     .main-content{
         grid-template-columns:1fr;
     }
@@ -1449,6 +1458,10 @@ select:focus-visible{
     }
 
     .closet-grid{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+
+    .closet-grid-favorites{
         grid-template-columns:repeat(2,minmax(0,1fr));
     }
 

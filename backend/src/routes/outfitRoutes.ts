@@ -1078,6 +1078,38 @@ router.post("/saved", async (req: AuthRequest, res, next) => {
   }
 });
 
+router.delete("/saved/:lookId", async (req: AuthRequest, res, next) => {
+  try {
+    if (!req.userId || !mongoose.isValidObjectId(req.userId)) {
+      res.status(401).json({ success: false, message: "Authentication is required" });
+      return;
+    }
+    if (!mongoose.isValidObjectId(req.params.lookId)) {
+      res.status(400).json({ success: false, message: "Choose a valid saved look" });
+      return;
+    }
+
+    const deletedLook = await TryOnResult.findOneAndDelete({
+      _id: req.params.lookId,
+      owner: req.userId,
+      savedAt: { $ne: null }
+    });
+    if (!deletedLook) {
+      res.status(404).json({ success: false, message: "The saved look was not found" });
+      return;
+    }
+
+    await OutfitSelection.deleteOne({
+      _id: deletedLook.selection,
+      user: req.userId
+    });
+
+    res.json({ success: true, deletedLookId: deletedLook._id });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post(
   "/try-on",
   tryOnRateLimit,

@@ -13,6 +13,8 @@ export default function SavedLooks() {
   const [looks, setLooks] = useState([]);
   const [status, setStatus] = useState("loading");
   const [message, setMessage] = useState("");
+  const [deletingLookId, setDeletingLookId] = useState("");
+  const [pendingDeleteLook, setPendingDeleteLook] = useState(null);
 
   useEffect(() => {
     let active = true;
@@ -41,6 +43,29 @@ export default function SavedLooks() {
     return () => { active = false; };
   }, [logout, navigate, token]);
 
+  async function deleteSavedLook() {
+    if (!pendingDeleteLook) return;
+    const look = pendingDeleteLook;
+    try {
+      setDeletingLookId(look.id);
+      setMessage("");
+      await axios.delete(`${SAVED_LOOKS_API_URL}/${look.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setLooks((currentLooks) => currentLooks.filter((savedLook) => savedLook.id !== look.id));
+      setPendingDeleteLook(null);
+    } catch (error) {
+      if (error.response?.status === 401) {
+        logout();
+        navigate("/login", { replace: true });
+        return;
+      }
+      setMessage(error.response?.data?.message || "Could not delete this look. Please try again.");
+    } finally {
+      setDeletingLookId("");
+    }
+  }
+
   return (
     <main className="saved-looks-page">
       <header className="saved-looks-header">
@@ -56,6 +81,9 @@ export default function SavedLooks() {
         <p className="saved-looks-eyebrow">YOUR PERSONAL COLLECTION</p>
         <h1>My Saved Looks</h1>
         <p className="saved-looks-intro">Your favorite AI-styled outfits, saved to your account.</p>
+        {status === "ready" && message && (
+          <p className="saved-looks-action-error" role="alert">{message}</p>
+        )}
 
         {status === "loading" && (
           <div className="saved-looks-state" role="status">
@@ -105,12 +133,58 @@ export default function SavedLooks() {
                       {look.stylingTips.map((tip) => <li key={tip}>{tip}</li>)}
                     </ul>
                   )}
+                  <button
+                    type="button"
+                    className="delete-saved-look"
+                    onClick={() => setPendingDeleteLook(look)}
+                    disabled={deletingLookId === look.id}
+                  >
+                    <i className="fa-regular fa-trash-can" />
+                    {deletingLookId === look.id ? "Deleting…" : "Delete this look"}
+                  </button>
                 </div>
               </article>
             ))}
           </div>
         )}
       </section>
+
+      {pendingDeleteLook && (
+        <div className="delete-look-overlay" role="presentation">
+          <section
+            className="delete-look-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-look-title"
+            aria-describedby="delete-look-description"
+          >
+            <span className="delete-look-icon"><i className="fa-regular fa-trash-can" /></span>
+            <h2 id="delete-look-title">Delete this saved look?</h2>
+            <p id="delete-look-description">
+              Are you sure you want to delete “{pendingDeleteLook.title}”? Once deleted,
+              it will no longer appear in your saved looks.
+            </p>
+            <div className="delete-look-actions">
+              <button
+                type="button"
+                className="cancel-delete-look"
+                onClick={() => setPendingDeleteLook(null)}
+                disabled={Boolean(deletingLookId)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="confirm-delete-look"
+                onClick={deleteSavedLook}
+                disabled={Boolean(deletingLookId)}
+              >
+                {deletingLookId ? "Deleting…" : "Delete look"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }

@@ -99,6 +99,100 @@ body { margin: 0; }
 .saved-look-details > p { margin: 0; font-size: 16px; line-height: 1.7; }
 .saved-look-details ul { margin: 14px 0 0; padding-left: 20px; line-height: 1.7; }
 
+.delete-saved-look {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 24px;
+    padding: 10px 16px;
+    border: 1px solid rgba(164, 63, 88, 0.28);
+    border-radius: 999px;
+    color: #a43f58;
+    background: #fff8f9;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.delete-saved-look:hover { background: #fbe8ed; }
+.delete-saved-look:disabled { cursor: default; opacity: 0.6; }
+
+.saved-looks-action-error {
+    margin: -20px auto 24px;
+    color: #a43f58;
+    font-weight: 700;
+}
+
+.delete-look-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+    background: rgba(54, 42, 46, 0.52);
+    backdrop-filter: blur(4px);
+}
+
+.delete-look-dialog {
+    width: min(460px, 100%);
+    padding: 30px;
+    border: 1px solid rgba(170, 78, 103, 0.18);
+    border-radius: 26px;
+    background: #fffdfc;
+    box-shadow: 0 28px 80px rgba(44, 29, 35, 0.28);
+    text-align: center;
+}
+
+.delete-look-icon {
+    width: 54px;
+    height: 54px;
+    display: grid;
+    place-items: center;
+    margin: 0 auto 15px;
+    border-radius: 50%;
+    color: #a43f58;
+    background: #fbe8ed;
+    font-size: 21px;
+}
+
+.delete-look-dialog h2 {
+    margin: 0;
+    color: #4c3840;
+    font-family: 'Playfair Display', serif;
+    font-size: 28px;
+}
+
+.delete-look-dialog p {
+    margin: 12px 0 24px;
+    color: #746168;
+    font-size: 15px;
+    line-height: 1.6;
+}
+
+.delete-look-actions { display: flex; justify-content: center; gap: 11px; }
+
+.delete-look-actions button {
+    min-width: 130px;
+    padding: 11px 18px;
+    border-radius: 999px;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.cancel-delete-look {
+    border: 1px solid rgba(141, 65, 85, 0.2);
+    color: #75404f;
+    background: #fff;
+}
+
+.confirm-delete-look {
+    border: 1px solid #a43f58;
+    color: #fff;
+    background: #a43f58;
+}
+
+.delete-look-actions button:disabled { cursor: default; opacity: 0.6; }
+
 .saved-look-items { display: flex; flex-wrap: wrap; gap: 9px; }
 
 .saved-look-items span {
