@@ -618,6 +618,14 @@ export default function MyCloset() {
                 Marketplace Saved Items
               </button>
 
+              <button
+                type="button"
+                onClick={() => navigate("/saved-looks")}
+              >
+                <i className="fa-regular fa-bookmark" />
+                My Saved Looks
+              </button>
+
               <div className="account-menu-divider" />
 
               <button
