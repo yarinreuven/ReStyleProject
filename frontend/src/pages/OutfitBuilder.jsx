@@ -304,7 +304,8 @@ export default function OutfitBuilder() {
           event: eventType === "Other" ? customEvent.trim() : eventType,
           style,
           weather,
-          preferFavorites
+          preferFavorites,
+          avatarSource: modelChoice === "personal" ? "personal" : "preset"
         },
         {
           headers: {

@@ -113,7 +113,8 @@ const outfitRequestSchema = Joi.object({
   weather: Joi.string()
     .valid("Warm", "Mild", "Cold", "Rainy")
     .required(),
-  preferFavorites: Joi.boolean().required()
+  preferFavorites: Joi.boolean().required(),
+  avatarSource: Joi.string().valid("preset", "personal").required()
 });
 
 const saveOutfitSchema = Joi.object({
@@ -193,10 +194,23 @@ const GEMINI_STYLIST_RESPONSE_SCHEMA = {
         "occasionCoordinates", "reason"
       ]
     },
-    stylingTips: { type: "ARRAY", items: { type: "STRING" } }
+    stylingTips: { type: "ARRAY", items: { type: "STRING" } },
+    avatarValidation: {
+      type: "OBJECT",
+      properties: {
+        valid: { type: "BOOLEAN" },
+        singlePerson: { type: "BOOLEAN" },
+        fullBodyVisible: { type: "BOOLEAN" },
+        frontFacing: { type: "BOOLEAN" },
+        faceClear: { type: "BOOLEAN" },
+        reason: { type: "STRING" }
+      },
+      required: ["valid", "singlePerson", "fullBodyVisible", "frontFacing", "faceClear", "reason"]
+    }
   },
   required: [
-    "title", "explanation", "analyzedItems", "selectedItems", "cohesion", "stylingTips"
+    "title", "explanation", "analyzedItems", "selectedItems", "cohesion", "stylingTips",
+    "avatarValidation"
   ]
 } as const;
 
@@ -248,6 +262,14 @@ interface OutfitSuggestion {
     reason: string;
   };
   stylingTips: string[];
+  avatarValidation: {
+    valid: boolean;
+    singlePerson: boolean;
+    fullBodyVisible: boolean;
+    frontFacing: boolean;
+    faceClear: boolean;
+    reason: string;
+  };
 }
 
 function isSafeStylistText(value: unknown) {
@@ -511,6 +533,47 @@ router.post(
         description: item.description
       }));
 
+      let personalModelPart: Array<Record<string, unknown>> = [];
+      if (value.avatarSource === "personal") {
+        const user = await User.findById(req.userId).select("virtualModelImage");
+        if (!user?.virtualModelImage?.data || !user.virtualModelImage.contentType) {
+          res.status(422).json({
+            success: false,
+            code: "VIRTUAL_MODEL_PHOTO_MISSING",
+            message: "Upload a clear vertical full-body photo before creating your look."
+          });
+          return;
+        }
+        const validated = await validateAvatarImage(
+          user.virtualModelImage.data,
+          user.virtualModelImage.contentType
+        );
+        if (validated.error) {
+          res.status(422).json({
+            success: false,
+            code: "VIRTUAL_MODEL_PHOTO_UNSUITABLE",
+            message: `${validated.error}. Replace your digital model photo before creating a look.`
+          });
+          return;
+        }
+        const inspectionModelImage = await sharp(user.virtualModelImage.data)
+          .rotate()
+          .resize({ width: 768, height: 1024, fit: "inside", withoutEnlargement: true })
+          .jpeg({ quality: 72, mozjpeg: true })
+          .toBuffer();
+        personalModelPart = [
+          {
+            text: "PERSONAL MODEL PHOTO TO VALIDATE. This is not a wardrobe item. Check whether exactly one person is clearly visible, standing approximately front-facing, with an unobstructed face and the complete body visible from head through both feet. Ignore the background."
+          },
+          {
+            inline_data: {
+              mime_type: "image/jpeg",
+              data: inspectionModelImage.toString("base64")
+            }
+          }
+        ];
+      }
+
       const prompt = [
         "You are ReStyle, a personal fashion stylist.",
         "First inspect every attached image yourself.",
@@ -546,6 +609,9 @@ router.post(
         "Every styling tip must refer only to a selected or available valid wardrobe item. Do not suggest buying or adding anything.",
         "If no attached image shows a valid wardrobe item, return an empty selectedItems array.",
         "Keep the explanation concise and encouraging.",
+        value.avatarSource === "personal"
+          ? "Validate the separately labeled PERSONAL MODEL PHOTO. avatarValidation.valid may be true only when there is exactly one person, their face is clear, they are approximately front-facing, and their entire body including head, legs and both feet is visible. A selfie, seated pose, side-facing pose, cropped body, hidden feet or face, group photo, or distant person is invalid."
+          : "No personal model photo was requested. Return every avatarValidation boolean as true and reason as Preset avatar.",
         "Return one JSON object matching the provided response schema. The cohesion reason must briefly explain why the selected pieces work together. Keep stylingTips to between one and three short strings.",
         JSON.stringify({ request: value, wardrobe })
       ].join("\n");
@@ -584,7 +650,8 @@ router.post(
               role: "user",
               parts: [
                 { text: prompt },
-                ...imageParts
+                ...imageParts,
+                ...personalModelPart
               ]
             }
           ],
@@ -679,6 +746,22 @@ router.post(
         res.status(502).json({
           success: false,
           message: "The wardrobe inspection returned an incomplete result. Please try again."
+        });
+        return;
+      }
+
+      if (value.avatarSource === "personal" && (
+        !aiSuggestion.avatarValidation ||
+        !aiSuggestion.avatarValidation.valid ||
+        !aiSuggestion.avatarValidation.singlePerson ||
+        !aiSuggestion.avatarValidation.fullBodyVisible ||
+        !aiSuggestion.avatarValidation.frontFacing ||
+        !aiSuggestion.avatarValidation.faceClear
+      )) {
+        res.status(422).json({
+          success: false,
+          code: "VIRTUAL_MODEL_PHOTO_UNSUITABLE",
+          message: "Your digital model photo is not suitable for virtual try-on. Replace it with a clear, well-lit, front-facing photo of one person standing with the full body visible from head to both feet."
         });
         return;
       }
