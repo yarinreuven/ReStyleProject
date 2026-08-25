@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 
 import { useAuth } from "../context/AuthContext";
@@ -10,7 +11,7 @@ import {
   selectMarketplaceFavoritesStatus
 } from "../store/marketplaceFavoritesSlice.js";
 
-export default function MarketplaceFavoriteButton({
+function MarketplaceFavoriteButton({
   item,
   className,
   showLabel = false
@@ -67,3 +68,5 @@ export default function MarketplaceFavoriteButton({
     </button>
   );
 }
+
+export default memo(MarketplaceFavoriteButton);
