@@ -103,6 +103,17 @@ export function buildTryOnGenerationParts(
   avatarContentType: string,
   items: OutfitImageInput[]
 ) {
+  const selectedCategories = new Set(items.map((item) => item.detectedCategory));
+  const optionalCategoryRules = [
+    ["Jacket", "NO JACKET OR OUTERWEAR"],
+    ["Bag", "NO BAG"],
+    ["Accessory", "NO ACCESSORY OR JEWELRY"],
+    ["Shoes", "NO ADDED SHOES"]
+  ] as const;
+  const forbiddenCategories = optionalCategoryRules
+    .filter(([category]) => !selectedCategories.has(category))
+    .map(([, rule]) => rule)
+    .join("; ");
   const inventory = items
     .map((item, index) =>
       `${index + 1}. itemId=${item.itemId}; detectedCategory=${item.detectedCategory}; REQUIRED_GARMENT_TYPE=${item.requiredGarmentType || inferRequiredGarmentType(item.name, item.detectedCategory, item.visualDescription)}; name=${item.name}; exactVisualGarment=${item.visualDescription || "follow the reference image exactly"}`
@@ -114,16 +125,21 @@ export function buildTryOnGenerationParts(
     "Do not beautify, retouch, age, de-age, stylize, reinterpret, regenerate or replace the face. Do not substitute a similar-looking person. The result must remain recognizably the exact same person.",
     "Treat the head and face as protected content: edit clothing only below the neck. Preserve the original head, face, hair, expression and gaze unchanged whenever technically possible.",
     "For an illustrated avatar, preserve the illustration style and character identity. For a real person, preserve their real photographic appearance.",
+    "The PERSON/AVATAR reference supplies identity and body only. Its original clothes, shoes, bag, jewelry and accessories are NOT wardrobe references and must not survive into the result.",
+    "Remove or fully replace every visible original garment and fashion item from the PERSON/AVATAR image. Dress the person exclusively in the selected WARDROBE REFERENCES listed below.",
     "BACKGROUND REPLACEMENT: use the PERSON/AVATAR image only for the person—their face, hair, body, proportions and pose. The original background is not reference content and must not appear in the result.",
     "Completely remove and replace the source background with a plain, clean, softly lit neutral studio background in white, light gray or warm off-white.",
     "Do not copy or recreate any source scenery, plants, furniture, walls, floor details, people, objects, shadows or environmental elements. Keep only the person from the source image.",
     "Keep the head, both hands, full body, both legs and both shoes completely inside the frame.",
     "Use every selected wardrobe reference and no unselected fashion item.",
+    `STRICT CATEGORY ALLOWLIST: ${[...selectedCategories].join(", ")}. No other fashion category may appear.`,
+    `STRICT ABSENCE RULES: ${forbiddenCategories || "none"}. These absences are mandatory even if such an item appears in the original person photo.`,
     "GARMENT LOCK: copy the garment type and silhouette from every wardrobe reference exactly. Preserve its color, print, fabric, cut, waist, leg or hem shape, length and distinctive details.",
     "Never change one garment subtype into another: a skirt must remain a skirt and must never become jeans, trousers or shorts; trousers must remain trousers; jeans must remain jeans; shorts must remain shorts; a dress must remain a dress.",
     "REQUIRED_GARMENT_TYPE is a hard constraint and overrides the broad detectedCategory and any conflicting interpretation. If REQUIRED_GARMENT_TYPE=skirt, the legs must be covered by one connected skirt silhouette with a visible skirt hem and no trouser legs, inseams or jeans construction.",
     "A Dress replaces Top and Bottom. Otherwise both the Top and Bottom must be visible and no dress may be added.",
     "A Jacket must be the outermost clothing layer. Shoes must be worn on both feet and fully visible.",
+    "If Jacket is not in the selected inventory, the finished person must have no jacket, coat, blazer, cardigan, vest or any other outerwear layer. The selected base garment must remain visibly unobstructed.",
     "Place the selected Bag naturally in a hand or on a shoulder. Place the selected Accessory in its natural location.",
     "The final background must be uncluttered and must clearly separate the full-body person and outfit.",
     "Do not add text, logos, watermark, collage, product cards, jewelry, belts, bags, shoes, garments or accessories that were not provided.",

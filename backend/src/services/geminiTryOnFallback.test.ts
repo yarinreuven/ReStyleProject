@@ -41,6 +41,9 @@ test("locks facial identity and exact garment subtype in the generation prompt",
   assert.match(prompt, /a skirt must remain a skirt/);
   assert.match(prompt, /REQUIRED_GARMENT_TYPE=skirt/);
   assert.match(prompt, /no trouser legs, inseams or jeans construction/);
+  assert.match(prompt, /original clothes, shoes, bag, jewelry and accessories are NOT wardrobe references/);
+  assert.match(prompt, /STRICT CATEGORY ALLOWLIST: Bottom/);
+  assert.match(prompt, /NO JACKET OR OUTERWEAR/);
   assert.match(prompt, /black pleated midi skirt/);
 });
 
