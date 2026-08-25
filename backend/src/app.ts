@@ -1,5 +1,6 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 
 import authRoutes from "./routes/authRoutes.ts";
 import itemRoutes from "./routes/itemRoutes.ts";
@@ -12,6 +13,7 @@ import { getAllowedOrigins } from "./services/socketService.ts";
 
 const app = express();
 
+app.use(helmet());
 app.use(cors({ origin: getAllowedOrigins(), credentials: true }));
 app.use(express.json({ limit: "7mb" }));
 app.use(express.urlencoded({ extended: true, limit: "7mb" }));
