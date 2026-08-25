@@ -103,7 +103,7 @@ export default function Home() {
         </Link>
         <Link to="/outfit-builder" className="feature-card"><i className="fa-solid fa-wand-magic-sparkles icon" /><h4>Outfit Builder</h4><p>Create outfits based on style and occasion.</p></Link>
         <Link to={user ? "/marketplace" : "/login"} className="feature-card"><i className="fa-solid fa-bag-shopping icon" /><h4>Marketplace</h4><p>Sell or rent selected clothing items.</p></Link>
-        <div className="feature-card"><i className="fa-solid fa-recycle icon" /><h4>ReStyle Studio</h4><p>Discover tutorials and clothing transformation ideas.</p></div>
+        <Link to={user ? "/restyle-studio" : "/login"} className="feature-card"><i className="fa-solid fa-recycle icon" /><h4>ReStyle Studio</h4><p>Discover tutorials and clothing transformation ideas.</p></Link>
       </section>
 
       <footer><a href="#contact">Contact Us</a><span>|</span><a href="#privacy">Privacy Policy</a><span>|</span><a href="#terms">Terms of Service</a></footer>

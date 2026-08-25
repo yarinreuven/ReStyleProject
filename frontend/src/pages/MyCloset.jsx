@@ -567,7 +567,7 @@ export default function MyCloset() {
             Outfit Builder
           </button>
 
-          <button type="button">
+          <button type="button" onClick={() => navigate("/restyle-studio")}>
             ReStyle Studio
           </button>
         </nav>

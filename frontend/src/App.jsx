@@ -14,6 +14,7 @@ const Profile = lazy(() => import("./pages/Profile"));
 const Settings = lazy(() => import("./pages/Settings"));
 const OutfitBuilder = lazy(() => import("./pages/OutfitBuilder"));
 const SavedLooks = lazy(() => import("./pages/SavedLooks"));
+const ReStyleStudio = lazy(() => import("./pages/ReStyleStudio"));
 const Marketplace = lazy(() => import("./pages/Marketplace"));
 const MarketplaceFavorites = lazy(() => import("./pages/MarketplaceFavorites"));
 const MarketplaceItemDetails = lazy(() => import("./pages/MarketplaceItemDetails"));
@@ -61,6 +62,7 @@ function App() {
             <Route path="/settings" element={<Settings />} />
             <Route path="/outfit-builder" element={<OutfitBuilder />} />
             <Route path="/saved-looks" element={<SavedLooks />} />
+            <Route path="/restyle-studio" element={<ReStyleStudio />} />
             <Route path="/marketplace" element={<Marketplace />} />
             <Route path="/marketplace/favorites" element={<MarketplaceFavorites />} />
             <Route path="/marketplace/items/:itemId" element={<MarketplaceItemDetails />} />
