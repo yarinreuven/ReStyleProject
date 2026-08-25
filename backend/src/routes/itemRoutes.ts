@@ -85,7 +85,7 @@ async function checkWardrobeImage(
             parts: [
               {
                 text:
-                  "Inspect this image strictly for a virtual wardrobe and virtual try-on. Accept it only if exactly one clothing product is the clear dominant subject and its full shape, edges, color and design can be seen well. A matching pair of shoes counts as one product. Use Jackets only for outerwear worn as a layer over an outfit, such as jackets, coats, blazers, trench coats and substantial outer cardigans. Long-sleeve shirts, button-down shirts, blouses, sweatshirts and ordinary sweaters belong in Tops, not Jackets. Reject wardrobe or closet scenes, clothing racks, piles, collages, full outfits containing multiple garments, distant garments, people wearing the item, unrelated objects, screenshots, and images in which the product is cropped, hidden or too small. Return the single best category and whether it is one clear isolated product."
+                  "Inspect this image strictly for a virtual wardrobe. Accept either (1) one clear clothing product shown by itself, or (2) one person wearing the intended product when that product is clearly visible and its color, cut, shape and design can be identified reliably. A matching pair of shoes counts as one product. Normal accompanying clothes on the same person are allowed only when the intended product for the selected category is unambiguous. Use Jackets only for outerwear worn as a layer over an outfit, such as jackets, coats, blazers, trench coats and substantial outer cardigans. Long-sleeve shirts, button-down shirts, blouses, sweatshirts and ordinary sweaters belong in Tops, not Jackets. Reject wardrobe or closet scenes, clothing racks, piles, collages, screenshots, groups of people, distant subjects, unrelated objects, full-outfit photos where no single intended product is clear, and images in which the intended product is cropped, hidden, blurred or too small. Return the single best category and whether one intended wearable product is clear enough to use."
               },
               {
                 inline_data: {
@@ -144,7 +144,7 @@ async function validateWardrobeImage(
   ) {
     return {
       valid: false,
-      message: "Please upload one clear clothing item only, without a person, clothing rack, room or other garments"
+      message: "Please upload a clear photo of the item by itself or clearly worn by one person. Avoid screenshots, closets, collages, groups and unclear full-outfit photos"
     };
   }
 
