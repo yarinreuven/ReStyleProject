@@ -38,7 +38,8 @@ const tryOnResultSchema = new mongoose.Schema(
       unexpectedItemsDetected: Boolean,
       failureReasons: [String]
     },
-    failureCode: { type: String, default: null }
+    failureCode: { type: String, default: null },
+    savedAt: { type: Date, default: null, index: true }
   },
   { timestamps: true }
 );

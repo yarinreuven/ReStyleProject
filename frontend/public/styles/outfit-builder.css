@@ -522,6 +522,26 @@ textarea {
     text-align: center;
 }
 
+.studio-saved-looks {
+    position: absolute;
+    top: 26px;
+    right: 34px;
+    z-index: 3;
+    padding: 11px 17px;
+    border: 1px solid rgba(141, 65, 85, 0.16);
+    border-radius: 999px;
+    color: #75404f;
+    background: rgba(255, 255, 255, 0.72);
+    box-shadow: 0 8px 20px rgba(86, 46, 57, 0.08);
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.studio-saved-looks i {
+    margin-right: 7px;
+    color: #b7506d;
+}
+
 .look-preview h2 {
     margin: 0 0 18px;
     font-family: 'Playfair Display', serif;
@@ -949,25 +969,62 @@ textarea {
     font-size: 10px;
 }
 
-.outfit-explanation {
-    max-width: 650px;
-    margin: 22px 0 10px;
-    color: #67555b;
-    line-height: 1.6;
+.look-explanation-card {
+    width: min(720px, 100%);
+    margin-top: 26px;
+    padding: 24px 28px;
+    border: 1px solid rgba(170, 78, 103, 0.18);
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.72);
+    box-shadow: 0 12px 28px rgba(86, 46, 57, 0.08);
+    text-align: left;
+}
+
+.look-explanation-card h3,
+.look-explanation-card h4 {
+    margin: 0;
+    color: #533d45;
+    font-family: 'Playfair Display', serif;
+}
+
+.look-explanation-card h3 {
+    font-size: 22px;
+}
+
+.look-explanation-card h4 {
+    margin-top: 18px;
+    font-size: 17px;
+}
+
+.look-preview .look-explanation-card .outfit-explanation {
+    max-width: none;
+    margin: 10px 0 0;
+    color: #604e55;
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.7;
+    letter-spacing: normal;
 }
 
 .styling-tips {
-    max-width: 650px;
-    margin: 0;
+    max-width: none;
+    margin: 8px 0 0;
     padding-left: 20px;
-    color: #765760;
-    font-size: 12px;
+    color: #604e55;
+    font-size: 15px;
     line-height: 1.7;
     text-align: left;
 }
 
-.look-preview > button {
-    margin-top: 20px;
+.result-actions {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 22px;
+    flex-wrap: wrap;
+}
+
+.result-actions button {
     padding: 10px 17px;
     border: 1px solid rgba(141, 65, 85, 0.2);
     border-radius: 999px;
@@ -975,6 +1032,34 @@ textarea {
     background: rgba(255, 255, 255, 0.62);
     font-weight: 700;
     cursor: pointer;
+}
+
+.result-actions .save-look-button {
+    min-width: 190px;
+    border-color: #b7506d;
+    color: #fff;
+    background: linear-gradient(135deg, #cc607f, #ad4664);
+}
+
+.save-look-button i {
+    margin-right: 8px;
+}
+
+.result-actions button:disabled {
+    cursor: default;
+    opacity: 0.75;
+}
+
+.save-look-message {
+    margin: 12px 0 0;
+    color: #a03f5b;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: normal;
+}
+
+.save-look-message.success {
+    color: #397552;
 }
 
 @media (max-width: 800px) {
@@ -1012,9 +1097,29 @@ textarea {
         padding: 0 13px;
     }
 
+    .studio-saved-looks {
+        top: 18px;
+        right: 14px;
+        width: 41px;
+        min-height: 41px;
+        display: grid;
+        place-items: center;
+        padding: 0;
+        font-size: 12px;
+    }
+
+    .studio-saved-looks i {
+        margin: 0;
+    }
+
+    .studio-saved-looks span {
+        display: none;
+    }
+
     .studio-brand {
         top: 22px;
-        right: 18px;
+        right: 50%;
+        transform: translateX(50%);
         font-size: 25px;
     }
 

@@ -7,6 +7,7 @@ import { useAuth } from "../context/AuthContext";
 const OUTFIT_API_URL = "http://localhost:3001/api/outfits/generate";
 const TRY_ON_API_URL = "http://localhost:3001/api/outfits/try-on";
 const TRY_ON_STATUS_API_URL = "http://localhost:3001/api/outfits/try-on/status";
+const SAVED_LOOKS_API_URL = "http://localhost:3001/api/outfits/saved";
 const VIRTUAL_MODEL_API_URL =
   "http://localhost:3001/api/auth/virtual-model-image";
 const FEMALE_AVATAR_URL = "/images/avatars/fashion-avatar-v2.png";
@@ -59,6 +60,9 @@ export default function OutfitBuilder() {
   const [tryOnImage, setTryOnImage] = useState("");
   const [tryOnItems, setTryOnItems] = useState([]);
   const [tryOnError, setTryOnError] = useState("");
+  const [isSavingLook, setIsSavingLook] = useState(false);
+  const [savedLookId, setSavedLookId] = useState("");
+  const [saveLookMessage, setSaveLookMessage] = useState("");
   const [quota, setQuota] = useState(null);
   const [isQuotaLoading, setIsQuotaLoading] = useState(false);
   const [quotaError, setQuotaError] = useState("");
@@ -114,6 +118,8 @@ export default function OutfitBuilder() {
     setTryOnImage("");
     setTryOnItems([]);
     setTryOnError("");
+    setSavedLookId("");
+    setSaveLookMessage("");
     setIsPreview(false);
     if (!sessionKey) return;
     try {
@@ -298,6 +304,8 @@ export default function OutfitBuilder() {
       setTryOnImage("");
       setTryOnItems([]);
       setTryOnError("");
+      setSavedLookId("");
+      setSaveLookMessage("");
       setIsPreview(true);
       persistBuilderState(data.outfit, nextSelectionId);
       await createVirtualTryOn(nextSelectionId, data.outfit);
@@ -397,6 +405,33 @@ export default function OutfitBuilder() {
     }
   }
 
+  async function saveCurrentLook() {
+    if (!selectionId || !tryOnImage || isSavingLook || savedLookId) return;
+
+    try {
+      setIsSavingLook(true);
+      setSaveLookMessage("");
+      const { data } = await axios.post(
+        SAVED_LOOKS_API_URL,
+        { selectionId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setSavedLookId(data.savedLookId);
+      setSaveLookMessage("This look was saved to your account.");
+    } catch (error) {
+      if (error.response?.status === 401) {
+        logout();
+        navigate("/login", { replace: true });
+        return;
+      }
+      setSaveLookMessage(
+        error.response?.data?.message || "Could not save this look. Please try again."
+      );
+    } finally {
+      setIsSavingLook(false);
+    }
+  }
+
   return (
     <main className="stylist-studio">
       <button
@@ -406,6 +441,15 @@ export default function OutfitBuilder() {
       >
         <i className="fa-solid fa-arrow-left" />
         My Closet
+      </button>
+
+      <button
+        type="button"
+        className="studio-saved-looks"
+        onClick={() => navigate("/saved-looks")}
+      >
+        <i className="fa-solid fa-bookmark" />
+        <span>My Saved Looks</span>
       </button>
 
       <div className="studio-brand">
@@ -643,28 +687,60 @@ export default function OutfitBuilder() {
               </div>
             )}
 
-            <p className="outfit-explanation">{outfit?.explanation}</p>
+            <section className="look-explanation-card" aria-labelledby="look-explanation-title">
+              <h3 id="look-explanation-title">Why this look works</h3>
+              <p className="outfit-explanation">{outfit?.explanation}</p>
+              {!!outfit?.stylingTips?.length && (
+                <>
+                  <h4>Styling tips</h4>
+                  <ul className="styling-tips">
+                    {outfit.stylingTips.map((tip) => (
+                      <li key={tip}>{tip}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </section>
 
-            <ul className="styling-tips">
-              {outfit?.stylingTips.map((tip) => (
-                <li key={tip}>{tip}</li>
-              ))}
-            </ul>
-
-            <button
-              type="button"
-              onClick={() => {
-                setIsPreview(false);
-                setOutfit(null);
-                setSelectionId("");
-                setTryOnImage("");
-                setTryOnItems([]);
-                setTryOnError("");
-                if (sessionKey) sessionStorage.removeItem(sessionKey);
-              }}
-            >
-              Edit my request
-            </button>
+            <div className="result-actions">
+              {tryOnImage && (
+                <button
+                  type="button"
+                  className="save-look-button"
+                  onClick={saveCurrentLook}
+                  disabled={isSavingLook || Boolean(savedLookId)}
+                >
+                  <i className={`fa-solid ${savedLookId ? "fa-check" : "fa-bookmark"}`} />
+                  {isSavingLook
+                    ? "Saving…"
+                    : savedLookId
+                      ? "Saved to my looks"
+                      : "Save this look"}
+                </button>
+              )}
+              <button
+                type="button"
+                className="edit-request-button"
+                onClick={() => {
+                  setIsPreview(false);
+                  setOutfit(null);
+                  setSelectionId("");
+                  setTryOnImage("");
+                  setTryOnItems([]);
+                  setTryOnError("");
+                  setSavedLookId("");
+                  setSaveLookMessage("");
+                  if (sessionKey) sessionStorage.removeItem(sessionKey);
+                }}
+              >
+                Edit my request
+              </button>
+            </div>
+            {saveLookMessage && (
+              <p className={`save-look-message${savedLookId ? " success" : ""}`} role="status">
+                {saveLookMessage}
+              </p>
+            )}
           </div>
         )}
       </section>

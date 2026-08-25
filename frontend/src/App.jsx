@@ -8,6 +8,7 @@ import MyCloset from "./pages/MyCloset";
 import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import OutfitBuilder from "./pages/OutfitBuilder";
+import SavedLooks from "./pages/SavedLooks";
 import Marketplace from "./pages/Marketplace";
 import MarketplaceFavorites from "./pages/MarketplaceFavorites";
 import MarketplaceItemDetails from "./pages/MarketplaceItemDetails";
@@ -48,6 +49,7 @@ function App() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/outfit-builder" element={<OutfitBuilder />} />
+          <Route path="/saved-looks" element={<SavedLooks />} />
           <Route path="/marketplace" element={<Marketplace />} />
           <Route path="/marketplace/favorites" element={<MarketplaceFavorites />} />
           <Route path="/marketplace/items/:itemId" element={<MarketplaceItemDetails />} />
