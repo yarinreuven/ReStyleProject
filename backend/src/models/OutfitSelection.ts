@@ -21,6 +21,12 @@ const selectedItemSchema = new mongoose.Schema(
       trim: true,
       maxlength: 300,
       required: true
+    },
+    visualDescription: {
+      type: String,
+      trim: true,
+      maxlength: 300,
+      default: ""
     }
   },
   { _id: false }

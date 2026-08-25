@@ -19,6 +19,7 @@ import {
 import { createUserRateLimit } from "../middleware/userRateLimit.ts";
 import {
   createGeminiTryOnImage,
+  inferRequiredGarmentType,
   GeminiTryOnServiceError
 } from "../services/geminiTryOnService.ts";
 import {
@@ -157,11 +158,12 @@ const GEMINI_STYLIST_RESPONSE_SCHEMA = {
           },
           eventSuitable: { type: "BOOLEAN" },
           styleSuitable: { type: "BOOLEAN" },
-          weatherSuitable: { type: "BOOLEAN" }
+          weatherSuitable: { type: "BOOLEAN" },
+          visualDescription: { type: "STRING" }
         },
         required: [
           "itemId", "isValid", "detectedCategory", "eventSuitable",
-          "styleSuitable", "weatherSuitable"
+          "styleSuitable", "weatherSuitable", "visualDescription"
         ]
       }
     },
@@ -513,10 +515,13 @@ router.post(
         "You are ReStyle, a personal fashion stylist.",
         "First inspect every attached image yourself.",
         "Return exactly one analyzedItems entry for every attached item ID. Mark isValid false and detectedCategory None for rejected images.",
-        "For each image return only its visually detected category and separate booleans for whether it is truly suitable for the requested event, requested style and requested weather.",
+        "For each image return its visually detected category, a precise short visualDescription of the exact garment subtype and silhouette (for example pleated midi skirt, straight-leg jeans, tailored shorts), and separate booleans for whether it is truly suitable for the requested event, requested style and requested weather.",
         "Accept a valid item image when it shows either one clear product by itself or one person clearly wearing the intended product. When worn, the intended product must remain unambiguous and its color, cut, shape and design must be reliably visible.",
         "Normal accompanying clothes on one person are allowed only when the intended product and its category are visually clear. Reject closet scenes, clothing racks, piles, collages, screenshots, groups of people, full-outfit photos where no single intended product is clear, and images where the intended product is distant, blurred, hidden, heavily cropped or too small.",
         "Create one cohesive outfit using ONLY valid item IDs whose attached images clearly show real wearable items.",
+        "CONSISTENCY RULE: selectedItems may contain ONLY analyzedItems where isValid, eventSuitable, styleSuitable and weatherSuitable are all true.",
+        "Every selected item must have all three suitability booleans set to true in its analyzedItems entry. Never select an item while marking any of those booleans false.",
+        "Before returning JSON, cross-check every selected item against analyzedItems and revise the selection if there is any contradiction.",
         "Never trust an item's name or category when its image contradicts them.",
         "Never invent, recommend or mention any clothing, shoes, bag or accessory that is not among the valid attached wardrobe images.",
         "Use only these normalized detectedCategory values: Dress, Top, Bottom, Jacket, Shoes, Bag, Accessory. Use None only for an invalid analyzed image.",
@@ -739,7 +744,8 @@ router.post(
       if (!hasCompleteBase) {
         res.status(422).json({
           success: false,
-          message: "Your wardrobe does not contain enough valid items for a complete look. Add a dress, or both a top and a bottom."
+          code: "WARDROBE_BASE_IMAGES_UNCLEAR",
+          message: "Gemini could not clearly identify a complete outfit base in your wardrobe photos. Replace the unclear dress photo, or the unclear top or bottom photo, with a well-lit image that clearly shows the entire item."
         });
         return;
       }
@@ -790,10 +796,17 @@ router.post(
       );
 
       if (validationError || selectedIds.some((id) => !verifiedItemsById.has(id))) {
-        console.warn("Gemini outfit selection was rejected by server validation");
+        console.warn("Gemini outfit selection was rejected by server validation:", validationError);
+        const requestMismatch = validationError ===
+          "The selected outfit contains an item that does not match the request";
         res.status(422).json({
           success: false,
-          message: "The AI stylist could not create a valid complete look from your wardrobe. Please adjust your request and try again."
+          code: requestMismatch
+            ? "NO_COMPLETE_OUTFIT_MATCHES_REQUEST"
+            : "WARDROBE_ITEM_IMAGE_UNCLEAR",
+          message: requestMismatch
+            ? "Gemini could not find a complete outfit where every item matches this event, style and weather. Try changing one of those choices."
+            : "Gemini could not reliably identify one or more selected wardrobe photos. Replace any unclear, cropped or distant item photo with a well-lit photo showing one complete item, then try again."
         });
         return;
       }
@@ -803,10 +816,11 @@ router.post(
         title: aiSuggestion.title,
         explanation: aiSuggestion.explanation,
         stylingTips: aiSuggestion.stylingTips,
-        items: aiSuggestion.selectedItems.map((selection) => ({
-          item: selection.itemId,
-          detectedCategory: selection.detectedCategory,
-          reason: selection.reason
+          items: aiSuggestion.selectedItems.map((selection) => ({
+            item: selection.itemId,
+            detectedCategory: selection.detectedCategory,
+            reason: selection.reason,
+            visualDescription: analysisById.get(selection.itemId)?.visualDescription || ""
         }))
       });
 
@@ -1020,7 +1034,8 @@ router.post(
         }
         selectionItems.push({
           itemId: entry.item.toString(),
-          detectedCategory: entry.detectedCategory
+          detectedCategory: entry.detectedCategory,
+          visualDescription: entry.visualDescription
         });
       }
       const compositionError = validateTryOnComposition(selectionItems);
@@ -1086,6 +1101,12 @@ router.post(
           itemId: entry.itemId,
           name: item.name,
           detectedCategory: entry.detectedCategory,
+          visualDescription: entry.visualDescription,
+          requiredGarmentType: inferRequiredGarmentType(
+            item.name,
+            entry.detectedCategory,
+            entry.visualDescription
+          ),
           data: item.image.data,
           contentType: item.image.contentType
         });

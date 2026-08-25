@@ -3,9 +3,46 @@ import test from "node:test";
 import sharp from "sharp";
 
 import {
+  buildTryOnGenerationParts,
   createGeminiTryOnImage,
+  inferRequiredGarmentType,
   GEMINI_TRY_ON_IMAGE_FALLBACK_MODEL
 } from "./geminiTryOnService.ts";
+
+test("treats a Hebrew skirt name as a hard skirt requirement", () => {
+  assert.equal(
+    inferRequiredGarmentType("חצאית", "Bottom", "dark denim bottom"),
+    "skirt"
+  );
+});
+
+test("locks facial identity and exact garment subtype in the generation prompt", () => {
+  const parts = buildTryOnGenerationParts(
+    Buffer.from("avatar"),
+    "image/png",
+    [{
+      itemId: "skirt",
+      name: "חצאית",
+      detectedCategory: "Bottom",
+      visualDescription: "black pleated midi skirt",
+      data: Buffer.from("item"),
+      contentType: "image/png"
+    }]
+  );
+  const prompt = parts
+    .filter((part): part is { text: string } => "text" in part)
+    .map((part) => part.text)
+    .join("\n");
+
+  assert.match(prompt, /IDENTITY LOCK/);
+  assert.match(prompt, /Do not beautify, retouch/);
+  assert.match(prompt, /BACKGROUND REPLACEMENT/);
+  assert.match(prompt, /original background is not reference content/);
+  assert.match(prompt, /a skirt must remain a skirt/);
+  assert.match(prompt, /REQUIRED_GARMENT_TYPE=skirt/);
+  assert.match(prompt, /no trouser legs, inseams or jeans construction/);
+  assert.match(prompt, /black pleated midi skirt/);
+});
 
 test("falls back to the alternate image model after a primary 429 without network access", async () => {
   const previousKey = process.env.GEMINI_API_KEY;

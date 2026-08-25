@@ -2,10 +2,12 @@ import type { NextFunction, Request, Response } from "express";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import sharp from "sharp";
 import { OAuth2Client } from "google-auth-library";
 import User from "../models/User.ts";
 import type { AuthRequest } from "../middleware/auth.ts";
 import { sendEmailChangeCode, sendPasswordResetEmail } from "../services/emailService.ts";
+import { uploadedAvatarValidationError } from "../services/tryOnValidationService.ts";
 
 const googleClient = new OAuth2Client();
 
@@ -537,6 +539,33 @@ export async function updateVirtualModelImage(
       res.status(400).json({
         success: false,
         message: "Please choose a full-body image"
+      });
+      return;
+    }
+
+    let metadata;
+    try {
+      metadata = await sharp(req.file.buffer).metadata();
+    } catch {
+      res.status(400).json({
+        success: false,
+        message: "This photo could not be read. Please choose a different clear full-body photo."
+      });
+      return;
+    }
+
+    const validationError = uploadedAvatarValidationError({
+      declaredMimeType: req.file.mimetype,
+      detectedFormat: metadata.format,
+      size: req.file.size,
+      width: metadata.width,
+      height: metadata.height
+    });
+    if (validationError) {
+      res.status(400).json({
+        success: false,
+        code: "VIRTUAL_MODEL_PHOTO_UNSUITABLE",
+        message: `${validationError}. Replace it before creating a look.`
       });
       return;
     }

@@ -225,6 +225,24 @@ export default function OutfitBuilder() {
       return;
     }
 
+    try {
+      const image = await createImageBitmap(file);
+      const unsuitableDimensions = image.width < 300 || image.height < 600 ||
+        image.height / image.width < 1.15;
+      image.close();
+      if (unsuitableDimensions) {
+        setModelMessage(
+          "This photo is not suitable. Please upload a clear vertical photo showing your full body from head to feet."
+        );
+        event.target.value = "";
+        return;
+      }
+    } catch {
+      setModelMessage("This photo could not be read. Please choose a different photo.");
+      event.target.value = "";
+      return;
+    }
+
     const body = new FormData();
     body.append("virtualModelImage", file);
 

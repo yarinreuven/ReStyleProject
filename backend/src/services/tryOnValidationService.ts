@@ -11,6 +11,7 @@ export type AvatarSource = "preset" | "personal" | "upload";
 export interface TryOnItemDescriptor {
   itemId: string;
   detectedCategory: DetectedCategory;
+  visualDescription?: string;
 }
 
 export interface TryOnQualityResult {

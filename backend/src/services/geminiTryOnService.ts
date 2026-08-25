@@ -11,8 +11,39 @@ export interface OutfitImageInput {
   itemId: string;
   name: string;
   detectedCategory: DetectedCategory;
+  visualDescription?: string;
+  requiredGarmentType?: string;
   data: Buffer;
   contentType: string;
+}
+
+const GARMENT_TYPE_TERMS = [
+  { type: "skirt", terms: ["חצאית", "skirt"] },
+  { type: "jeans", terms: ["ג'ינס", "ג׳ינס", "גינס", "jeans", "denim pants"] },
+  { type: "shorts", terms: ["מכנסיים קצרים", "מכנס קצר", "shorts"] },
+  { type: "trousers", terms: ["מכנסיים", "מכנס", "trousers", "pants"] }
+] as const;
+
+export function inferRequiredGarmentType(
+  name: string,
+  detectedCategory: DetectedCategory,
+  visualDescription = ""
+) {
+  if (detectedCategory !== "Bottom") return detectedCategory.toLowerCase();
+  const normalizedName = name.trim().toLowerCase();
+  const normalizedDescription = visualDescription.trim().toLowerCase();
+
+  for (const candidate of GARMENT_TYPE_TERMS) {
+    if (candidate.terms.some((term) => normalizedName.includes(term))) {
+      return candidate.type;
+    }
+  }
+  for (const candidate of GARMENT_TYPE_TERMS) {
+    if (candidate.terms.some((term) => normalizedDescription.includes(term))) {
+      return candidate.type;
+    }
+  }
+  return "bottom garment shown in the reference";
 }
 
 interface GeminiResponsePart {
@@ -74,20 +105,27 @@ export function buildTryOnGenerationParts(
 ) {
   const inventory = items
     .map((item, index) =>
-      `${index + 1}. itemId=${item.itemId}; detectedCategory=${item.detectedCategory}; name=${item.name}`
+      `${index + 1}. itemId=${item.itemId}; detectedCategory=${item.detectedCategory}; REQUIRED_GARMENT_TYPE=${item.requiredGarmentType || inferRequiredGarmentType(item.name, item.detectedCategory, item.visualDescription)}; name=${item.name}; exactVisualGarment=${item.visualDescription || "follow the reference image exactly"}`
     )
     .join("\n");
   const instructions = [
-    "Create exactly one polished vertical 1K full-body virtual try-on image.",
-    "The labeled PERSON/AVATAR reference is the identity source. Preserve the face, identity, skin tone, hair, body structure, proportions and pose as closely as possible.",
-    "For an illustrated avatar, preserve the illustration style and character identity. For a real person, preserve their real appearance and do not redesign the face.",
+    "Perform a localized clothing edit on the PERSON/AVATAR reference and return exactly one polished vertical 1K full-body virtual try-on image.",
+    "IDENTITY LOCK: the PERSON/AVATAR reference is the only identity source. Keep the original person's exact facial identity, facial geometry, eyes, eyebrows, nose, lips, jaw, skin tone, hairline and distinguishing features.",
+    "Do not beautify, retouch, age, de-age, stylize, reinterpret, regenerate or replace the face. Do not substitute a similar-looking person. The result must remain recognizably the exact same person.",
+    "Treat the head and face as protected content: edit clothing only below the neck. Preserve the original head, face, hair, expression and gaze unchanged whenever technically possible.",
+    "For an illustrated avatar, preserve the illustration style and character identity. For a real person, preserve their real photographic appearance.",
+    "BACKGROUND REPLACEMENT: use the PERSON/AVATAR image only for the person—their face, hair, body, proportions and pose. The original background is not reference content and must not appear in the result.",
+    "Completely remove and replace the source background with a plain, clean, softly lit neutral studio background in white, light gray or warm off-white.",
+    "Do not copy or recreate any source scenery, plants, furniture, walls, floor details, people, objects, shadows or environmental elements. Keep only the person from the source image.",
     "Keep the head, both hands, full body, both legs and both shoes completely inside the frame.",
     "Use every selected wardrobe reference and no unselected fashion item.",
-    "Preserve each selected item's color, print, fabric, cut, length and distinctive details.",
+    "GARMENT LOCK: copy the garment type and silhouette from every wardrobe reference exactly. Preserve its color, print, fabric, cut, waist, leg or hem shape, length and distinctive details.",
+    "Never change one garment subtype into another: a skirt must remain a skirt and must never become jeans, trousers or shorts; trousers must remain trousers; jeans must remain jeans; shorts must remain shorts; a dress must remain a dress.",
+    "REQUIRED_GARMENT_TYPE is a hard constraint and overrides the broad detectedCategory and any conflicting interpretation. If REQUIRED_GARMENT_TYPE=skirt, the legs must be covered by one connected skirt silhouette with a visible skirt hem and no trouser legs, inseams or jeans construction.",
     "A Dress replaces Top and Bottom. Otherwise both the Top and Bottom must be visible and no dress may be added.",
     "A Jacket must be the outermost clothing layer. Shoes must be worn on both feet and fully visible.",
     "Place the selected Bag naturally in a hand or on a shoulder. Place the selected Accessory in its natural location.",
-    "Use a clean background that does not hide the outfit.",
+    "The final background must be uncluttered and must clearly separate the full-body person and outfit.",
     "Do not add text, logos, watermark, collage, product cards, jewelry, belts, bags, shoes, garments or accessories that were not provided.",
     "Selected wardrobe inventory:",
     inventory
@@ -98,7 +136,7 @@ export function buildTryOnGenerationParts(
     inlineImage(avatarImage, avatarContentType),
     ...items.flatMap((item) => [
       {
-        text: `WARDROBE REFERENCE itemId=${item.itemId}; detectedCategory=${item.detectedCategory}. This exact selected item must appear.`
+        text: `WARDROBE REFERENCE itemId=${item.itemId}; detectedCategory=${item.detectedCategory}; REQUIRED_GARMENT_TYPE=${item.requiredGarmentType || inferRequiredGarmentType(item.name, item.detectedCategory, item.visualDescription)}; exactVisualGarment=${item.visualDescription || "inspect this reference precisely"}. REQUIRED_GARMENT_TYPE is mandatory. This exact selected garment type, silhouette, length, material and color must appear without substitution.`
       },
       inlineImage(item.data, item.contentType)
     ])

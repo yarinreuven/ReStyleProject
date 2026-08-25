@@ -10,6 +10,7 @@ export interface AnalyzedWardrobeItem {
   eventSuitable: boolean;
   styleSuitable: boolean;
   weatherSuitable: boolean;
+  visualDescription: string;
 }
 
 const NORMALIZED_CATEGORIES = new Map<string, DetectedCategory | "None">([
@@ -63,7 +64,8 @@ export function normalizeAnalyzedWardrobeItem(
       detectedCategory: "None",
       eventSuitable: false,
       styleSuitable: false,
-      weatherSuitable: false
+      weatherSuitable: false,
+      visualDescription: ""
     };
   }
 
@@ -80,6 +82,9 @@ export function normalizeAnalyzedWardrobeItem(
     detectedCategory,
     eventSuitable: analysis.eventSuitable,
     styleSuitable: analysis.styleSuitable,
-    weatherSuitable: analysis.weatherSuitable
+    weatherSuitable: analysis.weatherSuitable,
+    visualDescription: typeof analysis.visualDescription === "string"
+      ? analysis.visualDescription.trim().slice(0, 300)
+      : ""
   };
 }
