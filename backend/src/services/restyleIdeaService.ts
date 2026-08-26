@@ -47,6 +47,60 @@ const sewingLevels: Record<string, number> = {
 };
 const difficultyLevels = { Easy: 1, Medium: 2, Challenging: 3 };
 
+const conditionGuidance: Record<string, { title: string; description: string; actions: { title: string; description: string }[] }> = {
+  good: {
+    title: "Keep it in use",
+    description: "The garment is still usable, so the most responsible backup is to keep its value in circulation.",
+    actions: [
+      { title: "Refresh the fit", description: "Try simple reversible styling, hemming or tailoring before cutting the garment." },
+      { title: "Pass it forward", description: "Donate or swap it while it is still in wearable condition." }
+    ]
+  },
+  stained: {
+    title: "Treat, cover or reclaim",
+    description: "Start with the least destructive option and only cut the garment if the stain cannot be treated safely.",
+    actions: [
+      { title: "Test stain treatment", description: "Check the care label and test a suitable cleaner on a hidden area first." },
+      { title: "Cover the affected area", description: "Use a verified patch, embroidery or fabric-paint technique that suits the fabric." },
+      { title: "Recover clean fabric", description: "If treatment fails, keep only strong, clean sections for a smaller project." }
+    ]
+  },
+  torn: {
+    title: "Repair before transforming",
+    description: "A tear does not always require a full redesign. Stabilizing it first can preserve more of the garment.",
+    actions: [
+      { title: "Inspect the damage", description: "Check whether the tear is limited to a seam or extends through weakened fabric." },
+      { title: "Choose a repair", description: "Use a reinforced seam, visible mending or a patch appropriate for the fabric." },
+      { title: "Recycle unsafe fabric", description: "Use textile recycling when the surrounding fabric tears under gentle pressure." }
+    ]
+  },
+  "too-small": {
+    title: "Refit or pass it forward",
+    description: "Avoid irreversible cutting until you know whether the seams allow a safe size adjustment.",
+    actions: [
+      { title: "Check seam allowance", description: "A tailor can confirm whether side seams can be released or panels can be added." },
+      { title: "Swap or donate", description: "If the garment is sound, passing it to the right size preserves its original value." }
+    ]
+  },
+  "too-large": {
+    title: "Tailor with minimal waste",
+    description: "An oversized garment often has several safe routes before it needs a complete transformation.",
+    actions: [
+      { title: "Pin the desired fit", description: "Test reversible shaping and mark adjustments while wearing the garment over another layer." },
+      { title: "Ask for tailoring", description: "Use professional alteration when fit changes affect closures, lining or structure." }
+    ]
+  },
+  worn: {
+    title: "Use only fabric that is still strong",
+    description: "Worn fabric must be checked carefully before it becomes a new item.",
+    actions: [
+      { title: "Perform a strength check", description: "Gently pull several areas. Do not reuse sections that thin, split or shed heavily." },
+      { title: "Salvage sound sections", description: "Strong pockets, panels, buttons and trims may still support a smaller project." },
+      { title: "Choose textile recycling", description: "Recycle the garment when most of the fabric is no longer structurally sound." }
+    ]
+  }
+};
+
 const catalog: CatalogIdea[] = [
   {
     id: "shirt-to-tote",
@@ -298,7 +352,6 @@ export function findMatchingRestyleIdeas(details: RestyleDetails) {
     .filter((idea) => difficultyLevels[idea.difficulty] <= userDifficulty)
     .filter((idea) => userSewing >= idea.minimumSewingSkill)
     .filter((idea) => idea.requiredTools.every((tool) => toolSet.has(tool)))
-    .slice(0, 4)
     .map((idea) => ({
       id: idea.id,
       title: idea.title,
@@ -311,8 +364,32 @@ export function findMatchingRestyleIdeas(details: RestyleDetails) {
       materials: idea.materials,
       suitableConditions: idea.conditions,
       icon: idea.icon,
-      whyItFits: `Matched to ${details.fabric.toLowerCase()} fabric, ${details.condition.replace("-", " ")} condition and your ${details.difficulty.toLowerCase()} difficulty preference.`
+      whyItFits: `Matched to ${details.fabric.toLowerCase()} fabric, ${details.condition.replace("-", " ")} condition and your ${details.difficulty.toLowerCase()} difficulty preference.`,
+      matchScore: Math.min(98,
+        72 +
+        (details.fabric !== "Unknown" ? 8 : 3) +
+        (details.preference !== "any" && idea.outputType === details.preference ? 8 : 0) +
+        (difficultyLevels[idea.difficulty] === userDifficulty ? 6 : 3) +
+        (idea.requiredTools.length <= 2 ? 4 : 1)
+      )
+    }))
+    .sort((a, b) => b.matchScore - a.matchScore || a.timeMinutes - b.timeMinutes)
+    .slice(0, 4)
+    .map((idea) => ({
+      ...idea,
+      matchLabel: idea.matchScore >= 92 ? "Best match" : idea.matchScore >= 84 ? "Great match" : "Good match"
     }));
+}
+
+export function getResponsibleFallback(details: RestyleDetails) {
+  const guidance = conditionGuidance[details.condition] || conditionGuidance.worn;
+  return {
+    kind: details.condition === "good" ? "circulate" : details.condition === "worn" ? "recycle" : "care",
+    title: guidance.title,
+    description: guidance.description,
+    reason: `Recommended for a ${details.fabric.toLowerCase()} ${details.garmentType.toLowerCase()} in ${details.condition.replace("-", " ")} condition.`,
+    actions: guidance.actions
+  };
 }
 
 export function getVerifiedRestyleGuide(ideaId: string) {

@@ -49,6 +49,13 @@ const creationPreferences = [
   ["any", "Any practical idea", "fa-solid fa-wand-magic-sparkles"]
 ];
 
+const compatibleClosetTypes = {
+  Tops: new Set(["Tops", "Shirts", "Sweaters"]),
+  Bottoms: new Set(["Bottoms", "Skirts"]),
+  Dresses: new Set(["Dresses"]),
+  Jackets: new Set(["Jackets"])
+};
+
 const blankGarmentDetails = {
   garmentType: "",
   fabric: "",
@@ -85,6 +92,7 @@ export default function ReStyleStudio() {
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [projectError, setProjectError] = useState("");
   const [ideas, setIdeas] = useState([]);
+  const [responsibleFallback, setResponsibleFallback] = useState(null);
   const [ideasStatus, setIdeasStatus] = useState("idle");
   const [ideasMessage, setIdeasMessage] = useState("");
   const [guide, setGuide] = useState(null);
@@ -282,6 +290,14 @@ export default function ReStyleStudio() {
     });
     if (garmentDetails.tools.length === 0) nextErrors.tools = "Choose your available tools, or select No tools yet.";
 
+    if (
+      selectedGarment.source === "closet" &&
+      garmentDetails.garmentType &&
+      !compatibleClosetTypes[selectedGarment.category]?.has(garmentDetails.garmentType)
+    ) {
+      nextErrors.garmentType = `This does not match the ${selectedGarment.category} category saved for this garment.`;
+    }
+
     setDetailsErrors(nextErrors);
     if (Object.keys(nextErrors).length > 0) {
       setDetailsReady(false);
@@ -332,6 +348,7 @@ export default function ReStyleStudio() {
     try {
       setIdeasStatus("loading");
       setIdeasMessage("");
+      setResponsibleFallback(null);
       ideasRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       const { data } = await axios.post(
         `${RESTYLE_PROJECTS_API_URL}/${projectId}/ideas`,
@@ -339,6 +356,7 @@ export default function ReStyleStudio() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setIdeas(data.ideas || []);
+      setResponsibleFallback(data.fallback || null);
       setIdeasMessage(data.message || "");
       setIdeasStatus((data.ideas || []).length > 0 ? "ready" : "empty");
     } catch (error) {
@@ -677,6 +695,7 @@ export default function ReStyleStudio() {
                   {garmentTypes.map((type) => <option key={type} value={type}>{type}</option>)}
                 </select>
                 {selectedGarment.source === "closet" && <small>Filled from My Closet. You can correct it if needed.</small>}
+                {selectedGarment.source === "upload" && <small>Choose the type of the garment visible in the uploaded photo.</small>}
                 {detailsErrors.garmentType && <em>{detailsErrors.garmentType}</em>}
               </label>
 
@@ -800,9 +819,15 @@ export default function ReStyleStudio() {
           {ideasStatus === "empty" && (
             <div className="restyle-ideas-state empty">
               <i className="fa-solid fa-shield-heart" />
-              <strong>No verified match yet</strong>
+              <strong>A safer path for this piece</strong>
               <p>{ideasMessage}</p>
-              <button type="button" onClick={() => detailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>Review garment details</button>
+              {responsibleFallback && (
+                <div className="restyle-fallback-card featured">
+                  <div><span>RESPONSIBLE NEXT PATH</span><h3>{responsibleFallback.title}</h3><p>{responsibleFallback.description}</p><small>{responsibleFallback.reason}</small></div>
+                  <ol>{responsibleFallback.actions.map((action) => <li key={action.title}><strong>{action.title}</strong><span>{action.description}</span></li>)}</ol>
+                </div>
+              )}
+              <button type="button" onClick={() => moveToStudioStep(1)}>Choose a different garment</button>
             </div>
           )}
 
@@ -818,6 +843,7 @@ export default function ReStyleStudio() {
                     </div>
                     <div className="restyle-idea-content">
                       <div className="restyle-idea-meta">
+                        <span className="restyle-match-score"><i className="fa-solid fa-bullseye" /> {idea.matchScore}% · {idea.matchLabel}</span>
                         <span><i className="fa-regular fa-clock" /> {idea.timeMinutes} min</span>
                         <span><i className="fa-solid fa-signal" /> {idea.difficulty}</span>
                         <span><i className="fa-solid fa-needle" /> {idea.sewingRequired ? "Sewing" : "No sewing"}</span>
@@ -834,6 +860,12 @@ export default function ReStyleStudio() {
                   </article>
                 ))}
               </div>
+              {responsibleFallback && (
+                <aside className="restyle-fallback-card">
+                  <div><span>IF THESE DO NOT FEEL RIGHT</span><h3>{responsibleFallback.title}</h3><p>{responsibleFallback.description}</p><small>{responsibleFallback.reason}</small></div>
+                  <ol>{responsibleFallback.actions.map((action) => <li key={action.title}><strong>{action.title}</strong><span>{action.description}</span></li>)}</ol>
+                </aside>
+              )}
             </>
           )}
         </section>

@@ -3,10 +3,20 @@ import type { NextFunction, Response } from "express";
 import Item from "../models/Item.ts";
 import RestyleProject from "../models/RestyleProject.ts";
 import type { AuthRequest } from "../middleware/auth.ts";
-import { findMatchingRestyleIdeas, getVerifiedRestyleGuide } from "../services/restyleIdeaService.ts";
+import { findMatchingRestyleIdeas, getResponsibleFallback, getVerifiedRestyleGuide } from "../services/restyleIdeaService.ts";
 
 const RESTYLE_INACTIVE_DAYS = 60;
 const restyleCategories = new Set(["Tops", "Bottoms", "Dresses", "Jackets"]);
+const compatibleClosetTypes: Record<string, Set<string>> = {
+  Tops: new Set(["Tops", "Shirts", "Sweaters"]),
+  Bottoms: new Set(["Bottoms", "Skirts"]),
+  Dresses: new Set(["Dresses"]),
+  Jackets: new Set(["Jackets"])
+};
+
+function detailsMatchClosetCategory(category: string, garmentType: string) {
+  return compatibleClosetTypes[category]?.has(garmentType) === true;
+}
 
 function imageToDataUrl(image?: { data?: Buffer; contentType?: string } | null) {
   if (!image?.data || !image.contentType) return "";
@@ -57,6 +67,10 @@ export async function createRestyleProject(req: AuthRequest, res: Response, next
       }
       if (!sourceItem.image?.data || !isEligibleClosetItem(sourceItem)) {
         res.status(400).json({ success: false, message: "This closet item is not currently eligible for ReStyle Studio" });
+        return;
+      }
+      if (!detailsMatchClosetCategory(sourceItem.category, req.body.details.garmentType)) {
+        res.status(400).json({ success: false, message: "The selected garment type does not match this closet item" });
         return;
       }
     } else {
@@ -112,6 +126,18 @@ export async function getRestyleProject(req: AuthRequest, res: Response, next: N
 export async function updateRestyleProject(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const updates = { ...req.body };
+    const existingProject = updates.details
+      ? await RestyleProject.findOne({ _id: req.params.projectId, owner: req.userId }).populate("sourceItem", "category")
+      : null;
+    const sourceItem = existingProject?.sourceItem as any;
+    if (
+      existingProject?.sourceType === "closet" &&
+      sourceItem?.category &&
+      !detailsMatchClosetCategory(sourceItem.category, updates.details.garmentType)
+    ) {
+      res.status(400).json({ success: false, message: "The selected garment type does not match this closet item" });
+      return;
+    }
     if (updates.status === "completed") {
       updates.progress = 100;
       updates.completedAt = new Date();
@@ -155,15 +181,17 @@ export async function generateRestyleIdeas(req: AuthRequest, res: Response, next
     }
 
     const ideas = findMatchingRestyleIdeas(project.details);
+    const fallback = getResponsibleFallback(project.details);
     project.set("generatedIdeas", ideas.map((idea) => ({ ...idea, ideaId: idea.id })));
     await project.save();
 
     res.json({
       success: true,
       ideas,
+      fallback,
       message: ideas.length > 0
-        ? "Suitable ReStyle ideas found"
-        : "No verified transformation currently matches this garment and your available tools"
+        ? `${ideas.length} suitable paths, ranked for this garment`
+        : "A creative transformation is not safe with the current details, so we prepared a responsible next path"
     });
   } catch (error) {
     next(error);

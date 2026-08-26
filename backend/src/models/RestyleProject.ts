@@ -26,7 +26,9 @@ const restyleIdeaSchema = new mongoose.Schema(
     materials: { type: [String], default: [] },
     suitableConditions: { type: [String], default: [] },
     icon: { type: String, required: true },
-    whyItFits: { type: String, required: true }
+    whyItFits: { type: String, required: true },
+    matchScore: { type: Number, min: 0, max: 100, default: 75 },
+    matchLabel: { type: String, enum: ["Best match", "Great match", "Good match"], default: "Good match" }
   },
   { _id: false }
 );

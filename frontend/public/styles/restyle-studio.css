@@ -549,6 +549,19 @@ button { font: inherit; }
 .restyle-idea-content > p { margin: 0; color: #806e74; font-size: 12px; line-height: 1.65; }
 .restyle-idea-fit { display: flex; align-items: flex-start; gap: 8px; margin: 14px 0; padding: 11px; border-radius: 13px; color: #48765b; background: #eff7f2; font-size: 9px; line-height: 1.5; }
 .restyle-idea-fit i { margin-top: 2px; }
+.restyle-match-score { color: #8f4058 !important; background: #f9e5ea !important; }
+
+.restyle-fallback-card { display: grid; grid-template-columns: minmax(220px,.75fr) minmax(0,1.25fr); gap: 28px; align-items: center; margin-top: 28px; padding: 25px 28px; border: 1px solid rgba(93,126,105,.2); border-radius: 25px; color: #3f5248; background: linear-gradient(135deg,#f5fbf7,#fffdfa); box-shadow: 0 17px 40px rgba(64,91,74,.08); text-align: left; }
+.restyle-fallback-card.featured { width: min(850px,100%); margin: 18px auto 4px; }
+.restyle-fallback-card > div > span { color: #568269; font-size: 9px; font-weight: 800; letter-spacing: 1.7px; }
+.restyle-fallback-card h3 { margin: 7px 0; font: 700 24px 'Playfair Display',serif; }
+.restyle-fallback-card p { margin: 0 0 8px; color: #64756b; font-size: 12px; line-height: 1.6; }
+.restyle-fallback-card small { color: #7d8b82; font-size: 10px; }
+.restyle-fallback-card ol { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; counter-reset: fallback-path; }
+.restyle-fallback-card li { display: grid; grid-template-columns: 28px 1fr; gap: 3px 10px; padding: 10px; border-radius: 13px; background: rgba(255,255,255,.72); counter-increment: fallback-path; }
+.restyle-fallback-card li::before { content: counter(fallback-path); width: 28px; height: 28px; grid-row: 1 / 3; display: grid; place-items: center; border-radius: 50%; color: white; background: #6f9c7f; font-size: 10px; font-weight: 800; }
+.restyle-fallback-card li strong { font-size: 11px; }
+.restyle-fallback-card li span { color: #718078; font-size: 10px; line-height: 1.45; }
 .restyle-idea-requirements { display: grid; gap: 8px; }
 .restyle-idea-requirements > div { display: grid; grid-template-columns: 65px 1fr; gap: 7px; font-size: 9px; line-height: 1.5; }
 .restyle-idea-requirements strong { color: #5c484f; }
@@ -608,6 +621,7 @@ button { font: inherit; }
 .restyle-studio-steps p { margin: 0; color: #806f74; font-size: 13px; line-height: 1.65; }
 
 @media (max-width: 1080px) {
+    .restyle-fallback-card { grid-template-columns: 1fr; }
     .restyle-studio-header { grid-template-columns: auto auto; }
     .restyle-studio-header nav { grid-column: 1 / -1; grid-row: 2; }
     .restyle-studio-account { justify-self: end; }
