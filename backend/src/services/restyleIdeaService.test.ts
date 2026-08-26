@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { findMatchingRestyleIdeas } from "./restyleIdeaService.ts";
+import { findMatchingRestyleIdeas, getVerifiedRestyleGuide } from "./restyleIdeaService.ts";
 
 const denimDetails = {
   garmentType: "Bottoms",
@@ -46,4 +46,14 @@ test("returns no result instead of weakening tool requirements", () => {
     tools: ["none"]
   });
   assert.deepEqual(ideas, []);
+});
+
+test("every returned idea has a curated guide without a fabricated video", () => {
+  const ideas = findMatchingRestyleIdeas(denimDetails);
+  for (const idea of ideas) {
+    const guide = getVerifiedRestyleGuide(idea.id);
+    assert.ok(guide);
+    assert.ok(guide.steps.length >= 5);
+    assert.equal(guide.verifiedVideo, null);
+  }
 });

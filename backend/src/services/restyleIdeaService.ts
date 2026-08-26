@@ -25,6 +25,20 @@ interface CatalogIdea {
   icon: string;
 }
 
+interface GuideStep {
+  id: string;
+  title: string;
+  instruction: string;
+}
+
+interface RestyleGuide {
+  ideaId: string;
+  steps: GuideStep[];
+  tips: string[];
+  warnings: string[];
+  verifiedVideo: { title: string; url: string; source: string } | null;
+}
+
 const sewingLevels: Record<string, number> = {
   "No sewing": 0,
   "Basic hand sewing": 1,
@@ -164,6 +178,113 @@ const catalog: CatalogIdea[] = [
   }
 ];
 
+const guides: Record<string, RestyleGuide> = {
+  "shirt-to-tote": {
+    ideaId: "shirt-to-tote",
+    steps: [
+      { id: "inspect", title: "Inspect and mark usable fabric", instruction: "Lay the garment flat, identify stains or tears, and mark two equal panels that avoid weak areas." },
+      { id: "cut", title: "Cut the bag panels", instruction: "Cut the front and back panels together so their finished dimensions remain identical." },
+      { id: "handles", title: "Prepare the handles", instruction: "Cut two reinforced strips from sleeves or leftover fabric and fold the raw edges inward." },
+      { id: "join", title: "Join the bag body", instruction: "Place right sides together and sew the side and bottom seams with a strong backstitch or machine seam." },
+      { id: "finish", title: "Attach handles and finish", instruction: "Turn the bag right side out, attach each handle with a reinforced square, and inspect every load-bearing seam." }
+    ],
+    tips: ["Use the strongest fabric around the torso for the bag body.", "Add a second fabric layer if the original garment is lightweight."],
+    warnings: ["Do not reuse fabric that tears when gently pulled.", "Reinforce handle attachment points before carrying weight."],
+    verifiedVideo: null
+  },
+  "top-to-crop": {
+    ideaId: "top-to-crop",
+    steps: [
+      { id: "measure", title: "Choose the finished length", instruction: "Try the top on over another layer and mark the desired finished edge without cutting." },
+      { id: "allowance", title: "Add a hem allowance", instruction: "Measure 2 to 3 cm below the finished line and draw a second, parallel cutting line." },
+      { id: "cut", title: "Cut evenly", instruction: "Lay the garment flat and cut slowly along the lower marked line through one layer at a time." },
+      { id: "press", title: "Fold and press the hem", instruction: "Fold the raw edge inward twice, press it flat, and secure it with pins or clips." },
+      { id: "sew", title: "Sew and inspect", instruction: "Stitch around the hem with a stretch-friendly stitch when working with knit fabric, then check that it lies flat." }
+    ],
+    tips: ["Measure from several points along the original hem to keep the new edge level."],
+    warnings: ["Cut less than you think you need; more length can always be removed later.", "Use a stretch stitch for knit fabric to prevent broken seams."],
+    verifiedVideo: null
+  },
+  "top-to-cushion": {
+    ideaId: "top-to-cushion",
+    steps: [
+      { id: "size", title: "Measure the cushion insert", instruction: "Measure the insert and add a 1.5 cm seam allowance on every side." },
+      { id: "panels", title: "Cut two sound panels", instruction: "Choose areas without weak spots and cut matching front and back panels." },
+      { id: "pin", title: "Align and secure", instruction: "Place right sides together and pin or clip around the edges, leaving an opening for the insert." },
+      { id: "seam", title: "Sew the cover", instruction: "Sew around the marked seam line, reinforce the corners, and trim bulky seam allowances." },
+      { id: "close", title: "Insert and close", instruction: "Turn the cover right side out, add the cushion, and close the opening with a ladder stitch." }
+    ],
+    tips: ["Center an existing print or pocket before cutting the front panel."],
+    warnings: ["Do not use fabric weakened by sun damage or widespread thinning."],
+    verifiedVideo: null
+  },
+  "denim-to-shorts": {
+    ideaId: "denim-to-shorts",
+    steps: [
+      { id: "mark", title: "Mark the target length", instruction: "Try the jeans on, mark one leg at the preferred length, and remove them before continuing." },
+      { id: "allowance", title: "Add finishing allowance", instruction: "For a folded hem, mark 4 cm below the target line; for a frayed edge, add 1 to 2 cm." },
+      { id: "first-cut", title: "Cut the first leg", instruction: "Lay the jeans flat and cut the marked leg with strong fabric scissors." },
+      { id: "match", title: "Match the second leg", instruction: "Fold the jeans at the center seam and use the first cut as the exact guide for the second leg." },
+      { id: "finish", title: "Finish and wash", instruction: "Fold and secure the hem, or gently fray the edge, then wash once to reveal the final length." }
+    ],
+    tips: ["Keep the back slightly longer than the front for comfortable coverage."],
+    warnings: ["Never cut while wearing the jeans.", "Check pocket depth before choosing a very short length."],
+    verifiedVideo: null
+  },
+  "denim-to-skirt": {
+    ideaId: "denim-to-skirt",
+    steps: [
+      { id: "length", title: "Set the skirt length", instruction: "Mark the intended length and cut both legs with enough extra denim for infill panels." },
+      { id: "unpick", title: "Open the inner seams", instruction: "Use a seam ripper to open the inseams carefully without cutting the surrounding denim." },
+      { id: "overlap", title: "Arrange the front and back", instruction: "Lay the opened legs flat, overlap the curved crotch seams, and pin until the fabric lies smooth." },
+      { id: "panels", title: "Add infill panels", instruction: "Cut panels from the removed legs to close the triangular gaps at the front and back." },
+      { id: "stitch", title: "Stitch and finish", instruction: "Machine-stitch every overlapped seam with a denim needle, then finish the hem and inspect the fit." }
+    ],
+    tips: ["Use contrasting topstitching only after testing tension on a denim offcut."],
+    warnings: ["A household machine may struggle with several denim layers.", "Stop if the needle bends or skips stitches."],
+    verifiedVideo: null
+  },
+  "denim-pocket-organizer": {
+    ideaId: "denim-pocket-organizer",
+    steps: [
+      { id: "salvage", title: "Salvage intact pockets", instruction: "Cut around usable pockets with at least 2 cm of surrounding denim for attachment." },
+      { id: "base", title: "Prepare the base panel", instruction: "Cut a strong rectangular panel from a leg or jacket back and finish its outer edges." },
+      { id: "layout", title: "Plan the pocket layout", instruction: "Arrange pockets with enough space for their intended contents and mark every position." },
+      { id: "attach", title: "Attach the pockets", instruction: "Sew around the original pocket edges while leaving each opening clear." },
+      { id: "hang", title: "Create the hanger channel", instruction: "Fold and sew the top edge around a dowel or attach reinforced loops, then test it with light items." }
+    ],
+    tips: ["Place larger pockets lower on the organizer for better balance."],
+    warnings: ["Do not store heavy or sharp tools unless the backing is reinforced."],
+    verifiedVideo: null
+  },
+  "dress-to-skirt": {
+    ideaId: "dress-to-skirt",
+    steps: [
+      { id: "waist", title: "Choose the new waistline", instruction: "Mark a level line on the dress where the skirt should begin and add casing allowance above it." },
+      { id: "separate", title: "Separate the skirt", instruction: "Lay the dress flat and cut across the marked allowance line without stretching the fabric." },
+      { id: "casing", title: "Build the elastic casing", instruction: "Fold the upper edge inward twice and sew around it, leaving a small opening." },
+      { id: "elastic", title: "Fit the elastic", instruction: "Measure elastic comfortably around the waist, thread it through the casing, overlap the ends, and sew securely." },
+      { id: "finish", title: "Close and inspect", instruction: "Close the casing opening, distribute gathers evenly, and verify that the hem remains level." }
+    ],
+    tips: ["Use a safety pin to guide elastic through the casing."],
+    warnings: ["Satin and slippery fabrics require extra pins and slow stitching."],
+    verifiedVideo: null
+  },
+  "jacket-to-vest": {
+    ideaId: "jacket-to-vest",
+    steps: [
+      { id: "inspect", title: "Inspect the armholes", instruction: "Confirm that the jacket body and armhole seams are sound before removing the sleeves." },
+      { id: "remove", title: "Remove the sleeves", instruction: "Use a seam ripper to detach sleeves at the original seam while preserving the body seam allowance." },
+      { id: "shape", title: "Refine the armhole shape", instruction: "Try the jacket on, mark small adjustments, and make both sides symmetrical." },
+      { id: "bind", title: "Bind the raw edges", instruction: "Enclose each raw armhole edge with bias tape or matching fabric and pin carefully around curves." },
+      { id: "finish", title: "Sew and press", instruction: "Stitch the binding slowly, press it into shape, and inspect both armholes for pulling or loose sections." }
+    ],
+    tips: ["Photograph the original sleeve seam before unpicking it for reference."],
+    warnings: ["Do not cut through structured shoulder pads or hidden support layers without checking construction first."],
+    verifiedVideo: null
+  }
+};
+
 export function findMatchingRestyleIdeas(details: RestyleDetails) {
   const userDifficulty = difficultyLevels[details.difficulty as keyof typeof difficultyLevels] || 0;
   const userSewing = sewingLevels[details.sewingSkill] || 0;
@@ -192,4 +313,24 @@ export function findMatchingRestyleIdeas(details: RestyleDetails) {
       icon: idea.icon,
       whyItFits: `Matched to ${details.fabric.toLowerCase()} fabric, ${details.condition.replace("-", " ")} condition and your ${details.difficulty.toLowerCase()} difficulty preference.`
     }));
+}
+
+export function getVerifiedRestyleGuide(ideaId: string) {
+  const idea = catalog.find((entry) => entry.id === ideaId);
+  const guide = guides[ideaId];
+  if (!idea || !guide) return null;
+  return {
+    idea: {
+      id: idea.id,
+      title: idea.title,
+      description: idea.description,
+      difficulty: idea.difficulty,
+      timeMinutes: idea.timeMinutes,
+      sewingRequired: idea.sewingRequired,
+      requiredTools: idea.requiredTools,
+      materials: idea.materials,
+      icon: idea.icon
+    },
+    ...guide
+  };
 }

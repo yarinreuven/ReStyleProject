@@ -11,10 +11,10 @@ import {
 } from "../utils/wardrobeInsights";
 
 const studioSteps = [
-  ["01", "Choose a garment", "Select an item from My Closet or upload a new photo."],
-  ["02", "Tell us about it", "Add the fabric, condition, available tools and preferred difficulty."],
-  ["03", "Explore ideas", "Receive practical transformations tailored to the garment."],
-  ["04", "Make it yours", "Follow the guide, track your progress and save the finished piece."]
+  ["Choose a garment", "fa-shirt"],
+  ["Tell us about it", "fa-sliders"],
+  ["Explore ideas", "fa-wand-magic-sparkles"],
+  ["Make it yours", "fa-scissors"]
 ];
 
 const ITEMS_API_URL = "http://localhost:3001/api/items";
@@ -64,11 +64,14 @@ export default function ReStyleStudio() {
 
   const navigate = useNavigate();
   const menuRef = useRef(null);
+  const workspaceRef = useRef(null);
   const selectionRef = useRef(null);
   const detailsRef = useRef(null);
   const ideasRef = useRef(null);
+  const guideRef = useRef(null);
   const fileInputRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [activeStudioStep, setActiveStudioStep] = useState(1);
   const [selectionMode, setSelectionMode] = useState("closet");
   const [closetItems, setClosetItems] = useState([]);
   const [closetStatus, setClosetStatus] = useState("loading");
@@ -84,6 +87,11 @@ export default function ReStyleStudio() {
   const [ideas, setIdeas] = useState([]);
   const [ideasStatus, setIdeasStatus] = useState("idle");
   const [ideasMessage, setIdeasMessage] = useState("");
+  const [guide, setGuide] = useState(null);
+  const [guideStatus, setGuideStatus] = useState("idle");
+  const [guideError, setGuideError] = useState("");
+  const [completedStepIds, setCompletedStepIds] = useState([]);
+  const [guideProgress, setGuideProgress] = useState(0);
   const { user, token, logout } = useAuth();
 
   useEffect(() => {
@@ -149,6 +157,10 @@ export default function ReStyleStudio() {
     setProjectError("");
     setIdeas([]);
     setIdeasStatus("idle");
+    setGuide(null);
+    setGuideStatus("idle");
+    setCompletedStepIds([]);
+    setGuideProgress(0);
   }
 
   function chooseUploadedImage(event) {
@@ -182,6 +194,10 @@ export default function ReStyleStudio() {
       setProjectError("");
       setIdeas([]);
       setIdeasStatus("idle");
+      setGuide(null);
+      setGuideStatus("idle");
+      setCompletedStepIds([]);
+      setGuideProgress(0);
       setUploadError("");
     };
     reader.onerror = () => setUploadError("Could not read this image. Please try another one.");
@@ -197,11 +213,22 @@ export default function ReStyleStudio() {
     setProjectError("");
     setIdeas([]);
     setIdeasStatus("idle");
+    setGuide(null);
+    setGuideStatus("idle");
+    setCompletedStepIds([]);
+    setGuideProgress(0);
+    setActiveStudioStep(1);
     setUploadError("");
   }
 
   function scrollToSelection() {
+    setActiveStudioStep(1);
     selectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function moveToStudioStep(step) {
+    setActiveStudioStep(step);
+    window.setTimeout(() => workspaceRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
   }
 
   function updateDetail(event) {
@@ -211,6 +238,8 @@ export default function ReStyleStudio() {
     setDetailsReady(false);
     setIdeas([]);
     setIdeasStatus("idle");
+    setGuide(null);
+    setGuideStatus("idle");
   }
 
   function selectDetail(name, value) {
@@ -219,6 +248,8 @@ export default function ReStyleStudio() {
     setDetailsReady(false);
     setIdeas([]);
     setIdeasStatus("idle");
+    setGuide(null);
+    setGuideStatus("idle");
   }
 
   function toggleTool(tool) {
@@ -238,6 +269,8 @@ export default function ReStyleStudio() {
     setDetailsReady(false);
     setIdeas([]);
     setIdeasStatus("idle");
+    setGuide(null);
+    setGuideStatus("idle");
   }
 
   async function validateGarmentDetails(event) {
@@ -280,6 +313,7 @@ export default function ReStyleStudio() {
       }
       setProjectId(response.data.project.id);
       setDetailsReady(true);
+      moveToStudioStep(3);
     } catch (error) {
       if (error.response?.status === 401) {
         logout();
@@ -320,6 +354,62 @@ export default function ReStyleStudio() {
 
   function formatTool(tool) {
     return availableTools.find(([value]) => value === tool)?.[1] || tool;
+  }
+
+  async function openGuide(ideaId) {
+    try {
+      setGuideStatus("loading");
+      setGuideError("");
+      const { data } = await axios.post(
+        `${RESTYLE_PROJECTS_API_URL}/${projectId}/ideas/${ideaId}/select`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setGuide(data.guide);
+      setCompletedStepIds(data.completedStepIds || []);
+      setGuideProgress(data.progress || 0);
+      setGuideStatus("ready");
+      moveToStudioStep(4);
+    } catch (error) {
+      if (error.response?.status === 401) {
+        logout();
+        navigate("/login", { replace: true });
+        return;
+      }
+      setGuideError(error.response?.data?.message || "Could not open this guide.");
+      setGuideStatus("error");
+    }
+  }
+
+  async function toggleGuideStep(stepId) {
+    if (!guide || guideStatus === "saving") return;
+    setGuideError("");
+    const nextCompleted = completedStepIds.includes(stepId)
+      ? completedStepIds.filter((id) => id !== stepId)
+      : [...completedStepIds, stepId];
+    const progress = Math.round((nextCompleted.length / guide.steps.length) * 100);
+    const previousCompleted = completedStepIds;
+    const previousProgress = guideProgress;
+    setCompletedStepIds(nextCompleted);
+    setGuideProgress(progress);
+    setGuideStatus("saving");
+    try {
+      await axios.patch(
+        `${RESTYLE_PROJECTS_API_URL}/${projectId}`,
+        {
+          completedStepIds: nextCompleted,
+          progress,
+          status: "in_progress"
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setGuideStatus("ready");
+    } catch (error) {
+      setCompletedStepIds(previousCompleted);
+      setGuideProgress(previousProgress);
+      setGuideStatus("ready");
+      setGuideError(error.response?.data?.message || "Could not save your progress.");
+    }
   }
 
   if (!user || !token) return null;
@@ -369,7 +459,43 @@ export default function ReStyleStudio() {
         </div>
       </header>
 
-      <section className="restyle-studio-hero">
+      <section className="restyle-journey" ref={workspaceRef} aria-label="ReStyle Studio progress">
+        <div className="restyle-journey-intro">
+          <span>YOUR CREATIVE WORKSPACE</span>
+          <h1>From forgotten to reimagined.</h1>
+          <p>Choose a piece and let the studio guide you naturally from inspiration to creation.</p>
+        </div>
+        <ol className="restyle-journey-steps">
+          {studioSteps.map(([title, icon], index) => {
+            const step = index + 1;
+            const unlocked = step === 1 ||
+              (step === 2 && Boolean(selectedGarment)) ||
+              (step === 3 && Boolean(projectId && detailsReady)) ||
+              (step === 4 && Boolean(guide));
+            const complete = activeStudioStep > step ||
+              (step === 1 && Boolean(selectedGarment)) ||
+              (step === 2 && Boolean(projectId && detailsReady)) ||
+              (step === 3 && ideasStatus === "ready");
+            return (
+              <li key={title} className={`${activeStudioStep === step ? "active" : ""}${complete ? " complete" : ""}`}>
+                <button type="button" disabled={!unlocked} onClick={() => moveToStudioStep(step)} aria-current={activeStudioStep === step ? "step" : undefined}>
+                  <span><i className={`fa-solid ${complete ? "fa-check" : icon}`} /></span>
+                  <strong>{title}</strong>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+        {selectedGarment && (
+          <div className="restyle-journey-piece">
+            <img src={selectedGarment.image} alt="" />
+            <div><small>CURRENT PIECE</small><strong>{selectedGarment.name || "Uploaded garment"}</strong><span>{selectedGarment.category || garmentDetails.garmentType || "Details not added yet"}</span></div>
+            <button type="button" onClick={() => moveToStudioStep(1)}>Change</button>
+          </div>
+        )}
+      </section>
+
+      <section className="restyle-studio-hero" hidden={activeStudioStep !== 1}>
         <div className="restyle-studio-copy">
           <span className="restyle-studio-eyebrow">REIMAGINE WHAT YOU ALREADY OWN</span>
           <h1>Give old clothes a<br /><em>beautiful new story.</em></h1>
@@ -393,9 +519,8 @@ export default function ReStyleStudio() {
         </div>
       </section>
 
-      <section className="restyle-garment-section" ref={selectionRef} aria-labelledby="garmentSelectionTitle">
+      <section className="restyle-garment-section" ref={selectionRef} aria-labelledby="garmentSelectionTitle" hidden={activeStudioStep !== 1}>
         <div className="restyle-garment-heading">
-          <span>STEP 01</span>
           <h2 id="garmentSelectionTitle">Choose the piece to transform</h2>
           <p>
             We show garments that have not been worn for at least {LESS_WORN_DAYS} days
@@ -519,8 +644,8 @@ export default function ReStyleStudio() {
                       <i className="fa-regular fa-trash-can" /> Remove
                     </button>
                   </div>
-                  <button type="button" className="restyle-preview-continue" onClick={() => detailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
-                    Continue with this piece <i className="fa-solid fa-arrow-down" />
+                  <button type="button" className="restyle-preview-continue" onClick={() => moveToStudioStep(2)}>
+                    Continue with this piece <i className="fa-solid fa-arrow-right" />
                   </button>
                 </div>
               </>
@@ -536,9 +661,9 @@ export default function ReStyleStudio() {
       </section>
 
       {selectedGarment && (
-        <section className="restyle-details-section" ref={detailsRef} aria-labelledby="garmentDetailsTitle">
+        <section className="restyle-details-section" ref={detailsRef} aria-labelledby="garmentDetailsTitle" hidden={activeStudioStep !== 2}>
           <div className="restyle-details-heading">
-            <span>STEP 02</span>
+            <button type="button" className="restyle-stage-back" onClick={() => moveToStudioStep(1)}><i className="fa-solid fa-arrow-left" /> Back to garment</button>
             <h2 id="garmentDetailsTitle">Tell us what you are working with</h2>
             <p>These details keep future suggestions realistic, safe and matched to your abilities.</p>
           </div>
@@ -645,9 +770,9 @@ export default function ReStyleStudio() {
       )}
 
       {projectId && detailsReady && (
-        <section className="restyle-ideas-section" ref={ideasRef} aria-labelledby="restyleIdeasTitle">
+        <section className="restyle-ideas-section" ref={ideasRef} aria-labelledby="restyleIdeasTitle" hidden={activeStudioStep !== 3}>
           <div className="restyle-ideas-heading">
-            <span>STEP 03</span>
+            <button type="button" className="restyle-stage-back" onClick={() => moveToStudioStep(2)}><i className="fa-solid fa-arrow-left" /> Back to details</button>
             <h2 id="restyleIdeasTitle">Practical ideas for this piece</h2>
             <p>Every result comes from a reviewed transformation catalog and must match your garment details and available tools.</p>
             {ideasStatus === "idle" && (
@@ -704,7 +829,7 @@ export default function ReStyleStudio() {
                         <div><strong>Tools</strong><span>{idea.requiredTools.map(formatTool).join(", ")}</span></div>
                         <div><strong>Materials</strong><span>{idea.materials.join(", ")}</span></div>
                       </div>
-                      <button type="button" disabled><i className="fa-regular fa-map" /> Guide available in the next stage</button>
+                      <button type="button" onClick={() => openGuide(idea.id)}><i className="fa-regular fa-map" /> Open step-by-step guide</button>
                     </div>
                   </article>
                 ))}
@@ -714,22 +839,65 @@ export default function ReStyleStudio() {
         </section>
       )}
 
-      <section className="restyle-studio-process" aria-labelledby="studioProcessTitle">
-        <div className="restyle-studio-process-heading">
-          <span>HOW IT WORKS</span>
-          <h2 id="studioProcessTitle">From forgotten to reimagined</h2>
-          <p>A guided transformation, built one thoughtful step at a time.</p>
-        </div>
-        <div className="restyle-studio-steps">
-          {studioSteps.map(([number, title, description]) => (
-            <article key={number}>
-              <span>{number}</span>
-              <h3>{title}</h3>
-              <p>{description}</p>
-            </article>
-          ))}
-        </div>
-      </section>
+      {guideStatus === "loading" && (
+        <section className="restyle-guide-section" ref={guideRef} hidden={activeStudioStep !== 4}>
+          <div className="restyle-ideas-state" role="status"><span className="restyle-selection-loader" /><strong>Opening your guide...</strong></div>
+        </section>
+      )}
+
+      {guideStatus === "error" && (
+        <section className="restyle-guide-section" ref={guideRef} hidden={activeStudioStep !== 4}>
+          <div className="restyle-ideas-state error" role="alert"><i className="fa-solid fa-circle-exclamation" /><strong>{guideError}</strong></div>
+        </section>
+      )}
+
+      {guide && ["ready", "saving"].includes(guideStatus) && (
+        <section className="restyle-guide-section" ref={guideRef} aria-labelledby="restyleGuideTitle" hidden={activeStudioStep !== 4}>
+          <div className="restyle-guide-heading">
+            <button type="button" className="restyle-stage-back" onClick={() => moveToStudioStep(3)}><i className="fa-solid fa-arrow-left" /> Back to ideas</button>
+            <h2 id="restyleGuideTitle">{guide.idea.title}</h2>
+            <p>{guide.idea.description}</p>
+          </div>
+
+          <div className="restyle-guide-progress" aria-label={`${guideProgress}% complete`}>
+            <div><strong>Project progress</strong><span>{guideProgress}%</span></div>
+            <div className="restyle-progress-track"><span style={{ width: `${guideProgress}%` }} /></div>
+            {guideStatus === "saving" && <small>Saving progress...</small>}
+          </div>
+          {guideError && <div className="restyle-project-error" role="alert">{guideError}</div>}
+
+          <div className="restyle-guide-layout">
+            <div className="restyle-guide-steps">
+              <h3>Step-by-step instructions</h3>
+              {guide.steps.map((step, index) => {
+                const complete = completedStepIds.includes(step.id);
+                return (
+                  <button key={step.id} type="button" className={complete ? "complete" : ""} onClick={() => toggleGuideStep(step.id)} aria-pressed={complete}>
+                    <span>{complete ? <i className="fa-solid fa-check" /> : index + 1}</span>
+                    <div><strong>{step.title}</strong><p>{step.instruction}</p></div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <aside className="restyle-guide-sidebar">
+              <section><h3><i className="fa-solid fa-toolbox" /> Tools</h3><ul>{guide.idea.requiredTools.map((tool) => <li key={tool}>{formatTool(tool)}</li>)}</ul></section>
+              <section><h3><i className="fa-solid fa-layer-group" /> Materials</h3><ul>{guide.idea.materials.map((material) => <li key={material}>{material}</li>)}</ul></section>
+              <section className="tips"><h3><i className="fa-regular fa-lightbulb" /> Helpful tips</h3><ul>{guide.tips.map((tip) => <li key={tip}>{tip}</li>)}</ul></section>
+              <section className="warnings"><h3><i className="fa-solid fa-triangle-exclamation" /> Safety notes</h3><ul>{guide.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></section>
+              <section className="video-status">
+                <h3><i className="fa-solid fa-circle-play" /> Video tutorial</h3>
+                {guide.verifiedVideo ? (
+                  <a href={guide.verifiedVideo.url} target="_blank" rel="noreferrer">{guide.verifiedVideo.title} · {guide.verifiedVideo.source}</a>
+                ) : (
+                  <p>No verified video has been attached to this guide. ReStyle never generates or guesses video links.</p>
+                )}
+              </section>
+            </aside>
+          </div>
+        </section>
+      )}
+
     </main>
   );
 }

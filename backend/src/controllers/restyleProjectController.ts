@@ -3,7 +3,7 @@ import type { NextFunction, Response } from "express";
 import Item from "../models/Item.ts";
 import RestyleProject from "../models/RestyleProject.ts";
 import type { AuthRequest } from "../middleware/auth.ts";
-import { findMatchingRestyleIdeas } from "../services/restyleIdeaService.ts";
+import { findMatchingRestyleIdeas, getVerifiedRestyleGuide } from "../services/restyleIdeaService.ts";
 
 const RESTYLE_INACTIVE_DAYS = 60;
 const restyleCategories = new Set(["Tops", "Bottoms", "Dresses", "Jackets"]);
@@ -164,6 +164,37 @@ export async function generateRestyleIdeas(req: AuthRequest, res: Response, next
       message: ideas.length > 0
         ? "Suitable ReStyle ideas found"
         : "No verified transformation currently matches this garment and your available tools"
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function selectRestyleIdea(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const ideaId = String(req.params.ideaId);
+    const project = await RestyleProject.findOne({ _id: req.params.projectId, owner: req.userId });
+    if (!project) {
+      res.status(404).json({ success: false, message: "ReStyle project not found" });
+      return;
+    }
+    const generatedIdea = project.generatedIdeas.find((idea) => idea.ideaId === ideaId);
+    const guide = getVerifiedRestyleGuide(ideaId);
+    if (!generatedIdea || !guide) {
+      res.status(404).json({ success: false, message: "This guide is not available for the project" });
+      return;
+    }
+
+    project.selectedIdeaId = ideaId;
+    project.status = "in_progress";
+    await project.save();
+
+    res.json({
+      success: true,
+      guide,
+      completedStepIds: project.completedStepIds,
+      progress: project.progress,
+      status: project.status
     });
   } catch (error) {
     next(error);

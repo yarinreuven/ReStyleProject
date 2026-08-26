@@ -70,3 +70,21 @@ export function validateRestyleProjectId(req: AuthRequest, res: Response, next: 
   req.params = value;
   next();
 }
+
+const restyleIdeaParamsSchema = Joi.object({
+  projectId: objectId.required(),
+  ideaId: Joi.string().trim().pattern(/^[a-z0-9-]+$/).max(120).required()
+});
+
+export function validateRestyleIdeaParams(req: AuthRequest, res: Response, next: NextFunction) {
+  const { error, value } = restyleIdeaParamsSchema.validate(req.params, {
+    abortEarly: false,
+    stripUnknown: true
+  });
+  if (error) {
+    res.status(400).json({ success: false, message: error.details[0]?.message });
+    return;
+  }
+  req.params = value;
+  next();
+}
