@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import ProfileAvatar from "../components/ProfileAvatar";
 import usePageStyles from "../hooks/usePageStyles";
 import { useAuth } from "../context/AuthContext";
+import { isLessWorn, isRecentlyAdded } from "../utils/wardrobeInsights";
 
 const API_URL = "http://localhost:3001/api/items";
 
@@ -87,35 +88,6 @@ const styles = [
   "Sporty",
   "Streetwear"
 ];
-
-const DAY_IN_MS = 24 * 60 * 60 * 1000;
-const LESS_WORN_DAYS = 60;
-const RECENT_DAYS = 7;
-
-function daysSince(date) {
-  if (!date) {
-    return Infinity;
-  }
-
-  return Math.floor(
-    (Date.now() - new Date(date).getTime()) / DAY_IN_MS
-  );
-}
-
-function isLessWorn(item) {
-  const referenceDate = item.lastWornAt || item.createdAt;
-  return daysSince(referenceDate) >= LESS_WORN_DAYS;
-}
-
-function isRecentlyAdded(item) {
-  if (!item.createdAt) {
-    return false;
-  }
-
-  const age = Date.now() - new Date(item.createdAt).getTime();
-
-  return age >= 0 && age <= RECENT_DAYS * DAY_IN_MS;
-}
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10);
