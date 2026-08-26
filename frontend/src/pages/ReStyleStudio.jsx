@@ -18,8 +18,46 @@ const studioSteps = [
 ];
 
 const ITEMS_API_URL = "http://localhost:3001/api/items";
+const RESTYLE_PROJECTS_API_URL = "http://localhost:3001/api/restyle-projects";
 const acceptedImageTypes = ["image/jpeg", "image/png", "image/webp"];
 const maxUploadSize = 5 * 1024 * 1024;
+const garmentTypes = ["Tops", "Bottoms", "Dresses", "Skirts", "Jackets", "Shirts", "Sweaters", "Other"];
+const fabricTypes = ["Denim", "Cotton", "Knit", "Satin", "Linen", "Wool", "Polyester", "Leather", "Unknown"];
+const garmentConditions = [
+  ["good", "Good condition"],
+  ["stained", "Stained"],
+  ["torn", "Torn or damaged"],
+  ["too-small", "Too small"],
+  ["too-large", "Too large"],
+  ["worn", "Worn out"]
+];
+const availableTools = [
+  ["scissors", "Fabric scissors", "fa-solid fa-scissors"],
+  ["needle-thread", "Needle & thread", "fa-solid fa-needle"],
+  ["sewing-machine", "Sewing machine", "fa-solid fa-gears"],
+  ["fabric-glue", "Fabric glue", "fa-solid fa-droplet"],
+  ["measuring-tape", "Measuring tape", "fa-solid fa-ruler"],
+  ["iron", "Iron", "fa-solid fa-temperature-high"],
+  ["paint-dye", "Fabric paint or dye", "fa-solid fa-palette"],
+  ["none", "No tools yet", "fa-regular fa-circle-xmark"]
+];
+const creationPreferences = [
+  ["clothing", "A new garment", "fa-solid fa-shirt"],
+  ["bag", "A bag", "fa-solid fa-bag-shopping"],
+  ["accessory", "An accessory", "fa-solid fa-gem"],
+  ["home", "Something for home", "fa-solid fa-house"],
+  ["any", "Any practical idea", "fa-solid fa-wand-magic-sparkles"]
+];
+
+const blankGarmentDetails = {
+  garmentType: "",
+  fabric: "",
+  condition: "",
+  sewingSkill: "",
+  tools: [],
+  difficulty: "",
+  preference: ""
+};
 
 export default function ReStyleStudio() {
   usePageStyles("restyle-studio.css");
@@ -27,6 +65,7 @@ export default function ReStyleStudio() {
   const navigate = useNavigate();
   const menuRef = useRef(null);
   const selectionRef = useRef(null);
+  const detailsRef = useRef(null);
   const fileInputRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectionMode, setSelectionMode] = useState("closet");
@@ -35,6 +74,12 @@ export default function ReStyleStudio() {
   const [closetError, setClosetError] = useState("");
   const [selectedGarment, setSelectedGarment] = useState(null);
   const [uploadError, setUploadError] = useState("");
+  const [garmentDetails, setGarmentDetails] = useState(blankGarmentDetails);
+  const [detailsErrors, setDetailsErrors] = useState({});
+  const [detailsReady, setDetailsReady] = useState(false);
+  const [projectId, setProjectId] = useState("");
+  const [isSavingProject, setIsSavingProject] = useState(false);
+  const [projectError, setProjectError] = useState("");
   const { user, token, logout } = useAuth();
 
   useEffect(() => {
@@ -93,6 +138,11 @@ export default function ReStyleStudio() {
       category: item.category,
       image: item.image
     });
+    setGarmentDetails({ ...blankGarmentDetails, garmentType: item.category || "" });
+    setDetailsErrors({});
+    setDetailsReady(false);
+    setProjectId("");
+    setProjectError("");
   }
 
   function chooseUploadedImage(event) {
@@ -119,6 +169,11 @@ export default function ReStyleStudio() {
         image: String(reader.result),
         file
       });
+      setGarmentDetails(blankGarmentDetails);
+      setDetailsErrors({});
+      setDetailsReady(false);
+      setProjectId("");
+      setProjectError("");
       setUploadError("");
     };
     reader.onerror = () => setUploadError("Could not read this image. Please try another one.");
@@ -127,11 +182,99 @@ export default function ReStyleStudio() {
 
   function removeSelection() {
     setSelectedGarment(null);
+    setGarmentDetails(blankGarmentDetails);
+    setDetailsErrors({});
+    setDetailsReady(false);
+    setProjectId("");
+    setProjectError("");
     setUploadError("");
   }
 
   function scrollToSelection() {
     selectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function updateDetail(event) {
+    const { name, value } = event.target;
+    setGarmentDetails((current) => ({ ...current, [name]: value }));
+    setDetailsErrors((current) => ({ ...current, [name]: "" }));
+    setDetailsReady(false);
+  }
+
+  function selectDetail(name, value) {
+    setGarmentDetails((current) => ({ ...current, [name]: value }));
+    setDetailsErrors((current) => ({ ...current, [name]: "" }));
+    setDetailsReady(false);
+  }
+
+  function toggleTool(tool) {
+    setGarmentDetails((current) => {
+      if (tool === "none") {
+        return { ...current, tools: current.tools.includes("none") ? [] : ["none"] };
+      }
+      const withoutNone = current.tools.filter((entry) => entry !== "none");
+      return {
+        ...current,
+        tools: withoutNone.includes(tool)
+          ? withoutNone.filter((entry) => entry !== tool)
+          : [...withoutNone, tool]
+      };
+    });
+    setDetailsErrors((current) => ({ ...current, tools: "" }));
+    setDetailsReady(false);
+  }
+
+  async function validateGarmentDetails(event) {
+    event.preventDefault();
+    const requiredFields = ["garmentType", "fabric", "condition", "sewingSkill", "difficulty", "preference"];
+    const nextErrors = {};
+    requiredFields.forEach((field) => {
+      if (!garmentDetails[field]) nextErrors[field] = "Please choose an option.";
+    });
+    if (garmentDetails.tools.length === 0) nextErrors.tools = "Choose your available tools, or select No tools yet.";
+
+    setDetailsErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      setDetailsReady(false);
+      detailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    try {
+      setIsSavingProject(true);
+      setProjectError("");
+      let response;
+      if (projectId) {
+        response = await axios.patch(
+          `${RESTYLE_PROJECTS_API_URL}/${projectId}`,
+          { details: garmentDetails },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      } else {
+        const body = new FormData();
+        body.append("name", `${selectedGarment.name || "Garment"} ReStyle Project`);
+        body.append("sourceType", selectedGarment.source);
+        body.append("sourceName", selectedGarment.name || "Uploaded garment");
+        body.append("details", JSON.stringify(garmentDetails));
+        if (selectedGarment.source === "closet") body.append("sourceItemId", selectedGarment.id);
+        if (selectedGarment.source === "upload") body.append("sourceImage", selectedGarment.file);
+        response = await axios.post(RESTYLE_PROJECTS_API_URL, body, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+      setProjectId(response.data.project.id);
+      setDetailsReady(true);
+    } catch (error) {
+      if (error.response?.status === 401) {
+        logout();
+        navigate("/login", { replace: true });
+        return;
+      }
+      setDetailsReady(false);
+      setProjectError(error.response?.data?.message || "Could not save this ReStyle project.");
+    } finally {
+      setIsSavingProject(false);
+    }
   }
 
   if (!user || !token) return null;
@@ -331,6 +474,9 @@ export default function ReStyleStudio() {
                       <i className="fa-regular fa-trash-can" /> Remove
                     </button>
                   </div>
+                  <button type="button" className="restyle-preview-continue" onClick={() => detailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>
+                    Continue with this piece <i className="fa-solid fa-arrow-down" />
+                  </button>
                 </div>
               </>
             ) : (
@@ -343,6 +489,115 @@ export default function ReStyleStudio() {
           </aside>
         </div>
       </section>
+
+      {selectedGarment && (
+        <section className="restyle-details-section" ref={detailsRef} aria-labelledby="garmentDetailsTitle">
+          <div className="restyle-details-heading">
+            <span>STEP 02</span>
+            <h2 id="garmentDetailsTitle">Tell us what you are working with</h2>
+            <p>These details keep future suggestions realistic, safe and matched to your abilities.</p>
+          </div>
+
+          <form className="restyle-details-form" onSubmit={validateGarmentDetails} noValidate>
+            <div className="restyle-details-grid">
+              <label className={detailsErrors.garmentType ? "has-error" : ""}>
+                <span>Garment type</span>
+                <select name="garmentType" value={garmentDetails.garmentType} onChange={updateDetail}>
+                  <option value="">Choose a type</option>
+                  {garmentTypes.map((type) => <option key={type} value={type}>{type}</option>)}
+                </select>
+                {selectedGarment.source === "closet" && <small>Filled from My Closet. You can correct it if needed.</small>}
+                {detailsErrors.garmentType && <em>{detailsErrors.garmentType}</em>}
+              </label>
+
+              <label className={detailsErrors.fabric ? "has-error" : ""}>
+                <span>Fabric</span>
+                <select name="fabric" value={garmentDetails.fabric} onChange={updateDetail}>
+                  <option value="">Choose a fabric</option>
+                  {fabricTypes.map((fabric) => <option key={fabric} value={fabric}>{fabric}</option>)}
+                </select>
+                <small>Choose Unknown if you are not sure.</small>
+                {detailsErrors.fabric && <em>{detailsErrors.fabric}</em>}
+              </label>
+            </div>
+
+            <fieldset className={detailsErrors.condition ? "has-error" : ""}>
+              <legend>What is the garment&apos;s current condition?</legend>
+              <div className="restyle-choice-grid condition-grid">
+                {garmentConditions.map(([value, label]) => (
+                  <button key={value} type="button" className={garmentDetails.condition === value ? "selected" : ""} onClick={() => selectDetail("condition", value)} aria-pressed={garmentDetails.condition === value}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {detailsErrors.condition && <em>{detailsErrors.condition}</em>}
+            </fieldset>
+
+            <div className="restyle-details-two-column">
+              <fieldset className={detailsErrors.sewingSkill ? "has-error" : ""}>
+                <legend>Can you sew?</legend>
+                <div className="restyle-choice-grid compact">
+                  {["No sewing", "Basic hand sewing", "Confident", "Advanced"].map((skill) => (
+                    <button key={skill} type="button" className={garmentDetails.sewingSkill === skill ? "selected" : ""} onClick={() => selectDetail("sewingSkill", skill)} aria-pressed={garmentDetails.sewingSkill === skill}>{skill}</button>
+                  ))}
+                </div>
+                {detailsErrors.sewingSkill && <em>{detailsErrors.sewingSkill}</em>}
+              </fieldset>
+
+              <fieldset className={detailsErrors.difficulty ? "has-error" : ""}>
+                <legend>Preferred difficulty</legend>
+                <div className="restyle-choice-grid compact">
+                  {["Easy", "Medium", "Challenging"].map((difficulty) => (
+                    <button key={difficulty} type="button" className={garmentDetails.difficulty === difficulty ? "selected" : ""} onClick={() => selectDetail("difficulty", difficulty)} aria-pressed={garmentDetails.difficulty === difficulty}>{difficulty}</button>
+                  ))}
+                </div>
+                {detailsErrors.difficulty && <em>{detailsErrors.difficulty}</em>}
+              </fieldset>
+            </div>
+
+            <fieldset className={detailsErrors.tools ? "has-error" : ""}>
+              <legend>Which tools do you have available?</legend>
+              <div className="restyle-tool-grid">
+                {availableTools.map(([value, label, icon]) => (
+                  <button key={value} type="button" className={garmentDetails.tools.includes(value) ? "selected" : ""} onClick={() => toggleTool(value)} aria-pressed={garmentDetails.tools.includes(value)}>
+                    <i className={icon} aria-hidden="true" /><span>{label}</span>
+                  </button>
+                ))}
+              </div>
+              {detailsErrors.tools && <em>{detailsErrors.tools}</em>}
+            </fieldset>
+
+            <fieldset className={detailsErrors.preference ? "has-error" : ""}>
+              <legend>What would you most like to create?</legend>
+              <div className="restyle-preference-grid">
+                {creationPreferences.map(([value, label, icon]) => (
+                  <button key={value} type="button" className={garmentDetails.preference === value ? "selected" : ""} onClick={() => selectDetail("preference", value)} aria-pressed={garmentDetails.preference === value}>
+                    <i className={icon} aria-hidden="true" /><span>{label}</span>
+                  </button>
+                ))}
+              </div>
+              {detailsErrors.preference && <em>{detailsErrors.preference}</em>}
+            </fieldset>
+
+            <div className="restyle-details-submit">
+              <div>
+                <strong>Ready for thoughtful ideas</strong>
+                <span>We will use only transformations that match these details.</span>
+              </div>
+              <button type="submit" disabled={isSavingProject}><i className="fa-solid fa-wand-magic-sparkles" /> {isSavingProject ? "Saving project..." : "Confirm garment details"}</button>
+            </div>
+
+            {projectError && <div className="restyle-project-error" role="alert"><i className="fa-solid fa-circle-exclamation" /> {projectError}</div>}
+
+            {detailsReady && (
+              <div className="restyle-details-success" role="status">
+                <i className="fa-solid fa-circle-check" />
+                <div><strong>Garment details are ready</strong><span>The next stage will use them to find suitable transformation ideas.</span></div>
+              </div>
+            )}
+          </form>
+        </section>
+      )}
 
       <section className="restyle-studio-process" aria-labelledby="studioProcessTitle">
         <div className="restyle-studio-process-heading">
