@@ -3,6 +3,7 @@ import type { NextFunction, Response } from "express";
 import Item from "../models/Item.ts";
 import RestyleProject from "../models/RestyleProject.ts";
 import type { AuthRequest } from "../middleware/auth.ts";
+import { findMatchingRestyleIdeas } from "../services/restyleIdeaService.ts";
 
 const RESTYLE_INACTIVE_DAYS = 60;
 const restyleCategories = new Set(["Tops", "Bottoms", "Dresses", "Jackets"]);
@@ -28,6 +29,7 @@ function serializeProject(project: any) {
       : imageToDataUrl(project.sourceImage),
     details: project.details,
     selectedIdeaId: project.selectedIdeaId,
+    generatedIdeas: project.generatedIdeas || [],
     completedStepIds: project.completedStepIds,
     progress: project.progress,
     completedAt: project.completedAt,
@@ -139,6 +141,30 @@ export async function deleteRestyleProject(req: AuthRequest, res: Response, next
       return;
     }
     res.json({ success: true, message: "ReStyle project deleted" });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function generateRestyleIdeas(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const project = await RestyleProject.findOne({ _id: req.params.projectId, owner: req.userId });
+    if (!project) {
+      res.status(404).json({ success: false, message: "ReStyle project not found" });
+      return;
+    }
+
+    const ideas = findMatchingRestyleIdeas(project.details);
+    project.set("generatedIdeas", ideas.map((idea) => ({ ...idea, ideaId: idea.id })));
+    await project.save();
+
+    res.json({
+      success: true,
+      ideas,
+      message: ideas.length > 0
+        ? "Suitable ReStyle ideas found"
+        : "No verified transformation currently matches this garment and your available tools"
+    });
   } catch (error) {
     next(error);
   }

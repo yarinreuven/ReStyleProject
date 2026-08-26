@@ -13,6 +13,24 @@ const restyleDetailsSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const restyleIdeaSchema = new mongoose.Schema(
+  {
+    ideaId: { type: String, required: true },
+    title: { type: String, required: true },
+    description: { type: String, required: true },
+    difficulty: { type: String, enum: ["Easy", "Medium", "Challenging"], required: true },
+    outputType: { type: String, enum: ["clothing", "bag", "accessory", "home"], required: true },
+    timeMinutes: { type: Number, min: 1, required: true },
+    sewingRequired: { type: Boolean, required: true },
+    requiredTools: { type: [String], default: [] },
+    materials: { type: [String], default: [] },
+    suitableConditions: { type: [String], default: [] },
+    icon: { type: String, required: true },
+    whyItFits: { type: String, required: true }
+  },
+  { _id: false }
+);
+
 const restyleProjectSchema = new mongoose.Schema(
   {
     owner: {
@@ -60,6 +78,10 @@ const restyleProjectSchema = new mongoose.Schema(
     selectedIdeaId: {
       type: String,
       default: null
+    },
+    generatedIdeas: {
+      type: [restyleIdeaSchema],
+      default: []
     },
     completedStepIds: {
       type: [{ type: String, trim: true }],

@@ -66,6 +66,7 @@ export default function ReStyleStudio() {
   const menuRef = useRef(null);
   const selectionRef = useRef(null);
   const detailsRef = useRef(null);
+  const ideasRef = useRef(null);
   const fileInputRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectionMode, setSelectionMode] = useState("closet");
@@ -80,6 +81,9 @@ export default function ReStyleStudio() {
   const [projectId, setProjectId] = useState("");
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [projectError, setProjectError] = useState("");
+  const [ideas, setIdeas] = useState([]);
+  const [ideasStatus, setIdeasStatus] = useState("idle");
+  const [ideasMessage, setIdeasMessage] = useState("");
   const { user, token, logout } = useAuth();
 
   useEffect(() => {
@@ -143,6 +147,8 @@ export default function ReStyleStudio() {
     setDetailsReady(false);
     setProjectId("");
     setProjectError("");
+    setIdeas([]);
+    setIdeasStatus("idle");
   }
 
   function chooseUploadedImage(event) {
@@ -174,6 +180,8 @@ export default function ReStyleStudio() {
       setDetailsReady(false);
       setProjectId("");
       setProjectError("");
+      setIdeas([]);
+      setIdeasStatus("idle");
       setUploadError("");
     };
     reader.onerror = () => setUploadError("Could not read this image. Please try another one.");
@@ -187,6 +195,8 @@ export default function ReStyleStudio() {
     setDetailsReady(false);
     setProjectId("");
     setProjectError("");
+    setIdeas([]);
+    setIdeasStatus("idle");
     setUploadError("");
   }
 
@@ -199,12 +209,16 @@ export default function ReStyleStudio() {
     setGarmentDetails((current) => ({ ...current, [name]: value }));
     setDetailsErrors((current) => ({ ...current, [name]: "" }));
     setDetailsReady(false);
+    setIdeas([]);
+    setIdeasStatus("idle");
   }
 
   function selectDetail(name, value) {
     setGarmentDetails((current) => ({ ...current, [name]: value }));
     setDetailsErrors((current) => ({ ...current, [name]: "" }));
     setDetailsReady(false);
+    setIdeas([]);
+    setIdeasStatus("idle");
   }
 
   function toggleTool(tool) {
@@ -222,6 +236,8 @@ export default function ReStyleStudio() {
     });
     setDetailsErrors((current) => ({ ...current, tools: "" }));
     setDetailsReady(false);
+    setIdeas([]);
+    setIdeasStatus("idle");
   }
 
   async function validateGarmentDetails(event) {
@@ -275,6 +291,35 @@ export default function ReStyleStudio() {
     } finally {
       setIsSavingProject(false);
     }
+  }
+
+  async function generateIdeas() {
+    if (!projectId || ideasStatus === "loading") return;
+    try {
+      setIdeasStatus("loading");
+      setIdeasMessage("");
+      ideasRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const { data } = await axios.post(
+        `${RESTYLE_PROJECTS_API_URL}/${projectId}/ideas`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setIdeas(data.ideas || []);
+      setIdeasMessage(data.message || "");
+      setIdeasStatus((data.ideas || []).length > 0 ? "ready" : "empty");
+    } catch (error) {
+      if (error.response?.status === 401) {
+        logout();
+        navigate("/login", { replace: true });
+        return;
+      }
+      setIdeasMessage(error.response?.data?.message || "Could not find ReStyle ideas. Please try again.");
+      setIdeasStatus("error");
+    }
+  }
+
+  function formatTool(tool) {
+    return availableTools.find(([value]) => value === tool)?.[1] || tool;
   }
 
   if (!user || !token) return null;
@@ -596,6 +641,76 @@ export default function ReStyleStudio() {
               </div>
             )}
           </form>
+        </section>
+      )}
+
+      {projectId && detailsReady && (
+        <section className="restyle-ideas-section" ref={ideasRef} aria-labelledby="restyleIdeasTitle">
+          <div className="restyle-ideas-heading">
+            <span>STEP 03</span>
+            <h2 id="restyleIdeasTitle">Practical ideas for this piece</h2>
+            <p>Every result comes from a reviewed transformation catalog and must match your garment details and available tools.</p>
+            {ideasStatus === "idle" && (
+              <button type="button" onClick={generateIdeas}><i className="fa-solid fa-wand-magic-sparkles" /> Find suitable ideas</button>
+            )}
+          </div>
+
+          {ideasStatus === "loading" && (
+            <div className="restyle-ideas-state" role="status">
+              <span className="restyle-selection-loader" />
+              <strong>Matching safe transformations...</strong>
+              <p>Checking the garment, fabric, condition, skills and tools.</p>
+            </div>
+          )}
+
+          {ideasStatus === "error" && (
+            <div className="restyle-ideas-state error" role="alert">
+              <i className="fa-solid fa-circle-exclamation" />
+              <strong>We could not find ideas</strong>
+              <p>{ideasMessage}</p>
+              <button type="button" onClick={generateIdeas}>Try Again</button>
+            </div>
+          )}
+
+          {ideasStatus === "empty" && (
+            <div className="restyle-ideas-state empty">
+              <i className="fa-solid fa-shield-heart" />
+              <strong>No verified match yet</strong>
+              <p>{ideasMessage}</p>
+              <button type="button" onClick={() => detailsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })}>Review garment details</button>
+            </div>
+          )}
+
+          {ideasStatus === "ready" && (
+            <>
+              <div className="restyle-ideas-summary"><i className="fa-solid fa-circle-check" /> {ideasMessage}</div>
+              <div className="restyle-idea-grid">
+                {ideas.map((idea) => (
+                  <article key={idea.id} className="restyle-idea-card">
+                    <div className="restyle-idea-visual" aria-hidden="true">
+                      <i className={`fa-solid fa-${idea.icon}`} />
+                      <span>{idea.outputType}</span>
+                    </div>
+                    <div className="restyle-idea-content">
+                      <div className="restyle-idea-meta">
+                        <span><i className="fa-regular fa-clock" /> {idea.timeMinutes} min</span>
+                        <span><i className="fa-solid fa-signal" /> {idea.difficulty}</span>
+                        <span><i className="fa-solid fa-needle" /> {idea.sewingRequired ? "Sewing" : "No sewing"}</span>
+                      </div>
+                      <h3>{idea.title}</h3>
+                      <p>{idea.description}</p>
+                      <div className="restyle-idea-fit"><i className="fa-solid fa-check" /><span>{idea.whyItFits}</span></div>
+                      <div className="restyle-idea-requirements">
+                        <div><strong>Tools</strong><span>{idea.requiredTools.map(formatTool).join(", ")}</span></div>
+                        <div><strong>Materials</strong><span>{idea.materials.join(", ")}</span></div>
+                      </div>
+                      <button type="button" disabled><i className="fa-regular fa-map" /> Guide available in the next stage</button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </>
+          )}
         </section>
       )}
 
