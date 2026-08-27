@@ -202,6 +202,7 @@ export default function MarketplaceItemDetails() {
           <button type="button" onClick={() => navigate("/closet")}>My Closet</button>
           <button type="button" className="active" onClick={() => navigate("/marketplace")}>Marketplace</button>
           <button type="button" onClick={() => navigate("/outfit-builder")}>Outfit Builder</button>
+          <button type="button" onClick={() => navigate("/restyle-studio")}>ReStyle Studio</button>
         </nav>
         <div className="market-detail-account" ref={accountMenuRef}>
           <button type="button" className="market-detail-profile" onClick={() => setAccountMenuOpen((open) => !open)} aria-expanded={accountMenuOpen}>

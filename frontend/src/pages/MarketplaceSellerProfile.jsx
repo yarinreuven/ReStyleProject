@@ -163,6 +163,7 @@ export default function MarketplaceSellerProfile() {
           <button type="button" onClick={() => navigate("/closet")}>My Closet</button>
           <button type="button" className="active" onClick={() => navigate("/marketplace")}>Marketplace</button>
           <button type="button" onClick={() => navigate("/outfit-builder")}>Outfit Builder</button>
+          <button type="button" onClick={() => navigate("/restyle-studio")}>ReStyle Studio</button>
         </nav>
         <div className="market-account" ref={accountMenuRef}>
           <button

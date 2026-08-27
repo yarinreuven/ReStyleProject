@@ -289,6 +289,9 @@ export default function Marketplace() {
           <button type="button" onClick={() => navigate("/outfit-builder")}>
             Outfit Builder
           </button>
+          <button type="button" onClick={() => navigate("/restyle-studio")}>
+            ReStyle Studio
+          </button>
         </nav>
 
         <div className="market-account" ref={accountMenuRef}>
