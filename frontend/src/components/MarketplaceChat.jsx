@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { io } from "socket.io-client";
+import { useNavigate } from "react-router-dom";
 import usePageStyles from "../hooks/usePageStyles";
 
 const API_URL = "http://localhost:3001/api/messages";
@@ -10,6 +11,23 @@ function timeLabel(value) {
   if (!value) return "";
   return new Intl.DateTimeFormat("en", { hour: "2-digit", minute: "2-digit" })
     .format(new Date(value));
+}
+
+function dayKey(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  return `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+}
+
+function dateLabel(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const prefix = dayKey(date) === dayKey(today) ? "Today" : dayKey(date) === dayKey(yesterday) ? "Yesterday" : "";
+  const formatted = new Intl.DateTimeFormat("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" }).format(date);
+  return prefix ? `${prefix} · ${formatted}` : formatted;
 }
 
 function addMessageOnce(conversation, message) {
@@ -41,6 +59,7 @@ function ChatAvatar({ user }) {
 
 export default function MarketplaceChat({ token, user, initialConversationId }) {
   usePageStyles("marketplace-chat.css");
+  const navigate = useNavigate();
   const socketRef = useRef(null);
   const activeIdRef = useRef(initialConversationId || null);
   const openRef = useRef(Boolean(initialConversationId));
@@ -286,7 +305,7 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
             return <div key={conversation.id} className={`market-chat-conversation${activeConversation?.id === conversation.id ? " active" : ""}${conversation.unreadCount ? " unread" : ""}`}>
               <button type="button" className="market-chat-conversation-open" onClick={() => selectConversation(conversation.id)}>
                 <ChatAvatar user={conversation.otherUser} />
-                <span><strong>{conversation.otherUser?.name}</strong><small>{conversation.item?.name || "Seller conversation"}</small><em>{lastMessage?.text || "Conversation started"}</em></span>
+                <span><strong>{conversation.otherUser?.name}</strong><em>{lastMessage?.text || "Conversation started"}</em></span>
                 {conversation.unreadCount > 0 && <b>{conversation.unreadCount}</b>}
               </button>
               <button type="button" className="market-chat-conversation-delete" onClick={() => setConversationToDelete(conversation)} aria-label={`Delete conversation with ${conversation.otherUser?.name || "seller"}`}><i className="fa-regular fa-trash-can" /></button>
@@ -296,13 +315,22 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
 
         <article>
           {!activeConversation ? <div className="market-chat-placeholder"><i className="fa-regular fa-message" /><p>Select a conversation</p></div> : <>
-            <div className="market-chat-person"><ChatAvatar user={activeConversation.otherUser} /><span><strong>{activeConversation.otherUser?.name}</strong><small>{activeConversation.item?.name || "Seller conversation"}</small></span></div>
+            <div className="market-chat-person">
+              <button type="button" className="market-chat-profile-link" onClick={() => navigate(`/marketplace/sellers/${activeConversation.otherUser?.id}`)} disabled={!activeConversation.otherUser?.id} aria-label={`View ${activeConversation.otherUser?.name || "user"} profile`}>
+                <ChatAvatar user={activeConversation.otherUser} />
+                <span><strong><bdi>{activeConversation.otherUser?.name}</bdi></strong></span>
+              </button>
+            </div>
             <div className="market-chat-history">
               {activeConversation.messages.length === 0 && <p className="market-chat-first">{activeConversation.item ? "Start the conversation about this piece." : "Start a conversation with this seller."}</p>}
-              {activeConversation.messages.map((message) => {
+              {activeConversation.messages.map((message, index) => {
                 const mine = String(message.senderId) === currentUserId;
                 const canDelete = mine && !message.deletedAt && now - new Date(message.sentAt).getTime() <= 10 * 60 * 1000;
-                return <div key={message.id} className={`market-chat-bubble${mine ? " mine" : ""}${message.deletedAt ? " deleted" : ""}`}><p>{message.text}</p><div className="market-chat-message-meta"><time>{timeLabel(message.sentAt)}</time>{canDelete && <button type="button" onClick={() => setMessageToDelete(message)} aria-label="Delete message"><i className="fa-regular fa-trash-can" /></button>}</div></div>;
+                const showDate = index === 0 || dayKey(message.sentAt) !== dayKey(activeConversation.messages[index - 1]?.sentAt);
+                return <Fragment key={message.id}>
+                  {showDate && <div className="market-chat-date-separator"><span>{dateLabel(message.sentAt)}</span></div>}
+                  <div className={`market-chat-bubble${mine ? " mine" : ""}${message.deletedAt ? " deleted" : ""}`}><p>{message.text}</p><div className="market-chat-message-meta"><time>{timeLabel(message.sentAt)}</time>{canDelete && <button type="button" onClick={() => setMessageToDelete(message)} aria-label="Delete message"><i className="fa-regular fa-trash-can" /></button>}</div></div>
+                </Fragment>;
               })}
             </div>
             <form onSubmit={sendMessage}><input value={draft} onChange={(event) => setDraft(event.target.value)} maxLength="1000" placeholder="Write a message..." aria-label="Message" /><button type="submit" disabled={!draft.trim() || sending}><i className="fa-solid fa-paper-plane" /></button>{sending && <small>Sending...</small>}</form>
