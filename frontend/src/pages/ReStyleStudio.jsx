@@ -87,6 +87,7 @@ export default function ReStyleStudio() {
   const [savedProjects, setSavedProjects] = useState([]);
   const [projectsStatus, setProjectsStatus] = useState("loading");
   const [projectsError, setProjectsError] = useState("");
+  const [projectsOpen, setProjectsOpen] = useState(false);
   const [selectedGarment, setSelectedGarment] = useState(null);
   const [uploadError, setUploadError] = useState("");
   const [garmentDetails, setGarmentDetails] = useState(blankGarmentDetails);
@@ -178,6 +179,15 @@ export default function ReStyleStudio() {
     document.addEventListener("mousedown", closeMenu);
     return () => document.removeEventListener("mousedown", closeMenu);
   }, []);
+
+  useEffect(() => {
+    if (!projectsOpen) return;
+    function closeProjects(event) {
+      if (event.key === "Escape") setProjectsOpen(false);
+    }
+    document.addEventListener("keydown", closeProjects);
+    return () => document.removeEventListener("keydown", closeProjects);
+  }, [projectsOpen]);
 
   function logOut() {
     logout();
@@ -507,8 +517,10 @@ export default function ReStyleStudio() {
         setCompletedStepIds(guideResponse.data.completedStepIds || []);
         setGuideProgress(guideResponse.data.progress || 0);
         setGuideStatus("ready");
+        setProjectsOpen(false);
         moveToStudioStep(4);
       } else {
+        setProjectsOpen(false);
         moveToStudioStep(3);
       }
     } catch (error) {
@@ -642,49 +654,50 @@ export default function ReStyleStudio() {
             );
           })}
         </ol>
-        {selectedGarment && (
+        {selectedGarment ? (
           <div className="restyle-journey-piece">
             <img src={selectedGarment.image} alt="" />
             <div><small>CURRENT PIECE</small><strong>{selectedGarment.name || "Uploaded garment"}</strong><span>{selectedGarment.category || garmentDetails.garmentType || "Details not added yet"}</span></div>
             <button type="button" onClick={() => moveToStudioStep(1)}>Change</button>
           </div>
+        ) : (
+          <button type="button" className="restyle-projects-trigger" onClick={() => setProjectsOpen(true)} disabled={projectsStatus === "loading" && savedProjects.length === 0}>
+            <span><i className="fa-regular fa-folder-open" /></span>
+            <div><strong>My Projects</strong><small>{projectsStatus === "loading" ? "Loading..." : `${savedProjects.length} saved`}</small></div>
+            <i className="fa-solid fa-chevron-right" />
+          </button>
         )}
       </section>
 
-      {activeStudioStep === 1 && (projectsStatus === "loading" || savedProjects.length > 0 || projectsError) && (
-        <section className="restyle-saved-projects" aria-labelledby="savedRestyleProjectsTitle">
-          <div className="restyle-saved-projects-heading">
-            <div>
-              <span>MY RESTYLE PROJECTS</span>
-              <h2 id="savedRestyleProjectsTitle">Continue where you left off</h2>
+      {projectsOpen && (
+        <div className="restyle-projects-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setProjectsOpen(false); }}>
+          <section className="restyle-projects-dialog" role="dialog" aria-modal="true" aria-labelledby="savedRestyleProjectsTitle">
+            <button type="button" className="restyle-projects-close" aria-label="Close saved projects" onClick={() => setProjectsOpen(false)}><i className="fa-solid fa-xmark" /></button>
+            <div className="restyle-saved-projects-heading">
+              <div><span>MY RESTYLE PROJECTS</span><h2 id="savedRestyleProjectsTitle">Continue where you left off</h2></div>
+              <p>Your selected guide and every completed step are saved automatically.</p>
             </div>
-            <p>Your selected guide and every completed step are saved automatically.</p>
-          </div>
-          {projectsStatus === "loading" && <div className="restyle-saved-loading" role="status"><span className="restyle-selection-loader" /> Loading saved projects...</div>}
-          {projectsError && <div className="restyle-project-error" role="alert">{projectsError}</div>}
-          {savedProjects.length > 0 && (
-            <div className="restyle-saved-project-grid">
-              {savedProjects.map((project) => (
-                <article key={project.id}>
-                  <div className="restyle-saved-project-image">
-                    {project.sourceImage ? <img src={project.sourceImage} alt="" /> : <i className="fa-solid fa-shirt" />}
-                    <span>{project.progress || 0}%</span>
-                  </div>
-                  <div className="restyle-saved-project-content">
-                    <small>{project.status === "completed" ? "COMPLETED" : project.selectedIdeaId ? "GUIDE IN PROGRESS" : "SAVED PROJECT"}</small>
-                    <h3>{project.name}</h3>
-                    <p>{project.details?.fabric} {project.details?.garmentType} · {project.generatedIdeas?.length || 0} ideas</p>
-                    <div className="restyle-saved-project-progress"><span style={{ width: `${project.progress || 0}%` }} /></div>
-                    <div>
-                      <button type="button" onClick={() => continueSavedProject(project)}><i className="fa-solid fa-arrow-right" /> Continue</button>
-                      <button type="button" className="delete" aria-label={`Delete ${project.name}`} onClick={() => deleteSavedProject(project)}><i className="fa-regular fa-trash-can" /></button>
+            {projectsStatus === "loading" && <div className="restyle-saved-loading" role="status"><span className="restyle-selection-loader" /> Loading saved projects...</div>}
+            {projectsError && <div className="restyle-project-error" role="alert">{projectsError}</div>}
+            {projectsStatus === "ready" && savedProjects.length === 0 && <div className="restyle-projects-empty"><i className="fa-regular fa-folder-open" /><strong>No saved projects yet</strong><p>Your projects will appear here after you confirm garment details.</p></div>}
+            {savedProjects.length > 0 && (
+              <div className="restyle-saved-project-grid">
+                {savedProjects.map((project) => (
+                  <article key={project.id}>
+                    <div className="restyle-saved-project-image">{project.sourceImage ? <img src={project.sourceImage} alt="" /> : <i className="fa-solid fa-shirt" />}<span>{project.progress || 0}%</span></div>
+                    <div className="restyle-saved-project-content">
+                      <small>{project.status === "completed" ? "COMPLETED" : project.selectedIdeaId ? "GUIDE IN PROGRESS" : "SAVED PROJECT"}</small>
+                      <h3>{project.name}</h3>
+                      <p>{project.details?.fabric} {project.details?.garmentType} · {project.generatedIdeas?.length || 0} ideas</p>
+                      <div className="restyle-saved-project-progress"><span style={{ width: `${project.progress || 0}%` }} /></div>
+                      <div><button type="button" onClick={() => continueSavedProject(project)}><i className="fa-solid fa-arrow-right" /> Continue</button><button type="button" className="delete" aria-label={`Delete ${project.name}`} onClick={() => deleteSavedProject(project)}><i className="fa-regular fa-trash-can" /></button></div>
                     </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
       )}
 
       <section className="restyle-studio-hero" hidden={activeStudioStep !== 1}>
