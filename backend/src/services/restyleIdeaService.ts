@@ -39,7 +39,10 @@ interface RestyleGuide {
   tips: string[];
   warnings: string[];
   verifiedVideo: { title: string; url: string; source: string } | null;
+  videoSearch?: { title: string; url: string };
 }
+
+export const RESTYLE_CATALOG_VERSION = 2;
 
 const sewingLevels: Record<string, number> = {
   "No sewing": 0,
@@ -130,11 +133,59 @@ const catalog: CatalogIdea[] = [
     difficulty: "Easy",
     outputType: "clothing",
     timeMinutes: 40,
+    sewingRequired: false,
+    minimumSewingSkill: 0,
+    requiredTools: ["scissors", "measuring-tape"],
+    materials: ["Tailor's chalk or washable marker", "Optional fabric glue for a bonded hem"],
+    icon: "shirt"
+  },
+  {
+    id: "tshirt-to-tank",
+    title: "No-sew relaxed tank top",
+    description: "Reshape a soft T-shirt into a casual tank while preserving enough fabric around the neckline and side seams.",
+    garmentTypes: ["Tops", "Shirts"],
+    fabrics: ["Cotton", "Knit", "Polyester"],
+    conditions: ["good", "stained", "torn", "too-large", "worn"],
+    difficulty: "Easy",
+    outputType: "clothing",
+    timeMinutes: 30,
+    sewingRequired: false,
+    minimumSewingSkill: 0,
+    requiredTools: ["scissors", "measuring-tape"],
+    materials: ["Tailor's chalk or washable marker", "A well-fitting tank top as an optional template"],
+    icon: "shirt"
+  },
+  {
+    id: "tshirt-yarn-bag",
+    title: "Crocheted T-shirt-yarn bag",
+    description: "Cut a knit T-shirt into continuous yarn and crochet it into a sturdy reusable bag.",
+    garmentTypes: ["Tops", "Shirts", "Dresses"],
+    fabrics: ["Cotton", "Knit"],
+    conditions: ["good", "stained", "torn", "too-small", "too-large", "worn"],
+    difficulty: "Medium",
+    outputType: "bag",
+    timeMinutes: 180,
+    sewingRequired: false,
+    minimumSewingSkill: 0,
+    requiredTools: ["scissors", "crochet-hook"],
+    materials: ["Large crochet hook suitable for T-shirt yarn", "Optional stitch marker"],
+    icon: "bag-shopping"
+  },
+  {
+    id: "tshirt-braided-tote",
+    title: "Braided T-shirt-strip tote",
+    description: "Braid long knit strips and hand-join the braids into a soft, washable tote without crochet.",
+    garmentTypes: ["Tops", "Shirts", "Dresses"],
+    fabrics: ["Cotton", "Knit"],
+    conditions: ["good", "stained", "torn", "too-small", "too-large", "worn"],
+    difficulty: "Medium",
+    outputType: "bag",
+    timeMinutes: 140,
     sewingRequired: true,
     minimumSewingSkill: 1,
-    requiredTools: ["scissors", "needle-thread", "measuring-tape"],
-    materials: ["Matching thread", "Tailor's chalk or washable marker"],
-    icon: "shirt"
+    requiredTools: ["scissors", "needle-thread"],
+    materials: ["Strong thread", "Clips", "Optional fabric lining"],
+    icon: "bag-shopping"
   },
   {
     id: "top-to-cushion",
@@ -446,12 +497,55 @@ const guides: Record<string, RestyleGuide> = {
       { id: "measure", title: "Choose the finished length", instruction: "Try the top on over another layer and mark the desired finished edge without cutting." },
       { id: "allowance", title: "Add a hem allowance", instruction: "Measure 2 to 3 cm below the finished line and draw a second, parallel cutting line." },
       { id: "cut", title: "Cut evenly", instruction: "Lay the garment flat and cut slowly along the lower marked line through one layer at a time." },
-      { id: "press", title: "Fold and press the hem", instruction: "Fold the raw edge inward twice, press it flat, and secure it with pins or clips." },
-      { id: "sew", title: "Sew and inspect", instruction: "Stitch around the hem with a stretch-friendly stitch when working with knit fabric, then check that it lies flat." }
+      { id: "finish", title: "Choose the edge finish", instruction: "Leave stable jersey raw for a rolled edge, or turn a narrow hem inward and secure it with flexible fabric glue." },
+      { id: "inspect", title: "Let it set and inspect", instruction: "Allow any adhesive to cure fully, try the top on, and check that the edge hangs evenly without pulling." }
     ],
-    tips: ["Measure from several points along the original hem to keep the new edge level."],
-    warnings: ["Cut less than you think you need; more length can always be removed later.", "Use a stretch stitch for knit fabric to prevent broken seams."],
-    verifiedVideo: null
+    tips: ["Measure from several points along the original hem to keep the new edge level.", "Soft jersey usually rolls slightly and can be left unfinished for a casual look."],
+    warnings: ["Cut less than you think you need; more length can always be removed later.", "Test fabric glue on an offcut and use a flexible washable formula."],
+    verifiedVideo: null,
+    videoSearch: { title: "Find a no-sew crop-top video", url: "https://www.youtube.com/results?search_query=no+sew+tshirt+crop+top+tutorial" }
+  },
+  "tshirt-to-tank": {
+    ideaId: "tshirt-to-tank",
+    steps: [
+      { id: "template", title: "Plan the tank shape", instruction: "Lay the T-shirt flat and place a well-fitting tank on top, or mark shallow armhole curves by hand." },
+      { id: "mark", title: "Mark conservative cut lines", instruction: "Leave at least 2 cm more shoulder and side coverage than the intended final shape." },
+      { id: "first", title: "Cut the first armhole", instruction: "Cut one layer slowly along the first marked curve without cutting into the neckline or side seam." },
+      { id: "mirror", title: "Mirror the second side", instruction: "Fold the shirt exactly in half and use the first armhole as a guide for a symmetrical second cut." },
+      { id: "finish", title: "Shape and test", instruction: "Gently stretch stable jersey edges so they roll, try the tank on over another layer, and make only small final adjustments." }
+    ],
+    tips: ["Start with smaller armholes; they can always be enlarged after the first fitting."],
+    warnings: ["Never cut the shirt while wearing it and do not cut through side seams unless you plan to reconstruct them."],
+    verifiedVideo: null,
+    videoSearch: { title: "Find a no-sew tank-top video", url: "https://www.youtube.com/results?search_query=no+sew+tshirt+to+tank+top+tutorial" }
+  },
+  "tshirt-yarn-bag": {
+    ideaId: "tshirt-yarn-bag",
+    steps: [
+      { id: "prepare", title: "Prepare the knit tube", instruction: "Lay a clean T-shirt flat, remove the hem and cut straight across below the sleeves to keep the torso tube." },
+      { id: "strips", title: "Cut connected strips", instruction: "Cut parallel 2 to 3 cm strips from the folded edge while stopping several centimeters before the opposite edge." },
+      { id: "continuous", title: "Create continuous yarn", instruction: "Open the uncut spine and make diagonal connecting cuts so the strips become one continuous length." },
+      { id: "stretch", title: "Form and join the yarn", instruction: "Stretch the strip gently so jersey curls inward, then join additional yarn with secure low-bulk knots if required." },
+      { id: "crochet", title: "Crochet and inspect the bag", instruction: "Crochet a firm base and sides with an appropriate large hook, form reinforced handles, and test every join with light weight." }
+    ],
+    tips: ["Consistent strip width produces more even yarn and a stronger finished bag."],
+    warnings: ["Avoid weak, brittle or heavily perforated fabric in load-bearing areas and increase weight gradually during testing."],
+    verifiedVideo: null,
+    videoSearch: { title: "Find a T-shirt-yarn bag video", url: "https://www.youtube.com/results?search_query=tshirt+yarn+crochet+bag+tutorial" }
+  },
+  "tshirt-braided-tote": {
+    ideaId: "tshirt-braided-tote",
+    steps: [
+      { id: "strips", title: "Cut long knit strips", instruction: "Recover sound jersey areas and cut even strips, avoiding damaged sections that tear under gentle tension." },
+      { id: "join", title: "Join strip lengths", instruction: "Join short strips into three long working lengths with small secure overlaps or low-bulk knots." },
+      { id: "braid", title: "Braid without twisting", instruction: "Braid the three lengths with steady tension and add strips gradually until the braid is long enough." },
+      { id: "shape", title: "Coil and shape the body", instruction: "Coil the braid into an oval base, then build upward while clipping adjacent rows together." },
+      { id: "stitch", title: "Hand-join and add handles", instruction: "Use strong thread to join each row, form two reinforced handles, and load-test the finished tote gradually." }
+    ],
+    tips: ["Keep the braid relaxed; an overly tight braid makes the bag stiff and uneven."],
+    warnings: ["Reinforce every handle connection and do not carry heavy items until all joins have been inspected."],
+    verifiedVideo: null,
+    videoSearch: { title: "Find a braided T-shirt bag video", url: "https://www.youtube.com/results?search_query=braided+tshirt+yarn+bag+tutorial" }
   },
   "top-to-cushion": {
     ideaId: "top-to-cushion",
@@ -720,7 +814,10 @@ export function findMatchingRestyleIdeas(details: RestyleDetails) {
         (details.fabric !== "Unknown" ? 8 : 3) +
         (details.preference !== "any" && idea.outputType === details.preference ? 8 : 0) +
         (difficultyLevels[idea.difficulty] === userDifficulty ? 6 : 3) +
-        (idea.requiredTools.length <= 2 ? 4 : 1)
+        (idea.requiredTools.length <= 2 ? 4 : 1) +
+        (details.preference === "any" && details.condition === "good"
+          ? idea.outputType === "clothing" ? 10 : idea.outputType === "bag" ? 4 : 0
+          : 0)
       )
     }))
     .sort((a, b) => b.matchScore - a.matchScore || a.timeMinutes - b.timeMinutes)

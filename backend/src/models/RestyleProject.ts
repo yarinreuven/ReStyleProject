@@ -85,6 +85,11 @@ const restyleProjectSchema = new mongoose.Schema(
       type: [restyleIdeaSchema],
       default: []
     },
+    ideaCatalogVersion: {
+      type: Number,
+      min: 0,
+      default: 0
+    },
     completedStepIds: {
       type: [{ type: String, trim: true }],
       default: []

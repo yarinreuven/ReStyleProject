@@ -59,6 +59,19 @@ test("returns no result instead of weakening tool requirements", () => {
   assert.deepEqual(ideas, []);
 });
 
+test("prioritizes wearable no-sew transformations for a good T-shirt", () => {
+  const ideas = findMatchingRestyleIdeas({
+    garmentType: "Tops",
+    fabric: "Cotton",
+    condition: "good",
+    sewingSkill: "No sewing",
+    tools: ["scissors", "measuring-tape"],
+    difficulty: "Easy",
+    preference: "any"
+  });
+  assert.deepEqual(ideas.slice(0, 2).map((idea) => idea.id), ["tshirt-to-tank", "top-to-crop"]);
+});
+
 test("every returned idea has a curated guide without a fabricated video", () => {
   const ideas = findMatchingRestyleIdeas(denimDetails);
   for (const idea of ideas) {
@@ -76,7 +89,8 @@ test("every catalog idea is reachable and has a complete verified guide", () => 
     "fabric-headband", "reusable-gift-wrap", "visible-mending-feature",
     "sleeve-drawstring-pouch", "denim-coasters", "skirt-to-tote", "satin-neck-scarf",
     "sweater-arm-warmers", "jacket-pocket-pouch", "trouser-panel-apron",
-    "fabric-wall-art", "fabric-flower-brooch"
+    "fabric-wall-art", "fabric-flower-brooch", "tshirt-to-tank",
+    "tshirt-yarn-bag", "tshirt-braided-tote"
   ]);
   const foundIds = new Set<string>();
   const garmentAndFabricPairs = [
@@ -87,7 +101,7 @@ test("every catalog idea is reachable and has a complete verified guide", () => 
   ];
   const tools = [
     "scissors", "needle-thread", "sewing-machine", "fabric-glue",
-    "measuring-tape", "iron", "paint-dye"
+    "measuring-tape", "iron", "paint-dye", "crochet-hook"
   ];
 
   for (const [garmentType, fabric] of garmentAndFabricPairs) {

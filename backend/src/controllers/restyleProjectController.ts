@@ -4,7 +4,7 @@ import Item from "../models/Item.ts";
 import RestyleProject from "../models/RestyleProject.ts";
 import type { AuthRequest } from "../middleware/auth.ts";
 import { personalizeRestyleIdeas } from "../services/restyleAiService.ts";
-import { findMatchingRestyleIdeas, getResponsibleFallback, getVerifiedRestyleGuide } from "../services/restyleIdeaService.ts";
+import { findMatchingRestyleIdeas, getResponsibleFallback, getVerifiedRestyleGuide, RESTYLE_CATALOG_VERSION } from "../services/restyleIdeaService.ts";
 
 const RESTYLE_INACTIVE_DAYS = 60;
 const restyleCategories = new Set(["Tops", "Bottoms", "Dresses", "Jackets"]);
@@ -35,12 +35,14 @@ function serializeProject(project: any) {
     sourceType: project.sourceType,
     sourceItemId: sourceItem?._id || project.sourceItem || null,
     sourceName: project.sourceName,
+    sourceCategory: sourceItem?.category || "",
     sourceImage: sourceItem
       ? imageToDataUrl(sourceItem.image)
       : imageToDataUrl(project.sourceImage),
     details: project.details,
     selectedIdeaId: project.selectedIdeaId,
     generatedIdeas: project.generatedIdeas || [],
+    ideaCatalogVersion: project.ideaCatalogVersion || 0,
     completedStepIds: project.completedStepIds,
     progress: project.progress,
     completedAt: project.completedAt,
@@ -147,6 +149,7 @@ export async function updateRestyleProject(req: AuthRequest, res: Response, next
     }
     if (updates.details) {
       updates.generatedIdeas = [];
+      updates.ideaCatalogVersion = 0;
       updates.selectedIdeaId = null;
       updates.completedStepIds = [];
       updates.progress = 0;
@@ -195,7 +198,7 @@ export async function generateRestyleIdeas(req: AuthRequest, res: Response, next
       return { ...idea, id: idea.ideaId };
     });
     const fallback = getResponsibleFallback(project.details);
-    if (cachedIdeas.length > 0) {
+    if (cachedIdeas.length > 0 && project.ideaCatalogVersion === RESTYLE_CATALOG_VERSION) {
       res.json({
         success: true,
         ideas: cachedIdeas,
@@ -214,6 +217,7 @@ export async function generateRestyleIdeas(req: AuthRequest, res: Response, next
       : project.sourceImage;
     const ideas = await personalizeRestyleIdeas(project.details, curatedIdeas, sourceImage);
     project.set("generatedIdeas", ideas.map((idea) => ({ ...idea, ideaId: idea.id })));
+    project.ideaCatalogVersion = RESTYLE_CATALOG_VERSION;
     await project.save();
 
     res.json({

@@ -39,6 +39,7 @@ const availableTools = [
   ["measuring-tape", "Measuring tape", "fa-solid fa-ruler"],
   ["iron", "Iron", "fa-solid fa-temperature-high"],
   ["paint-dye", "Fabric paint or dye", "fa-solid fa-palette"],
+  ["crochet-hook", "Crochet hook", "fa-solid fa-wand-magic"],
   ["none", "No tools yet", "fa-regular fa-circle-xmark"]
 ];
 const creationPreferences = [
@@ -83,6 +84,9 @@ export default function ReStyleStudio() {
   const [closetItems, setClosetItems] = useState([]);
   const [closetStatus, setClosetStatus] = useState("loading");
   const [closetError, setClosetError] = useState("");
+  const [savedProjects, setSavedProjects] = useState([]);
+  const [projectsStatus, setProjectsStatus] = useState("loading");
+  const [projectsError, setProjectsError] = useState("");
   const [selectedGarment, setSelectedGarment] = useState(null);
   const [uploadError, setUploadError] = useState("");
   const [garmentDetails, setGarmentDetails] = useState(blankGarmentDetails);
@@ -130,6 +134,37 @@ export default function ReStyleStudio() {
     }
 
     loadClosetItems();
+    return () => { cancelled = true; };
+  }, [logout, navigate, token]);
+
+  useEffect(() => {
+    if (!token) return;
+    let cancelled = false;
+
+    async function loadSavedProjects() {
+      try {
+        setProjectsStatus("loading");
+        setProjectsError("");
+        const { data } = await axios.get(RESTYLE_PROJECTS_API_URL, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!cancelled) {
+          setSavedProjects(data.projects || []);
+          setProjectsStatus("ready");
+        }
+      } catch (error) {
+        if (cancelled) return;
+        if (error.response?.status === 401) {
+          logout();
+          navigate("/login", { replace: true });
+          return;
+        }
+        setProjectsError("Could not load your saved ReStyle projects.");
+        setProjectsStatus("error");
+      }
+    }
+
+    loadSavedProjects();
     return () => { cancelled = true; };
   }, [logout, navigate, token]);
 
@@ -339,6 +374,10 @@ export default function ReStyleStudio() {
         });
       }
       setProjectId(response.data.project.id);
+      setSavedProjects((current) => [
+        response.data.project,
+        ...current.filter((project) => project.id !== response.data.project.id)
+      ]);
       setDetailsReady(true);
       moveToStudioStep(3);
     } catch (error) {
@@ -398,6 +437,9 @@ export default function ReStyleStudio() {
       setCompletedStepIds(data.completedStepIds || []);
       setGuideProgress(data.progress || 0);
       setGuideStatus("ready");
+      setSavedProjects((current) => current.map((project) => project.id === projectId
+        ? { ...project, selectedIdeaId: ideaId, status: "in_progress" }
+        : project));
       moveToStudioStep(4);
     } catch (error) {
       if (error.response?.status === 401) {
@@ -407,6 +449,88 @@ export default function ReStyleStudio() {
       }
       setGuideError(error.response?.data?.message || "Could not open this guide.");
       setGuideStatus("error");
+    }
+  }
+
+  function normalizeSavedIdeas(project) {
+    return (project.generatedIdeas || []).map((idea) => ({ ...idea, id: idea.id || idea.ideaId }));
+  }
+
+  async function continueSavedProject(savedProject) {
+    try {
+      setProjectsError("");
+      const { data } = await axios.get(`${RESTYLE_PROJECTS_API_URL}/${savedProject.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const project = data.project;
+      setSelectedGarment({
+        source: project.sourceType,
+        id: project.sourceItemId || "",
+        name: project.sourceName,
+        category: project.sourceCategory || project.details?.garmentType || "",
+        image: project.sourceImage
+      });
+      setGarmentDetails(project.details || blankGarmentDetails);
+      setProjectId(project.id);
+      setDetailsReady(true);
+      setDetailsErrors({});
+      setProjectError("");
+      setCompletedStepIds(project.completedStepIds || []);
+      setGuideProgress(project.progress || 0);
+      setIdeas(normalizeSavedIdeas(project));
+      setIdeasStatus((project.generatedIdeas || []).length > 0 ? "ready" : "idle");
+      setIdeasMessage((project.generatedIdeas || []).length > 0
+        ? `${project.generatedIdeas.length} saved paths for this garment`
+        : "");
+      setResponsibleFallback(null);
+      setGuide(null);
+      setGuideStatus("idle");
+
+      const ideasResponse = await axios.post(
+        `${RESTYLE_PROJECTS_API_URL}/${project.id}/ideas`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const refreshedIdeas = ideasResponse.data.ideas || [];
+      setIdeas(refreshedIdeas);
+      setIdeasStatus(refreshedIdeas.length > 0 ? "ready" : "empty");
+      setIdeasMessage(ideasResponse.data.message || "");
+      setResponsibleFallback(ideasResponse.data.fallback || null);
+
+      if (project.selectedIdeaId) {
+        const guideResponse = await axios.post(
+          `${RESTYLE_PROJECTS_API_URL}/${project.id}/ideas/${project.selectedIdeaId}/select`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setGuide(guideResponse.data.guide);
+        setCompletedStepIds(guideResponse.data.completedStepIds || []);
+        setGuideProgress(guideResponse.data.progress || 0);
+        setGuideStatus("ready");
+        moveToStudioStep(4);
+      } else {
+        moveToStudioStep(3);
+      }
+    } catch (error) {
+      if (error.response?.status === 401) {
+        logout();
+        navigate("/login", { replace: true });
+        return;
+      }
+      setProjectsError(error.response?.data?.message || "Could not continue this ReStyle project.");
+    }
+  }
+
+  async function deleteSavedProject(savedProject) {
+    if (!window.confirm(`Delete “${savedProject.name}”? This cannot be undone.`)) return;
+    try {
+      await axios.delete(`${RESTYLE_PROJECTS_API_URL}/${savedProject.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setSavedProjects((current) => current.filter((project) => project.id !== savedProject.id));
+      if (projectId === savedProject.id) removeSelection();
+    } catch (error) {
+      setProjectsError(error.response?.data?.message || "Could not delete this ReStyle project.");
     }
   }
 
@@ -428,10 +552,13 @@ export default function ReStyleStudio() {
         {
           completedStepIds: nextCompleted,
           progress,
-          status: "in_progress"
+          status: progress === 100 ? "completed" : "in_progress"
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      setSavedProjects((current) => current.map((project) => project.id === projectId
+        ? { ...project, completedStepIds: nextCompleted, progress, status: progress === 100 ? "completed" : "in_progress" }
+        : project));
       setGuideStatus("ready");
     } catch (error) {
       setCompletedStepIds(previousCompleted);
@@ -523,6 +650,42 @@ export default function ReStyleStudio() {
           </div>
         )}
       </section>
+
+      {activeStudioStep === 1 && (projectsStatus === "loading" || savedProjects.length > 0 || projectsError) && (
+        <section className="restyle-saved-projects" aria-labelledby="savedRestyleProjectsTitle">
+          <div className="restyle-saved-projects-heading">
+            <div>
+              <span>MY RESTYLE PROJECTS</span>
+              <h2 id="savedRestyleProjectsTitle">Continue where you left off</h2>
+            </div>
+            <p>Your selected guide and every completed step are saved automatically.</p>
+          </div>
+          {projectsStatus === "loading" && <div className="restyle-saved-loading" role="status"><span className="restyle-selection-loader" /> Loading saved projects...</div>}
+          {projectsError && <div className="restyle-project-error" role="alert">{projectsError}</div>}
+          {savedProjects.length > 0 && (
+            <div className="restyle-saved-project-grid">
+              {savedProjects.map((project) => (
+                <article key={project.id}>
+                  <div className="restyle-saved-project-image">
+                    {project.sourceImage ? <img src={project.sourceImage} alt="" /> : <i className="fa-solid fa-shirt" />}
+                    <span>{project.progress || 0}%</span>
+                  </div>
+                  <div className="restyle-saved-project-content">
+                    <small>{project.status === "completed" ? "COMPLETED" : project.selectedIdeaId ? "GUIDE IN PROGRESS" : "SAVED PROJECT"}</small>
+                    <h3>{project.name}</h3>
+                    <p>{project.details?.fabric} {project.details?.garmentType} · {project.generatedIdeas?.length || 0} ideas</p>
+                    <div className="restyle-saved-project-progress"><span style={{ width: `${project.progress || 0}%` }} /></div>
+                    <div>
+                      <button type="button" onClick={() => continueSavedProject(project)}><i className="fa-solid fa-arrow-right" /> Continue</button>
+                      <button type="button" className="delete" aria-label={`Delete ${project.name}`} onClick={() => deleteSavedProject(project)}><i className="fa-regular fa-trash-can" /></button>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="restyle-studio-hero" hidden={activeStudioStep !== 1}>
         <div className="restyle-studio-copy">
@@ -925,7 +1088,16 @@ export default function ReStyleStudio() {
                 {guide.verifiedVideo ? (
                   <a href={guide.verifiedVideo.url} target="_blank" rel="noreferrer">{guide.verifiedVideo.title} · {guide.verifiedVideo.source}</a>
                 ) : (
-                  <p>No verified video has been attached to this guide. ReStyle never generates or guesses video links.</p>
+                  <>
+                    <p>Open current YouTube results for this exact technique. The link is a search, not an AI-guessed video.</p>
+                    <a
+                      href={guide.videoSearch?.url || `https://www.youtube.com/results?search_query=${encodeURIComponent(`${guide.idea.title} upcycling tutorial`)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <i className="fa-brands fa-youtube" /> {guide.videoSearch?.title || "Find a video tutorial"}
+                    </a>
+                  </>
                 )}
               </section>
             </aside>
