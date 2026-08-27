@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 
 const API_URL = "http://localhost:3001/api/marketplace";
@@ -41,6 +41,7 @@ function validate(form, images, hasExistingImages) {
 
 export default function MarketplaceListingForm({ token, listing = null, onClose, onPublished }) {
   const isEditing = Boolean(listing);
+  const imageInputRef = useRef(null);
   const [form, setForm] = useState(() => listing ? {
     name: listing.title || "",
     description: listing.description || "",
@@ -82,7 +83,7 @@ export default function MarketplaceListingForm({ token, listing = null, onClose,
     const invalidType = selectedImages.some((file) => !acceptedImageTypes.includes(file.type));
     const oversized = selectedImages.some((file) => file.size > MAX_IMAGE_SIZE);
 
-    if (selectedImages.length > MAX_IMAGES) {
+    if (images.length + selectedImages.length > MAX_IMAGES) {
       setErrors((current) => ({ ...current, images: "You can add up to 4 images." }));
       event.target.value = "";
       return;
@@ -98,8 +99,9 @@ export default function MarketplaceListingForm({ token, listing = null, onClose,
       return;
     }
 
-    setImages(selectedImages);
+    setImages((current) => [...current, ...selectedImages]);
     setErrors((current) => ({ ...current, images: "" }));
+    event.target.value = "";
   }
 
   function removeImage(indexToRemove) {
@@ -138,6 +140,12 @@ export default function MarketplaceListingForm({ token, listing = null, onClose,
       const { data } = await request;
       onPublished(data.item);
     } catch (error) {
+      if (error.response?.data?.code === "CATEGORY_MISMATCH") {
+        setErrors((current) => ({
+          ...current,
+          category: error.response.data.message
+        }));
+      }
       setSubmitError(
         error.response?.data?.message || `Could not ${isEditing ? "save" : "publish"} your listing. Please try again.`
       );
@@ -193,6 +201,7 @@ export default function MarketplaceListingForm({ token, listing = null, onClose,
                   <option key={option} value={option}>{option}</option>
                 ))}
               </select>
+              {errors.category && <small className="market-field-error" role="alert">{errors.category}</small>}
             </label>
 
             <label className="market-form-field">
@@ -244,12 +253,14 @@ export default function MarketplaceListingForm({ token, listing = null, onClose,
 
             <div className="market-image-field market-form-wide">
               <span>Photos <small>{isEditing ? "Choose new images only to replace the current ones" : "1–4 images, up to 5MB each"}</small></span>
-              <label className="market-image-picker">
-                <input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={chooseImages} />
-                <i className="fa-regular fa-images" aria-hidden="true" />
-                <strong>{isEditing ? "Replace item photos" : "Choose item photos"}</strong>
-                <small>JPG, PNG or WEBP</small>
-              </label>
+              <input ref={imageInputRef} className="market-image-input" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={chooseImages} />
+              {previews.length === 0 && (
+                <button type="button" className="market-image-picker" onClick={() => imageInputRef.current?.click()}>
+                  <i className="fa-regular fa-images" aria-hidden="true" />
+                  <strong>{isEditing ? "Replace item photos" : "Choose item photos"}</strong>
+                  <small>JPG, PNG or WEBP</small>
+                </button>
+              )}
               {errors.images && <small className="market-field-error">{errors.images}</small>}
               {previews.length > 0 && (
                 <div className="market-image-previews">
@@ -261,6 +272,13 @@ export default function MarketplaceListingForm({ token, listing = null, onClose,
                       </button>
                     </div>
                   ))}
+                  {previews.length < MAX_IMAGES && (
+                    <button type="button" className="market-add-image" onClick={() => imageInputRef.current?.click()} aria-label="Add another item photo">
+                      <i className="fa-solid fa-plus" aria-hidden="true" />
+                      <span>Add photo</span>
+                      <small>{previews.length}/{MAX_IMAGES}</small>
+                    </button>
+                  )}
                 </div>
               )}
             </div>

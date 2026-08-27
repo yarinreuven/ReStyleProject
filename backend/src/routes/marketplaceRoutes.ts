@@ -6,6 +6,8 @@ import mongoose from "mongoose";
 import { authenticateToken, type AuthRequest } from "../middleware/auth.ts";
 import Item from "../models/Item.ts";
 import User from "../models/User.ts";
+import { checkWardrobeImage } from "../services/wardrobeImageService.ts";
+import type { ImageCheckResult } from "../services/wardrobeImageService.ts";
 
 const router = express.Router();
 const categories = [
@@ -107,6 +109,35 @@ function formatMarketplaceItem(item: any) {
       avatar: imageToDataUrl(owner.profileImage)
     } : null
   };
+}
+
+type MarketplaceCategory = Exclude<ImageCheckResult["category"], "None">;
+
+async function detectMarketplaceCategory(
+  files: Express.Multer.File[]
+): Promise<{ category: MarketplaceCategory | null; message: string }> {
+  const checks = await Promise.all(files.map(checkWardrobeImage));
+  const unclearImage = checks.find(
+    (check) => !check.isWardrobeItem || !check.isSingleClearItem || check.category === "None"
+  );
+
+  if (unclearImage) {
+    return {
+      category: null,
+      message: "Please upload only clear photos of the same clothing item."
+    };
+  }
+
+  const detectedCategories = checks.map((check) => check.category);
+  const category = detectedCategories[0] as MarketplaceCategory;
+  if (detectedCategories.some((detectedCategory) => detectedCategory !== category)) {
+    return {
+      category: null,
+      message: "All photos must show the same clothing item from different angles."
+    };
+  }
+
+  return { category, message: "" };
 }
 
 router.use(authenticateToken);
@@ -267,6 +298,21 @@ router.post(
         return;
       }
 
+      const imageDetection = await detectMarketplaceCategory(files);
+      if (!imageDetection.category) {
+        res.status(400).json({ success: false, message: imageDetection.message });
+        return;
+      }
+      if (imageDetection.category !== value.category) {
+        res.status(400).json({
+          success: false,
+          code: "CATEGORY_MISMATCH",
+          detectedCategory: imageDetection.category,
+          message: `The photos look like ${imageDetection.category}, not ${value.category}. Please check and change the category.`
+        });
+        return;
+      }
+
       const images = files.map((file) => ({
         data: file.buffer,
         contentType: file.mimetype
@@ -351,8 +397,26 @@ router.put(
         return;
       }
 
+      const imageDetection = files.length > 0
+        ? await detectMarketplaceCategory(files)
+        : null;
+      if (imageDetection && !imageDetection.category) {
+        res.status(400).json({ success: false, message: imageDetection.message });
+        return;
+      }
+      if (imageDetection?.category && imageDetection.category !== value.category) {
+        res.status(400).json({
+          success: false,
+          code: "CATEGORY_MISMATCH",
+          detectedCategory: imageDetection.category,
+          message: `The photos look like ${imageDetection.category}, not ${value.category}. Please check and change the category.`
+        });
+        return;
+      }
+
       item.set({
         ...value,
+        category: value.category,
         price: value.listingType === "sale" ? value.price : null,
         rentalPricePerDay:
           value.listingType === "rent" ? value.rentalPricePerDay : null

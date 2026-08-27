@@ -2,6 +2,7 @@ import express from "express";
 import multer from "multer";
 
 import Item from "../models/Item.ts";
+import { validateWardrobeImage } from "../services/wardrobeImageService.ts";
 import {
   authenticateToken,
   type AuthRequest
@@ -31,132 +32,6 @@ const upload = multer({
     }
   }
 });
-
-const clothingCategories = [
-  "Tops",
-  "Bottoms",
-  "Dresses",
-  "Jackets",
-  "Shoes",
-  "Bags",
-  "Accessories"
-] as const;
-
-interface GeminiImageCheckResponse {
-  candidates?: Array<{
-    content?: {
-      parts?: Array<{
-        text?: string;
-      }>;
-    };
-  }>;
-  error?: {
-    message?: string;
-  };
-}
-
-interface ImageCheckResult {
-  isWardrobeItem: boolean;
-  isSingleClearItem: boolean;
-  category: typeof clothingCategories[number] | "None";
-}
-
-async function checkWardrobeImage(
-  file: Express.Multer.File
-): Promise<ImageCheckResult> {
-  const apiKey = process.env.GEMINI_API_KEY;
-
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is missing");
-  }
-
-  const response = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
-    {
-      method: "POST",
-      headers: {
-        "x-goog-api-key": apiKey,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [
-              {
-                text:
-                  "Inspect this image strictly for a virtual wardrobe. Accept either (1) one clear clothing product shown by itself, or (2) one person wearing the intended product when that product is clearly visible and its color, cut, shape and design can be identified reliably. A matching pair of shoes counts as one product. Normal accompanying clothes on the same person are allowed only when the intended product for the selected category is unambiguous. Use Jackets only for outerwear worn as a layer over an outfit, such as jackets, coats, blazers, trench coats and substantial outer cardigans. Long-sleeve shirts, button-down shirts, blouses, sweatshirts and ordinary sweaters belong in Tops, not Jackets. Reject wardrobe or closet scenes, clothing racks, piles, collages, screenshots, groups of people, distant subjects, unrelated objects, full-outfit photos where no single intended product is clear, and images in which the intended product is cropped, hidden, blurred or too small. Return the single best category and whether one intended wearable product is clear enough to use."
-              },
-              {
-                inline_data: {
-                  mime_type: file.mimetype,
-                  data: file.buffer.toString("base64")
-                }
-              }
-            ]
-          }
-        ],
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: "OBJECT",
-            properties: {
-              isWardrobeItem: { type: "BOOLEAN" },
-              isSingleClearItem: { type: "BOOLEAN" },
-              category: {
-                type: "STRING",
-                enum: [...clothingCategories, "None"]
-              }
-            },
-            required: ["isWardrobeItem", "isSingleClearItem", "category"]
-          }
-        }
-      })
-    }
-  );
-
-  const data = await response.json() as GeminiImageCheckResponse;
-
-  if (!response.ok) {
-    console.error("Gemini image check error:", data.error?.message);
-    throw new Error("The image could not be checked right now");
-  }
-
-  const outputText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-  if (!outputText) {
-    throw new Error("The image check returned no result");
-  }
-
-  return JSON.parse(outputText) as ImageCheckResult;
-}
-
-async function validateWardrobeImage(
-  file: Express.Multer.File,
-  selectedCategory: string
-) {
-  const imageCheck = await checkWardrobeImage(file);
-
-  if (
-    !imageCheck.isWardrobeItem ||
-    !imageCheck.isSingleClearItem ||
-    imageCheck.category === "None"
-  ) {
-    return {
-      valid: false,
-      message: "Please upload a clear photo of the item by itself or clearly worn by one person. Avoid screenshots, closets, collages, groups and unclear full-outfit photos"
-    };
-  }
-
-  if (imageCheck.category !== selectedCategory) {
-    return {
-      valid: false,
-      message: `This image looks like ${imageCheck.category}. Please choose the matching category.`
-    };
-  }
-
-  return { valid: true, message: "" };
-}
 
 // ================================
 // ADD ITEM

@@ -863,6 +863,7 @@ button{
 }
 
 .market-image-picker{
+  width:100%;
   min-height:105px;
   display:flex;
   flex-direction:column;
@@ -876,7 +877,7 @@ button{
   cursor:pointer;
 }
 
-.market-image-picker input{position:absolute;opacity:0;pointer-events:none}
+.market-image-input{position:absolute;opacity:0;pointer-events:none}
 .market-image-picker i{font-size:21px}
 .market-image-picker strong{font-size:11px}
 .market-image-picker small{color:var(--market-muted);font-size:8px}
@@ -897,7 +898,7 @@ button{
 
 .market-image-previews img{width:100%;height:100%;object-fit:cover}
 
-.market-image-previews button{
+.market-image-previews>div>button{
   width:25px;
   height:25px;
   position:absolute;
@@ -908,6 +909,24 @@ button{
   color:#8f4357;
   background:rgba(255,255,255,.9);
 }
+
+.market-image-previews>.market-add-image{
+  height:105px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:5px;
+  border:1px dashed rgba(185,95,118,.5);
+  border-radius:13px;
+  color:var(--market-rose-deep);
+  background:var(--market-petal);
+}
+
+.market-add-image i{font-size:18px}
+.market-add-image span{font-size:9px;font-weight:700}
+.market-add-image small{color:var(--market-muted);font-size:7px}
+.market-add-image:hover{border-color:var(--market-rose);background:#f8e6ea}
 
 .market-submit-error{
   margin-top:17px;
