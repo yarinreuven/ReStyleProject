@@ -3,6 +3,7 @@ import type { NextFunction, Response } from "express";
 import Item from "../models/Item.ts";
 import RestyleProject from "../models/RestyleProject.ts";
 import type { AuthRequest } from "../middleware/auth.ts";
+import { personalizeRestyleIdeas } from "../services/restyleAiService.ts";
 import { findMatchingRestyleIdeas, getResponsibleFallback, getVerifiedRestyleGuide } from "../services/restyleIdeaService.ts";
 
 const RESTYLE_INACTIVE_DAYS = 60;
@@ -144,6 +145,14 @@ export async function updateRestyleProject(req: AuthRequest, res: Response, next
     } else if (updates.status) {
       updates.completedAt = null;
     }
+    if (updates.details) {
+      updates.generatedIdeas = [];
+      updates.selectedIdeaId = null;
+      updates.completedStepIds = [];
+      updates.progress = 0;
+      updates.status = "saved";
+      updates.completedAt = null;
+    }
     const project = await RestyleProject.findOneAndUpdate(
       { _id: req.params.projectId, owner: req.userId },
       updates,
@@ -174,14 +183,36 @@ export async function deleteRestyleProject(req: AuthRequest, res: Response, next
 
 export async function generateRestyleIdeas(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const project = await RestyleProject.findOne({ _id: req.params.projectId, owner: req.userId });
+    const project = await RestyleProject.findOne({ _id: req.params.projectId, owner: req.userId })
+      .populate("sourceItem", "image");
     if (!project) {
       res.status(404).json({ success: false, message: "ReStyle project not found" });
       return;
     }
 
-    const ideas = findMatchingRestyleIdeas(project.details);
+    const cachedIdeas = (project.generatedIdeas || []).map((entry: any) => {
+      const idea = typeof entry.toObject === "function" ? entry.toObject() : entry;
+      return { ...idea, id: idea.ideaId };
+    });
     const fallback = getResponsibleFallback(project.details);
+    if (cachedIdeas.length > 0) {
+      res.json({
+        success: true,
+        ideas: cachedIdeas,
+        fallback,
+        message: `${cachedIdeas.length} suitable paths, ranked for this garment`
+      });
+      return;
+    }
+
+    const curatedIdeas = findMatchingRestyleIdeas(project.details);
+    const sourceItem = project.sourceItem && typeof project.sourceItem === "object"
+      ? project.sourceItem as any
+      : null;
+    const sourceImage = sourceItem?.image?.data
+      ? sourceItem.image
+      : project.sourceImage;
+    const ideas = await personalizeRestyleIdeas(project.details, curatedIdeas, sourceImage);
     project.set("generatedIdeas", ideas.map((idea) => ({ ...idea, ideaId: idea.id })));
     await project.save();
 

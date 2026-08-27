@@ -68,3 +68,51 @@ test("every returned idea has a curated guide without a fabricated video", () =>
     assert.equal(guide.verifiedVideo, null);
   }
 });
+
+test("every catalog idea is reachable and has a complete verified guide", () => {
+  const expectedIds = new Set([
+    "shirt-to-tote", "top-to-crop", "top-to-cushion", "denim-to-shorts",
+    "denim-to-skirt", "denim-pocket-organizer", "dress-to-skirt", "jacket-to-vest",
+    "fabric-headband", "reusable-gift-wrap", "visible-mending-feature",
+    "sleeve-drawstring-pouch", "denim-coasters", "skirt-to-tote", "satin-neck-scarf",
+    "sweater-arm-warmers", "jacket-pocket-pouch", "trouser-panel-apron",
+    "fabric-wall-art", "fabric-flower-brooch"
+  ]);
+  const foundIds = new Set<string>();
+  const garmentAndFabricPairs = [
+    ["Tops", "Cotton"], ["Shirts", "Linen"], ["Bottoms", "Denim"],
+    ["Bottoms", "Cotton"], ["Dresses", "Satin"], ["Dresses", "Cotton"],
+    ["Skirts", "Denim"], ["Jackets", "Denim"], ["Jackets", "Wool"],
+    ["Sweaters", "Knit"]
+  ];
+  const tools = [
+    "scissors", "needle-thread", "sewing-machine", "fabric-glue",
+    "measuring-tape", "iron", "paint-dye"
+  ];
+
+  for (const [garmentType, fabric] of garmentAndFabricPairs) {
+    for (const condition of ["good", "stained", "torn", "worn"]) {
+      for (const preference of ["any", "clothing", "bag", "accessory", "home"]) {
+        const ideas = findMatchingRestyleIdeas({
+          garmentType,
+          fabric,
+          condition,
+          sewingSkill: "Advanced",
+          tools,
+          difficulty: "Challenging",
+          preference
+        });
+        ideas.forEach((idea) => foundIds.add(idea.id));
+      }
+    }
+  }
+
+  assert.deepEqual(foundIds, expectedIds);
+  for (const ideaId of foundIds) {
+    const guide = getVerifiedRestyleGuide(ideaId);
+    assert.ok(guide, `${ideaId} must have a guide`);
+    assert.ok(guide.steps.length >= 5, `${ideaId} must have at least five steps`);
+    assert.ok(guide.tips.length > 0, `${ideaId} must have a tip`);
+    assert.ok(guide.warnings.length > 0, `${ideaId} must have a warning`);
+  }
+});

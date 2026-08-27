@@ -5,7 +5,9 @@
     "main": "index.js",
     "type": "module",
     "scripts": {
-        "dev": "tsx watch src/server.ts"
+        "dev": "tsx watch src/server.ts",
+        "test": "tsx --test src/**/*.test.ts",
+        "typecheck": "tsc --noEmit"
     },
     "keywords": [],
     "author": "",

@@ -1,4 +1,4 @@
-interface RestyleDetails {
+export interface RestyleDetails {
   garmentType: string;
   fabric: string;
   condition: string;
@@ -7,6 +7,8 @@ interface RestyleDetails {
   difficulty: string;
   preference: string;
 }
+
+export type RestyleIdea = ReturnType<typeof findMatchingRestyleIdeas>[number];
 
 interface CatalogIdea {
   id: string;
@@ -229,6 +231,198 @@ const catalog: CatalogIdea[] = [
     requiredTools: ["scissors", "needle-thread"],
     materials: ["Bias tape or matching fabric", "Strong thread"],
     icon: "vest"
+  },
+  {
+    id: "fabric-headband",
+    title: "Braided fabric headband",
+    description: "Turn narrow strips of soft fabric into a comfortable braided headband.",
+    garmentTypes: ["Tops", "Shirts", "Dresses", "Skirts"],
+    fabrics: ["Cotton", "Knit", "Polyester"],
+    conditions: ["good", "stained", "torn", "too-small", "too-large", "worn"],
+    difficulty: "Easy",
+    outputType: "accessory",
+    timeMinutes: 30,
+    sewingRequired: false,
+    minimumSewingSkill: 0,
+    requiredTools: ["scissors", "fabric-glue"],
+    materials: ["Small elastic band", "Optional ribbon for the join"],
+    icon: "ribbon"
+  },
+  {
+    id: "reusable-gift-wrap",
+    title: "Reusable fabric gift wrap",
+    description: "Save a clean square of attractive fabric as reusable knot-tied gift wrapping.",
+    garmentTypes: ["Tops", "Shirts", "Dresses", "Skirts"],
+    fabrics: ["Cotton", "Linen", "Satin", "Polyester"],
+    conditions: ["good", "stained", "torn", "too-small", "too-large", "worn"],
+    difficulty: "Easy",
+    outputType: "home",
+    timeMinutes: 25,
+    sewingRequired: false,
+    minimumSewingSkill: 0,
+    requiredTools: ["scissors", "measuring-tape"],
+    materials: ["Fabric-safe anti-fray liquid or optional fabric glue"],
+    icon: "gift"
+  },
+  {
+    id: "visible-mending-feature",
+    title: "Decorative visible-mending patch",
+    description: "Stabilize a local tear or stain with a deliberate contrasting patch and simple stitches.",
+    garmentTypes: ["Tops", "Bottoms", "Dresses", "Skirts", "Jackets", "Shirts", "Sweaters"],
+    fabrics: ["Denim", "Cotton", "Knit", "Linen", "Wool", "Polyester"],
+    conditions: ["stained", "torn", "worn"],
+    difficulty: "Easy",
+    outputType: "clothing",
+    timeMinutes: 40,
+    sewingRequired: true,
+    minimumSewingSkill: 1,
+    requiredTools: ["scissors", "needle-thread"],
+    materials: ["Compatible patch fabric", "Contrasting thread", "Pins or clips"],
+    icon: "bandage"
+  },
+  {
+    id: "sleeve-drawstring-pouch",
+    title: "Sleeve drawstring pouch",
+    description: "Reuse an intact shirt or sweater sleeve as a small organizer with a simple drawstring closure.",
+    garmentTypes: ["Tops", "Shirts", "Sweaters", "Jackets"],
+    fabrics: ["Cotton", "Knit", "Linen", "Wool", "Polyester"],
+    conditions: ["good", "stained", "torn", "too-small", "too-large", "worn"],
+    difficulty: "Easy",
+    outputType: "bag",
+    timeMinutes: 45,
+    sewingRequired: true,
+    minimumSewingSkill: 1,
+    requiredTools: ["scissors", "needle-thread"],
+    materials: ["Cord or ribbon", "Safety pin", "Strong thread"],
+    icon: "sack-xmark"
+  },
+  {
+    id: "denim-coasters",
+    title: "Layered denim coasters",
+    description: "Laminate small sound denim sections into sturdy washable table coasters.",
+    garmentTypes: ["Bottoms", "Skirts", "Jackets"],
+    fabrics: ["Denim"],
+    conditions: ["stained", "torn", "too-small", "too-large", "worn"],
+    difficulty: "Easy",
+    outputType: "home",
+    timeMinutes: 35,
+    sewingRequired: false,
+    minimumSewingSkill: 0,
+    requiredTools: ["scissors", "fabric-glue", "measuring-tape"],
+    materials: ["Washable fabric glue", "Card template"],
+    icon: "layer-group"
+  },
+  {
+    id: "skirt-to-tote",
+    title: "Skirt-shape market tote",
+    description: "Use the existing skirt side seams as the body of a roomy market bag.",
+    garmentTypes: ["Skirts", "Dresses"],
+    fabrics: ["Denim", "Cotton", "Linen", "Polyester"],
+    conditions: ["good", "stained", "torn", "too-small", "too-large", "worn"],
+    difficulty: "Medium",
+    outputType: "bag",
+    timeMinutes: 80,
+    sewingRequired: true,
+    minimumSewingSkill: 1,
+    requiredTools: ["scissors", "needle-thread", "measuring-tape"],
+    materials: ["Strong webbing or fabric handles", "Heavy-duty thread"],
+    icon: "basket-shopping"
+  },
+  {
+    id: "satin-neck-scarf",
+    title: "Soft neck scarf",
+    description: "Recover an undamaged satin panel and finish it as a lightweight square neck scarf.",
+    garmentTypes: ["Tops", "Shirts", "Dresses", "Skirts"],
+    fabrics: ["Satin"],
+    conditions: ["good", "stained", "torn", "too-small", "too-large"],
+    difficulty: "Medium",
+    outputType: "accessory",
+    timeMinutes: 55,
+    sewingRequired: true,
+    minimumSewingSkill: 1,
+    requiredTools: ["scissors", "needle-thread", "measuring-tape", "iron"],
+    materials: ["Fine matching thread", "Lightweight sewing needle"],
+    icon: "user-tie"
+  },
+  {
+    id: "sweater-arm-warmers",
+    title: "Cozy arm warmers",
+    description: "Turn two sound sweater sleeves into a matching pair of soft arm warmers.",
+    garmentTypes: ["Sweaters"],
+    fabrics: ["Knit", "Wool"],
+    conditions: ["good", "stained", "torn", "too-small", "too-large", "worn"],
+    difficulty: "Easy",
+    outputType: "accessory",
+    timeMinutes: 40,
+    sewingRequired: true,
+    minimumSewingSkill: 1,
+    requiredTools: ["scissors", "needle-thread", "measuring-tape"],
+    materials: ["Stretch-compatible thread", "Optional narrow elastic"],
+    icon: "mitten"
+  },
+  {
+    id: "jacket-pocket-pouch",
+    title: "Zip pocket travel pouch",
+    description: "Salvage a working jacket pocket and its closure as a compact travel organizer.",
+    garmentTypes: ["Jackets"],
+    fabrics: ["Denim", "Cotton", "Linen", "Polyester", "Wool"],
+    conditions: ["stained", "torn", "too-small", "too-large", "worn"],
+    difficulty: "Medium",
+    outputType: "bag",
+    timeMinutes: 65,
+    sewingRequired: true,
+    minimumSewingSkill: 1,
+    requiredTools: ["scissors", "needle-thread"],
+    materials: ["Backing fabric", "Strong matching thread"],
+    icon: "wallet"
+  },
+  {
+    id: "trouser-panel-apron",
+    title: "Utility waist apron",
+    description: "Combine strong trouser panels and existing pockets into a practical waist apron.",
+    garmentTypes: ["Bottoms"],
+    fabrics: ["Denim", "Cotton", "Linen", "Polyester"],
+    conditions: ["good", "stained", "torn", "too-small", "too-large", "worn"],
+    difficulty: "Medium",
+    outputType: "home",
+    timeMinutes: 90,
+    sewingRequired: true,
+    minimumSewingSkill: 1,
+    requiredTools: ["scissors", "needle-thread", "measuring-tape"],
+    materials: ["Cotton tape or fabric ties", "Strong thread"],
+    icon: "kitchen-set"
+  },
+  {
+    id: "fabric-wall-art",
+    title: "Framed textile wall art",
+    description: "Preserve an attractive print, embroidery or texture as a clean framed textile panel.",
+    garmentTypes: ["Tops", "Bottoms", "Dresses", "Skirts", "Jackets", "Shirts", "Sweaters"],
+    fabrics: ["Denim", "Cotton", "Knit", "Satin", "Linen", "Wool", "Polyester"],
+    conditions: ["good", "stained", "torn", "too-small", "too-large", "worn"],
+    difficulty: "Easy",
+    outputType: "home",
+    timeMinutes: 30,
+    sewingRequired: false,
+    minimumSewingSkill: 0,
+    requiredTools: ["scissors", "measuring-tape"],
+    materials: ["Picture frame or embroidery hoop", "Acid-free backing card"],
+    icon: "image"
+  },
+  {
+    id: "fabric-flower-brooch",
+    title: "Layered fabric flower brooch",
+    description: "Shape small clean offcuts into a layered flower that can decorate a bag or jacket.",
+    garmentTypes: ["Tops", "Bottoms", "Dresses", "Skirts", "Jackets", "Shirts"],
+    fabrics: ["Denim", "Cotton", "Satin", "Linen", "Polyester"],
+    conditions: ["stained", "torn", "too-small", "too-large", "worn"],
+    difficulty: "Easy",
+    outputType: "accessory",
+    timeMinutes: 35,
+    sewingRequired: false,
+    minimumSewingSkill: 0,
+    requiredTools: ["scissors", "fabric-glue"],
+    materials: ["Brooch back or safety pin", "Fabric-safe glue", "Optional button"],
+    icon: "fan"
   }
 ];
 
@@ -335,6 +529,162 @@ const guides: Record<string, RestyleGuide> = {
     ],
     tips: ["Photograph the original sleeve seam before unpicking it for reference."],
     warnings: ["Do not cut through structured shoulder pads or hidden support layers without checking construction first."],
+    verifiedVideo: null
+  },
+  "fabric-headband": {
+    ideaId: "fabric-headband",
+    steps: [
+      { id: "select", title: "Select soft, strong fabric", instruction: "Choose a clean section that stretches comfortably and does not thin when gently pulled." },
+      { id: "measure", title: "Measure and cut strips", instruction: "Measure around the head, then cut three even strips slightly longer than that measurement." },
+      { id: "braid", title: "Make an even braid", instruction: "Secure one end temporarily and braid without pulling so tightly that the fabric curls." },
+      { id: "fit", title: "Test the fit", instruction: "Wrap the braid around the head and mark a comfortable length before trimming the ends." },
+      { id: "join", title: "Join and cover the ends", instruction: "Glue both ends securely to a short elastic loop and cover the join with a glued fabric tab." }
+    ],
+    tips: ["Knit fabric rolls naturally and gives a soft finished edge."],
+    warnings: ["Allow fabric glue to cure fully before wearing the headband."],
+    verifiedVideo: null
+  },
+  "reusable-gift-wrap": {
+    ideaId: "reusable-gift-wrap",
+    steps: [
+      { id: "inspect", title: "Find a clean square", instruction: "Identify a sound area large enough to wrap the intended gift while avoiding stains and weak sections." },
+      { id: "measure", title: "Mark equal sides", instruction: "Use a measuring tape to mark a square with straight, equal sides." },
+      { id: "cut", title: "Cut the panel", instruction: "Lay the fabric flat and cut slowly along the marked lines with fabric scissors." },
+      { id: "finish", title: "Control the raw edges", instruction: "Apply a very thin line of fabric-safe anti-fray liquid or glue and let it dry flat." },
+      { id: "wrap", title: "Practice the knot wrap", instruction: "Place an object diagonally in the center, bring opposite corners together, and finish with a secure square knot." }
+    ],
+    tips: ["A contrasting care-label tag can remind recipients to reuse the wrap."],
+    warnings: ["Do not use shedding or dye-transfer fabric around food or delicate gifts."],
+    verifiedVideo: null
+  },
+  "visible-mending-feature": {
+    ideaId: "visible-mending-feature",
+    steps: [
+      { id: "assess", title: "Assess the damaged area", instruction: "Check that the fabric around the damage remains strong enough to hold stitches." },
+      { id: "patch", title: "Prepare the patch", instruction: "Cut a compatible patch at least 2 cm larger than the damage on every side and round its corners." },
+      { id: "position", title: "Position and secure", instruction: "Place the patch behind or over the damaged area and hold it flat with pins or clips." },
+      { id: "stitch", title: "Stitch the perimeter", instruction: "Use small even running stitches around the patch without pulling the fabric into puckers." },
+      { id: "reinforce", title: "Reinforce and inspect", instruction: "Add parallel decorative stitch lines across weak areas, knot securely, and test the repair gently." }
+    ],
+    tips: ["Wash and dry both fabrics before patching to reduce uneven shrinkage."],
+    warnings: ["Do not patch fabric that continues tearing under gentle pressure; recycle it instead."],
+    verifiedVideo: null
+  },
+  "sleeve-drawstring-pouch": {
+    ideaId: "sleeve-drawstring-pouch",
+    steps: [
+      { id: "choose", title: "Choose an intact sleeve", instruction: "Select a sleeve section with a finished cuff and enough sound fabric for the intended pouch." },
+      { id: "cut", title: "Cut the pouch body", instruction: "Measure from the cuff, add a seam allowance, and cut straight across the sleeve." },
+      { id: "close", title: "Close the base", instruction: "Turn the sleeve inside out and sew the cut edge with small reinforced stitches." },
+      { id: "channel", title: "Prepare the drawstring channel", instruction: "Use the cuff channel if suitable, or fold and stitch a narrow channel near the opening." },
+      { id: "cord", title: "Insert and test the cord", instruction: "Guide cord through the channel with a safety pin, knot the ends, and test the closed pouch with light items." }
+    ],
+    tips: ["A button cuff can become a useful design detail on the pouch."],
+    warnings: ["Do not use loose knit fabric for small objects unless the pouch is lined."],
+    verifiedVideo: null
+  },
+  "denim-coasters": {
+    ideaId: "denim-coasters",
+    steps: [
+      { id: "test", title: "Test and clean the denim", instruction: "Use only clean, colorfast denim that remains strong when gently pulled." },
+      { id: "template", title: "Make a template", instruction: "Cut an even square or circle template between 9 and 11 cm wide." },
+      { id: "layers", title: "Cut matching layers", instruction: "Trace and cut two or three denim pieces for each coaster." },
+      { id: "bond", title: "Bond the layers", instruction: "Apply washable fabric glue sparingly between layers and press them flat under a protected weight." },
+      { id: "finish", title: "Trim and cure", instruction: "Trim uneven edges only after bonding, then allow the glue to cure for the full manufacturer time." }
+    ],
+    tips: ["Alternate denim grain direction between layers to reduce curling."],
+    warnings: ["Use only glue labeled washable and suitable for fabric; keep uncured glue away from table surfaces."],
+    verifiedVideo: null
+  },
+  "skirt-to-tote": {
+    ideaId: "skirt-to-tote",
+    steps: [
+      { id: "inspect", title: "Inspect the skirt body", instruction: "Check the side seams, waistband and intended base for weak fabric or hidden openings." },
+      { id: "shape", title: "Mark the bag shape", instruction: "Lay the garment flat and mark a level lower edge that preserves the strongest fabric." },
+      { id: "base", title: "Close and reinforce the base", instruction: "Turn the garment inside out, stitch the lower edge twice, and reinforce both corners." },
+      { id: "handles", title: "Prepare the handles", instruction: "Cut or measure two equal handles and finish any raw edges before attachment." },
+      { id: "attach", title: "Attach and load-test", instruction: "Sew each handle with a reinforced square, turn the bag out, and test gradually with light weight." }
+    ],
+    tips: ["Existing skirt pockets can remain as useful tote pockets."],
+    warnings: ["Do not rely on fabric glue for load-bearing handles."],
+    verifiedVideo: null
+  },
+  "satin-neck-scarf": {
+    ideaId: "satin-neck-scarf",
+    steps: [
+      { id: "select", title: "Select an undamaged panel", instruction: "Choose satin without pulls, stains or weakened fold lines and press it on a safe low setting." },
+      { id: "square", title: "Measure a true square", instruction: "Mark a square of at least 45 cm per side, checking both diagonals for equal length." },
+      { id: "cut", title: "Cut one layer at a time", instruction: "Place the satin on a non-slip surface and cut slowly with sharp scissors." },
+      { id: "hem", title: "Form a narrow rolled hem", instruction: "Turn a very narrow edge twice, press carefully, and secure it with fine hand stitches." },
+      { id: "finish", title: "Finish corners and press", instruction: "Tuck each corner neatly, complete the hem, and press through a protective cloth." }
+    ],
+    tips: ["Extra pins or clips help prevent satin layers from shifting."],
+    warnings: ["Test iron temperature on an offcut; excess heat can permanently mark satin."],
+    verifiedVideo: null
+  },
+  "sweater-arm-warmers": {
+    ideaId: "sweater-arm-warmers",
+    steps: [
+      { id: "inspect", title: "Inspect both sleeves", instruction: "Confirm that both sleeves have similar stretch and no runs that continue opening." },
+      { id: "measure", title: "Measure the finished length", instruction: "Measure from wrist to the desired point and mark both sleeves equally with seam allowance." },
+      { id: "cut", title: "Cut without stretching", instruction: "Lay each sleeve flat and cut across one layer at a time without pulling the knit." },
+      { id: "secure", title: "Secure the cut edges", instruction: "Turn the raw edge inward and use a loose stretch-friendly stitch that preserves elasticity." },
+      { id: "fit", title: "Test and finish the pair", instruction: "Try both warmers on, check circulation and movement, then reinforce any loose thread ends." }
+    ],
+    tips: ["Use the original sweater cuffs as the finished wrist edges."],
+    warnings: ["The finished edge must not feel tight or restrict circulation."],
+    verifiedVideo: null
+  },
+  "jacket-pocket-pouch": {
+    ideaId: "jacket-pocket-pouch",
+    steps: [
+      { id: "test", title: "Test the pocket closure", instruction: "Open and close the zipper or fastener repeatedly and inspect the pocket fabric for damage." },
+      { id: "remove", title: "Remove the pocket panel", instruction: "Cut around the pocket with an even seam allowance while preserving its complete construction." },
+      { id: "back", title: "Cut a matching back", instruction: "Use the pocket panel as a template to cut a sound matching backing piece." },
+      { id: "join", title: "Join both panels", instruction: "Place the correct sides together and stitch around every edge without catching the zipper opening." },
+      { id: "turn", title: "Turn and inspect", instruction: "Open the zipper, turn the pouch right side out, push out the corners gently, and inspect all seams." }
+    ],
+    tips: ["Keep an original label or trim as a recognizable detail."],
+    warnings: ["Never cut across a metal zipper with fabric scissors."],
+    verifiedVideo: null
+  },
+  "trouser-panel-apron": {
+    ideaId: "trouser-panel-apron",
+    steps: [
+      { id: "plan", title: "Plan the apron panel", instruction: "Choose a strong trouser leg or back panel and mark a comfortable apron shape." },
+      { id: "cut", title: "Cut and finish the panel", instruction: "Cut with seam allowance, fold raw edges twice, and stitch or secure them evenly." },
+      { id: "pocket", title: "Salvage a pocket", instruction: "Remove an intact pocket with surrounding allowance and position it within easy reach." },
+      { id: "ties", title: "Prepare waist ties", instruction: "Measure two strong equal ties long enough for a comfortable knot and finish their ends." },
+      { id: "assemble", title: "Attach and test", instruction: "Reinforce the pocket and ties with repeated stitches, then test the apron with only light tools." }
+    ],
+    tips: ["A trouser waistband section can provide extra structure at the top edge."],
+    warnings: ["This apron is not heat resistant and should not be used as oven protection."],
+    verifiedVideo: null
+  },
+  "fabric-wall-art": {
+    ideaId: "fabric-wall-art",
+    steps: [
+      { id: "choose", title: "Choose the focal section", instruction: "Select a clean print, texture or embroidery with enough margin around the desired composition." },
+      { id: "template", title: "Trace the frame opening", instruction: "Use the frame backing or hoop to mark the visible area and add several centimeters around it." },
+      { id: "cut", title: "Cut the display panel", instruction: "Flatten the fabric and cut the larger marked shape without stretching it." },
+      { id: "mount", title: "Mount without distortion", instruction: "Center the design, smooth it over acid-free backing, and secure it at the rear with removable stitches or tabs." },
+      { id: "frame", title: "Close and inspect", instruction: "Close the frame or tighten the hoop, check that the grain remains straight, and trim only excess hidden fabric." }
+    ],
+    tips: ["Keep mounting reversible so the textile can be removed later."],
+    warnings: ["Keep valuable or delicate fabric away from direct sunlight and moisture."],
+    verifiedVideo: null
+  },
+  "fabric-flower-brooch": {
+    ideaId: "fabric-flower-brooch",
+    steps: [
+      { id: "select", title: "Select clean offcuts", instruction: "Choose small sound areas and avoid any fabric that frays excessively or transfers dye." },
+      { id: "templates", title: "Make petal templates", instruction: "Draw three simple flower shapes in gradually smaller sizes and cut them from card." },
+      { id: "cut", title: "Cut the fabric layers", instruction: "Trace each template and cut the layers carefully with sharp fabric scissors." },
+      { id: "assemble", title: "Assemble the flower", instruction: "Stack the layers from largest to smallest and bond each center with a minimal amount of fabric glue." },
+      { id: "back", title: "Attach a safe backing", instruction: "Cover the sharp side of a brooch back or safety pin with a small fabric tab and let all glue cure fully." }
+    ],
+    tips: ["Mixing a plain layer with a patterned layer makes the shape easier to read."],
+    warnings: ["A brooch contains a sharp pin and is not suitable for young children."],
     verifiedVideo: null
   }
 };
