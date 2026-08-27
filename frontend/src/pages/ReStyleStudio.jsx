@@ -88,6 +88,8 @@ export default function ReStyleStudio() {
   const [projectsStatus, setProjectsStatus] = useState("loading");
   const [projectsError, setProjectsError] = useState("");
   const [projectsOpen, setProjectsOpen] = useState(false);
+  const [projectPendingDelete, setProjectPendingDelete] = useState(null);
+  const [projectDeleting, setProjectDeleting] = useState(false);
   const [selectedGarment, setSelectedGarment] = useState(null);
   const [uploadError, setUploadError] = useState("");
   const [garmentDetails, setGarmentDetails] = useState(blankGarmentDetails);
@@ -181,13 +183,15 @@ export default function ReStyleStudio() {
   }, []);
 
   useEffect(() => {
-    if (!projectsOpen) return;
+    if (!projectsOpen && !projectPendingDelete) return;
     function closeProjects(event) {
-      if (event.key === "Escape") setProjectsOpen(false);
+      if (event.key !== "Escape") return;
+      if (projectPendingDelete && !projectDeleting) setProjectPendingDelete(null);
+      else if (!projectPendingDelete) setProjectsOpen(false);
     }
     document.addEventListener("keydown", closeProjects);
     return () => document.removeEventListener("keydown", closeProjects);
-  }, [projectsOpen]);
+  }, [projectDeleting, projectPendingDelete, projectsOpen]);
 
   function logOut() {
     logout();
@@ -534,15 +538,20 @@ export default function ReStyleStudio() {
   }
 
   async function deleteSavedProject(savedProject) {
-    if (!window.confirm(`Delete “${savedProject.name}”? This cannot be undone.`)) return;
     try {
+      setProjectDeleting(true);
+      setProjectsError("");
       await axios.delete(`${RESTYLE_PROJECTS_API_URL}/${savedProject.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setSavedProjects((current) => current.filter((project) => project.id !== savedProject.id));
       if (projectId === savedProject.id) removeSelection();
+      setProjectPendingDelete(null);
     } catch (error) {
       setProjectsError(error.response?.data?.message || "Could not delete this ReStyle project.");
+      setProjectPendingDelete(null);
+    } finally {
+      setProjectDeleting(false);
     }
   }
 
@@ -690,12 +699,29 @@ export default function ReStyleStudio() {
                       <h3>{project.name}</h3>
                       <p>{project.details?.fabric} {project.details?.garmentType} · {project.generatedIdeas?.length || 0} ideas</p>
                       <div className="restyle-saved-project-progress"><span style={{ width: `${project.progress || 0}%` }} /></div>
-                      <div><button type="button" onClick={() => continueSavedProject(project)}><i className="fa-solid fa-arrow-right" /> Continue</button><button type="button" className="delete" aria-label={`Delete ${project.name}`} onClick={() => deleteSavedProject(project)}><i className="fa-regular fa-trash-can" /></button></div>
+                      <div><button type="button" onClick={() => continueSavedProject(project)}><i className="fa-solid fa-arrow-right" /> Continue</button><button type="button" className="delete" aria-label={`Delete ${project.name}`} onClick={() => setProjectPendingDelete(project)}><i className="fa-regular fa-trash-can" /></button></div>
                     </div>
                   </article>
                 ))}
               </div>
             )}
+          </section>
+        </div>
+      )}
+
+      {projectPendingDelete && (
+        <div className="restyle-delete-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !projectDeleting) setProjectPendingDelete(null); }}>
+          <section className="restyle-delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="restyleDeleteTitle" aria-describedby="restyleDeleteDescription">
+            <span className="restyle-delete-icon"><i className="fa-regular fa-trash-can" /></span>
+            <small>DELETE PROJECT</small>
+            <h2 id="restyleDeleteTitle">Delete this ReStyle project?</h2>
+            <p id="restyleDeleteDescription">“{projectPendingDelete.name}” and its saved guide progress will be permanently removed.</p>
+            <div>
+              <button type="button" className="cancel" disabled={projectDeleting} onClick={() => setProjectPendingDelete(null)}>Keep project</button>
+              <button type="button" className="confirm" disabled={projectDeleting} onClick={() => deleteSavedProject(projectPendingDelete)}>
+                {projectDeleting ? <><span className="restyle-delete-spinner" /> Deleting...</> : <><i className="fa-regular fa-trash-can" /> Delete project</>}
+              </button>
+            </div>
           </section>
         </div>
       )}

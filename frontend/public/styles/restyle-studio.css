@@ -554,6 +554,18 @@ button { font: inherit; }
 .restyle-saved-project-content button { min-height: 35px; border: 0; border-radius: 999px; color: white; background: #ad5069; font-size: 9px; font-weight: 800; cursor: pointer; }
 .restyle-saved-project-content button:first-child { flex: 1; }
 .restyle-saved-project-content button.delete { width: 35px; color: #a33f58; background: #f9e8ec; }
+.restyle-delete-overlay { position: fixed; z-index: 1100; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(47,30,36,.5); backdrop-filter: blur(10px); }
+.restyle-delete-dialog { width: min(440px,100%); padding: 36px; border: 1px solid rgba(163,63,88,.17); border-radius: 28px; background: #fffdfb; box-shadow: 0 35px 90px rgba(55,31,39,.3); text-align: center; }
+.restyle-delete-icon { width: 58px; height: 58px; display: grid; place-items: center; margin: 0 auto 16px; border-radius: 50%; color: #a33f58; background: #f9e8ec; font-size: 22px; }
+.restyle-delete-dialog > small { color: #ad5069; font-size: 9px; font-weight: 800; letter-spacing: 2px; }
+.restyle-delete-dialog h2 { margin: 8px 0 10px; color: #392e32; font: 700 29px 'Playfair Display',serif; }
+.restyle-delete-dialog p { margin: 0; color: #806e74; font-size: 12px; line-height: 1.7; }
+.restyle-delete-dialog > div { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 26px; }
+.restyle-delete-dialog button { min-height: 46px; border-radius: 999px; font-size: 11px; font-weight: 800; cursor: pointer; }
+.restyle-delete-dialog button.cancel { border: 1px solid rgba(149,81,99,.2); color: #745f66; background: white; }
+.restyle-delete-dialog button.confirm { border: 0; color: white; background: #a33f58; }
+.restyle-delete-dialog button:disabled { cursor: wait; opacity: .65; }
+.restyle-delete-spinner { width: 13px; height: 13px; display: inline-block; margin-right: 6px; border: 2px solid rgba(255,255,255,.45); border-top-color: white; border-radius: 50%; vertical-align: -2px; animation: restyleSpin .7s linear infinite; }
 .restyle-ideas-heading { max-width: 760px; }
 .restyle-ideas-heading > span { color: #aa526a; font-size: 10px; font-weight: 800; letter-spacing: 2.5px; }
 .restyle-ideas-heading h2 { margin: 9px 0 10px; font: 700 clamp(34px,4vw,48px) 'Playfair Display',serif; }
