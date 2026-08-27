@@ -229,6 +229,17 @@ export default function ReStyleStudio() {
     setUploadError("");
   }
 
+  function chooseAnotherGarment() {
+    if (selectedGarment?.source === "upload") {
+      fileInputRef.current?.click();
+      return;
+    }
+
+    removeSelection();
+    setSelectionMode("closet");
+    window.setTimeout(() => selectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+  }
+
   function scrollToSelection() {
     setActiveStudioStep(1);
     selectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -650,16 +661,8 @@ export default function ReStyleStudio() {
                   <h3>{selectedGarment.name || "Uploaded garment"}</h3>
                   {selectedGarment.category && <p>{selectedGarment.category}</p>}
                   <div>
-                    <button
-                      type="button"
-                      onClick={() => selectedGarment.source === "upload"
-                        ? fileInputRef.current?.click()
-                        : setSelectionMode("closet")}
-                    >
-                      <i className="fa-solid fa-arrows-rotate" /> Replace
-                    </button>
-                    <button type="button" className="remove" onClick={removeSelection}>
-                      <i className="fa-regular fa-trash-can" /> Remove
+                    <button type="button" onClick={chooseAnotherGarment}>
+                      <i className="fa-solid fa-arrows-rotate" /> Choose another garment
                     </button>
                   </div>
                   <button type="button" className="restyle-preview-continue" onClick={() => moveToStudioStep(2)}>
