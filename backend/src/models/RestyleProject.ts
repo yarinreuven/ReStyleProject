@@ -13,6 +13,23 @@ const restyleDetailsSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const restyleGuideSchema = new mongoose.Schema(
+  {
+    steps: {
+      type: [{ id: String, title: String, instruction: String }],
+      default: []
+    },
+    tips: { type: [String], default: [] },
+    warnings: { type: [String], default: [] },
+    verifiedVideo: { type: mongoose.Schema.Types.Mixed, default: null },
+    videoSearch: {
+      title: { type: String, default: "" },
+      url: { type: String, default: "" }
+    }
+  },
+  { _id: false }
+);
+
 const restyleIdeaSchema = new mongoose.Schema(
   {
     ideaId: { type: String, required: true },
@@ -28,7 +45,8 @@ const restyleIdeaSchema = new mongoose.Schema(
     icon: { type: String, required: true },
     whyItFits: { type: String, required: true },
     matchScore: { type: Number, min: 0, max: 100, default: 75 },
-    matchLabel: { type: String, enum: ["Best match", "Great match", "Good match"], default: "Good match" }
+    matchLabel: { type: String, enum: ["Best match", "Great match", "Good match"], default: "Good match" },
+    generatedGuide: { type: restyleGuideSchema, default: undefined }
   },
   { _id: false }
 );

@@ -3,8 +3,8 @@ import type { NextFunction, Response } from "express";
 import Item from "../models/Item.ts";
 import RestyleProject from "../models/RestyleProject.ts";
 import type { AuthRequest } from "../middleware/auth.ts";
-import { personalizeRestyleIdeas } from "../services/restyleAiService.ts";
 import { findMatchingRestyleIdeas, getResponsibleFallback, getVerifiedRestyleGuide, RESTYLE_CATALOG_VERSION } from "../services/restyleIdeaService.ts";
+import { generateRestyleFallbackIdea, personalizeRestyleIdeas } from "../services/restyleAiService.ts";
 
 const RESTYLE_INACTIVE_DAYS = 60;
 const restyleCategories = new Set(["Tops", "Bottoms", "Dresses", "Jackets"]);
@@ -209,13 +209,13 @@ export async function generateRestyleIdeas(req: AuthRequest, res: Response, next
     }
 
     const curatedIdeas = findMatchingRestyleIdeas(project.details);
-    const sourceItem = project.sourceItem && typeof project.sourceItem === "object"
-      ? project.sourceItem as any
-      : null;
-    const sourceImage = sourceItem?.image?.data
-      ? sourceItem.image
-      : project.sourceImage;
-    const ideas = await personalizeRestyleIdeas(project.details, curatedIdeas, sourceImage);
+    const sourceItem = project.sourceItem && typeof project.sourceItem === "object" ? project.sourceItem as any : null;
+    const sourceImage = sourceItem?.image?.data ? sourceItem.image : project.sourceImage;
+    const ideas = curatedIdeas.length === 0
+      ? await generateRestyleFallbackIdea(project.details, sourceImage)
+      : curatedIdeas.length === 1
+        ? curatedIdeas
+        : await personalizeRestyleIdeas(project.details, curatedIdeas, sourceImage);
     project.set("generatedIdeas", ideas.map((idea) => ({ ...idea, ideaId: idea.id })));
     project.ideaCatalogVersion = RESTYLE_CATALOG_VERSION;
     await project.save();
@@ -242,7 +242,20 @@ export async function selectRestyleIdea(req: AuthRequest, res: Response, next: N
       return;
     }
     const generatedIdea = project.generatedIdeas.find((idea) => idea.ideaId === ideaId);
-    const guide = getVerifiedRestyleGuide(ideaId);
+    const storedGuideEntry = (generatedIdea as any)?.generatedGuide;
+    const storedGuide = storedGuideEntry && typeof storedGuideEntry.toObject === "function"
+      ? storedGuideEntry.toObject()
+      : storedGuideEntry;
+    const guide = getVerifiedRestyleGuide(ideaId) || (storedGuide ? {
+      idea: {
+        id: generatedIdea.ideaId, title: generatedIdea.title, description: generatedIdea.description,
+        difficulty: generatedIdea.difficulty, timeMinutes: generatedIdea.timeMinutes,
+        sewingRequired: generatedIdea.sewingRequired, requiredTools: generatedIdea.requiredTools,
+        materials: generatedIdea.materials, icon: generatedIdea.icon
+      },
+      ...storedGuide,
+      ideaId
+    } : null);
     if (!generatedIdea || !guide) {
       res.status(404).json({ success: false, message: "This guide is not available for the project" });
       return;

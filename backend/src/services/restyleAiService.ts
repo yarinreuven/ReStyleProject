@@ -23,6 +23,24 @@ interface GeminiRestyleResult {
   ideas?: PersonalizedIdea[];
 }
 
+interface GeneratedRestyleResult {
+  idea?: {
+    title?: string;
+    description?: string;
+    difficulty?: "Easy" | "Medium" | "Challenging";
+    outputType?: "clothing" | "bag" | "accessory" | "home";
+    timeMinutes?: number;
+    sewingRequired?: boolean;
+    requiredTools?: string[];
+    materials?: string[];
+    whyItFits?: string;
+    steps?: Array<{ title?: string; instruction?: string }>;
+    tips?: string[];
+    warnings?: string[];
+    youtubeSearchQuery?: string;
+  };
+}
+
 const responseSchema = {
   type: "OBJECT",
   properties: {
@@ -42,6 +60,30 @@ const responseSchema = {
     }
   },
   required: ["ideas"]
+} as const;
+
+const generatedIdeaSchema = {
+  type: "OBJECT",
+  properties: {
+    idea: {
+      type: "OBJECT",
+      properties: {
+        title: { type: "STRING" }, description: { type: "STRING" },
+        difficulty: { type: "STRING", enum: ["Easy", "Medium", "Challenging"] },
+        outputType: { type: "STRING", enum: ["clothing", "bag", "accessory", "home"] },
+        timeMinutes: { type: "INTEGER", minimum: 15, maximum: 360 },
+        sewingRequired: { type: "BOOLEAN" },
+        requiredTools: { type: "ARRAY", items: { type: "STRING" }, maxItems: 6 },
+        materials: { type: "ARRAY", items: { type: "STRING" }, maxItems: 8 },
+        whyItFits: { type: "STRING" },
+        steps: { type: "ARRAY", minItems: 5, maxItems: 5, items: { type: "OBJECT", properties: { title: { type: "STRING" }, instruction: { type: "STRING" } }, required: ["title", "instruction"] } },
+        tips: { type: "ARRAY", minItems: 1, maxItems: 4, items: { type: "STRING" } },
+        warnings: { type: "ARRAY", minItems: 1, maxItems: 4, items: { type: "STRING" } },
+        youtubeSearchQuery: { type: "STRING" }
+      },
+      required: ["title", "description", "difficulty", "outputType", "timeMinutes", "sewingRequired", "requiredTools", "materials", "whyItFits", "steps", "tips", "warnings", "youtubeSearchQuery"]
+    }
+  }, required: ["idea"]
 } as const;
 
 function safeText(value: unknown, maxLength: number) {
@@ -163,5 +205,68 @@ export async function personalizeRestyleIdeas(
     return mergeVerifiedIdeas(candidates, JSON.parse(outputText) as GeminiRestyleResult);
   } catch {
     return candidates;
+  }
+}
+
+const difficultyRank = { Easy: 1, Medium: 2, Challenging: 3 } as const;
+
+/** Creates one constrained fallback guide only when the verified catalog has no match. */
+export async function generateRestyleFallbackIdea(
+  details: RestyleDetails,
+  image?: { data?: Buffer; contentType?: string } | null,
+  fetcher: typeof fetch = fetch
+) {
+  const apiKey = process.env.GEMINI_RESTYLE_API_KEY?.trim();
+  if (!apiKey) return [];
+  try {
+    const optimizedImage = await optimizeGarmentImage(image);
+    const parts: object[] = [{ text: [
+      "Create exactly one conservative clothing-upcycling project because the verified catalog had no match.",
+      "Use only tools explicitly listed by the user. Respect sewing skill and requested difficulty.",
+      "Prefer reversible, low-risk, useful everyday projects. Never suggest fire, harsh chemicals, structural protective gear, or techniques requiring unlisted power tools.",
+      "Give exactly five actionable steps. Include honest safety warnings. Do not invent a video URL; provide only a concise YouTube search query.",
+      "Write clear friendly English and do not claim certainty about details that are not visible.",
+      `Garment details: ${JSON.stringify(details)}`
+    ].join("\n") }];
+    if (optimizedImage) parts.push({ inline_data: { mime_type: optimizedImage.contentType, data: optimizedImage.data.toString("base64") } });
+    const response = await fetcher(`https://generativelanguage.googleapis.com/v1beta/models/${RESTYLE_AI_MODEL}:generateContent`, {
+      method: "POST", headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { temperature: 0.25, maxOutputTokens: 1800, responseMimeType: "application/json", responseSchema: generatedIdeaSchema } }),
+      signal: AbortSignal.timeout(RESTYLE_AI_TIMEOUT_MS)
+    });
+    if (!response.ok) return [];
+    const data = await response.json() as GeminiResponse;
+    const raw = data.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("").trim();
+    if (!raw) return [];
+    const generated = (JSON.parse(raw) as GeneratedRestyleResult).idea;
+    if (!generated) return [];
+    const title = safeText(generated.title, 90);
+    const description = safeText(generated.description, 240);
+    const whyItFits = safeText(generated.whyItFits, 260);
+    const allowedTools = new Set(details.tools);
+    const requiredTools = Array.isArray(generated.requiredTools) ? generated.requiredTools.filter((tool) => typeof tool === "string") : [];
+    const steps = Array.isArray(generated.steps) ? generated.steps.map((step, index) => ({ id: `ai-step-${index + 1}`, title: safeText(step.title, 90), instruction: safeText(step.instruction, 360) })) : [];
+    const userDifficulty = difficultyRank[details.difficulty as keyof typeof difficultyRank] || 0;
+    const ideaDifficulty = generated.difficulty ? difficultyRank[generated.difficulty] : 99;
+    if (!title || !description || !whyItFits || steps.length !== 5 || steps.some((step) => !step.title || !step.instruction)) return [];
+    if (requiredTools.some((tool) => !allowedTools.has(tool)) || ideaDifficulty > userDifficulty) return [];
+    if (generated.sewingRequired && details.sewingSkill === "No sewing") return [];
+    const query = safeText(generated.youtubeSearchQuery, 120);
+    const id = `ai-${Date.now().toString(36)}`;
+    return [{
+      id, title, description, difficulty: generated.difficulty!, outputType: generated.outputType!,
+      timeMinutes: Math.round(Number(generated.timeMinutes)), sewingRequired: Boolean(generated.sewingRequired), requiredTools,
+      materials: (generated.materials || []).filter((value): value is string => typeof value === "string").slice(0, 8),
+      suitableConditions: [details.condition], icon: "wand-magic-sparkles", whyItFits, matchScore: 78, matchLabel: "Good match" as const,
+      generatedGuide: {
+        steps,
+        tips: (generated.tips || []).filter((value): value is string => Boolean(safeText(value, 220))).slice(0, 4),
+        warnings: (generated.warnings || []).filter((value): value is string => Boolean(safeText(value, 240))).slice(0, 4),
+        verifiedVideo: null,
+        videoSearch: query ? { title: "Find a matching YouTube tutorial", url: `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}` } : undefined
+      }
+    }];
+  } catch {
+    return [];
   }
 }

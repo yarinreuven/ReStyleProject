@@ -90,13 +90,16 @@ test("every catalog idea is reachable and has a complete verified guide", () => 
     "sleeve-drawstring-pouch", "denim-coasters", "skirt-to-tote", "satin-neck-scarf",
     "sweater-arm-warmers", "jacket-pocket-pouch", "trouser-panel-apron",
     "fabric-wall-art", "fabric-flower-brooch", "tshirt-to-tank",
-    "tshirt-yarn-bag", "tshirt-braided-tote"
+    "tshirt-yarn-bag", "tshirt-braided-tote", "denim-pocket-crossbody",
+    "denim-lunch-bag", "denim-zip-pouch", "denim-bottle-carrier",
+    "skirt-drawstring-bag", "skirt-to-summer-top", "skirt-kitchen-apron",
+    "skirt-envelope-cushion"
   ]);
   const foundIds = new Set<string>();
   const garmentAndFabricPairs = [
     ["Tops", "Cotton"], ["Shirts", "Linen"], ["Bottoms", "Denim"],
     ["Bottoms", "Cotton"], ["Dresses", "Satin"], ["Dresses", "Cotton"],
-    ["Skirts", "Denim"], ["Jackets", "Denim"], ["Jackets", "Wool"],
+    ["Skirts", "Denim"], ["Skirts", "Cotton"], ["Jackets", "Denim"], ["Jackets", "Wool"],
     ["Sweaters", "Knit"]
   ];
   const tools = [
