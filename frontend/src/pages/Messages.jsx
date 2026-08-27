@@ -133,7 +133,7 @@ export default function Messages() {
     <div className="messages-page">
       <header className="messages-topbar">
         <button className="messages-logo" type="button" onClick={() => navigate("/")}>Re<span>Style</span></button>
-        <nav><button type="button" onClick={() => navigate("/")}>Home</button><button type="button" onClick={() => navigate("/closet")}>My Closet</button><button type="button" onClick={() => navigate("/marketplace")}>Marketplace</button><button type="button" className="active">Messages</button></nav>
+        <nav><button type="button" onClick={() => navigate("/")}>Home</button><button type="button" onClick={() => navigate("/closet")}>My Closet</button><button type="button" onClick={() => navigate("/marketplace")}>Marketplace</button><button type="button" onClick={() => navigate("/outfit-builder")}>Outfit Builder</button><button type="button" onClick={() => navigate("/restyle-studio")}>ReStyle Studio</button><button type="button" className="active">Messages</button></nav>
         <button type="button" className="messages-account" onClick={() => navigate("/profile")}><ProfileAvatar token={token} user={user} /><span>{user.firstName}</span></button>
       </header>
 

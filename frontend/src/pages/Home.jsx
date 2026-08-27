@@ -35,11 +35,6 @@ export default function Home() {
     <>
       <header className="navbar">
         <div className="logo">Re<span>Style</span></div>
-        <nav className="main-nav">
-          <Link to="/">Home</Link>
-          <Link to="/closet">My Closet</Link>
-          <Link to="/marketplace">Marketplace</Link>
-        </nav>
         <div id="userArea">
           {user ? (
             <div className="user-menu" ref={userMenuRef}>
@@ -99,7 +94,7 @@ export default function Home() {
 
       <section className="features">
         <Link to="/closet" className="feature-card">
-          <i className="fa-solid fa-shirt icon" /><h4>Smart Closet</h4><p>Upload and organize your clothing and accessories.</p>
+          <i className="fa-solid fa-shirt icon" /><h4>My Closet</h4><p>Upload and organize your clothing and accessories.</p>
         </Link>
         <Link to="/outfit-builder" className="feature-card"><i className="fa-solid fa-wand-magic-sparkles icon" /><h4>Outfit Builder</h4><p>Create outfits based on style and occasion.</p></Link>
         <Link to={user ? "/marketplace" : "/login"} className="feature-card"><i className="fa-solid fa-bag-shopping icon" /><h4>Marketplace</h4><p>Sell or rent selected clothing items.</p></Link>

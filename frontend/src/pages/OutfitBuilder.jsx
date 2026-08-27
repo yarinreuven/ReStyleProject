@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import usePageStyles from "../hooks/usePageStyles";
 import { useAuth } from "../context/AuthContext";
+import ProfileAvatar from "../components/ProfileAvatar";
 
 const OUTFIT_API_URL = "http://localhost:3001/api/outfits/generate";
 const TRY_ON_API_URL = "http://localhost:3001/api/outfits/try-on";
@@ -453,6 +454,21 @@ export default function OutfitBuilder() {
 
   return (
     <main className="stylist-studio">
+      <header className="outfit-main-header">
+        <button type="button" className="outfit-main-logo" onClick={() => navigate("/")}>Re<span>Style</span></button>
+        <nav aria-label="Main navigation">
+          <button type="button" onClick={() => navigate("/")}>Home</button>
+          <button type="button" onClick={() => navigate("/closet")}>My Closet</button>
+          <button type="button" onClick={() => navigate("/marketplace")}>Marketplace</button>
+          <button type="button" className="active" aria-current="page">Outfit Builder</button>
+          <button type="button" onClick={() => navigate("/restyle-studio")}>ReStyle Studio</button>
+        </nav>
+        <button type="button" className="outfit-main-profile" onClick={() => navigate("/profile")} aria-label="Open profile">
+          <ProfileAvatar token={token} user={user} />
+          <span>{user?.firstName}</span>
+          <i className="fa-solid fa-chevron-down" aria-hidden="true" />
+        </button>
+      </header>
       <button
         type="button"
         className="studio-back"

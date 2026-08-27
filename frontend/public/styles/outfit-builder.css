@@ -4,6 +4,14 @@
     box-sizing: border-box;
 }
 
+@media(min-width:901px) {
+    .stylist-studio .studio-back,.stylist-studio .studio-saved-looks,.stylist-studio .studio-brand { top: 108px; }
+}
+
+@media(max-width:900px) {
+    .stylist-studio .studio-back,.stylist-studio .studio-saved-looks,.stylist-studio .studio-brand { top: 160px; }
+}
+
 body {
     margin: 0;
 }
@@ -22,12 +30,90 @@ textarea {
     justify-content: center;
     position: relative;
     overflow: hidden;
-    padding: 85px 24px 45px;
+    padding: 150px 24px 45px;
     color: #30262a;
     font-family: 'DM Sans', sans-serif;
     background:
         linear-gradient(rgba(255, 255, 255, 0.72), rgba(255, 255, 255, 0.72)),
         url('/images/login-bg.png') center / cover fixed;
+}
+
+.outfit-main-header {
+    width: 100%;
+    min-height: 88px;
+    display: flex;
+    align-items: center;
+    gap: 34px;
+    position: absolute;
+    inset: 0 0 auto;
+    z-index: 10;
+    padding: 14px 4.5%;
+    border-bottom: 1px solid rgba(109, 70, 80, 0.08);
+    background: rgba(255, 254, 252, 0.94);
+    backdrop-filter: blur(16px);
+}
+
+.outfit-main-logo {
+    margin-right: 28px;
+    border: 0;
+    color: #2d2427;
+    background: transparent;
+    font: 700 32px 'Playfair Display', serif;
+    cursor: pointer;
+}
+
+.outfit-main-logo span { color: #b04f68; }
+
+.outfit-main-header nav {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.outfit-main-header nav button {
+    padding: 11px 15px;
+    border: 0;
+    border-radius: 999px;
+    color: #51484c;
+    background: transparent;
+    font-size: 13.5px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.outfit-main-header nav button:hover,
+.outfit-main-header nav button.active {
+    color: #93465b;
+    background: #f5dce2;
+}
+
+.outfit-main-profile {
+    min-height: 50px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-left: auto;
+    padding: 4px 13px 4px 4px;
+    border: 1px solid rgba(109, 70, 80, 0.1);
+    border-radius: 999px;
+    color: #352c2f;
+    background: white;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.outfit-main-profile .profile-avatar { width: 40px; height: 40px; }
+
+.outfit-main-profile>i { color: #b05c72; font-size: 10px; }
+
+@media(max-width:900px) {
+    .outfit-main-header { gap: 12px; padding-inline: 18px; flex-wrap: wrap; }
+    .outfit-main-logo { margin-right: auto; }
+    .outfit-main-header nav { width: 100%; order: 3; justify-content: center; }
+    .outfit-main-header nav button { padding: 8px 9px; font-size: 11px; }
+    .outfit-main-profile>span { display: none; }
+    .stylist-studio { padding-top: 205px; }
 }
 
 .stylist-studio::before {
