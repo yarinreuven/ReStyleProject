@@ -94,6 +94,7 @@ export async function sendPaymentReceiptEmail(
   receipt: {
     orderId: string;
     planName: string;
+    creditLabel: string;
     credits: number;
     amount: string;
     currency: string;
@@ -113,7 +114,7 @@ export async function sendPaymentReceiptEmail(
     from: `ReStyle <${from}>`,
     to: recipientEmail,
     subject: "Your ReStyle payment receipt (PayPal Sandbox)",
-    text: `Hi ${recipientName},\n\nYour PayPal Sandbox payment was approved successfully and the credits were added to your ReStyle account.\nPackage: ${receipt.planName}\nTry-on credits: ${receipt.credits}\nAmount: ${total}\nOrder ID: ${receipt.orderId}\nDate: ${paidAt}\n\nThis was a Sandbox test payment. No real money was charged.`,
+    text: `Hi ${recipientName},\n\nYour PayPal Sandbox payment was approved successfully and the credits were added to your ReStyle account.\nPackage: ${receipt.planName}\n${receipt.creditLabel}: ${receipt.credits}\nAmount: ${total}\nOrder ID: ${receipt.orderId}\nDate: ${paidAt}\n\nThis was a Sandbox test payment. No real money was charged.`,
     html: `
       <div style="font-family:Arial,sans-serif;max-width:580px;margin:auto;color:#3b3034;line-height:1.6">
         <h1 style="margin-bottom:6px;color:#b45c6d">ReStyle</h1>
@@ -122,7 +123,7 @@ export async function sendPaymentReceiptEmail(
         <p>PayPal confirmed your payment and the credits were added to your ReStyle account.</p>
         <div style="margin:24px 0;padding:18px;border-radius:12px;background:#faeef1">
           <p style="margin:0 0 7px"><strong>Package:</strong> ${safePlanName}</p>
-          <p style="margin:0 0 7px"><strong>Try-on credits:</strong> ${receipt.credits}</p>
+          <p style="margin:0 0 7px"><strong>${escapeHtml(receipt.creditLabel)}:</strong> ${receipt.credits}</p>
           <p style="margin:0 0 7px"><strong>Amount:</strong> ${total}</p>
           <p style="margin:0 0 7px"><strong>Order ID:</strong> ${safeOrderId}</p>
           <p style="margin:0"><strong>Date:</strong> ${paidAt}</p>

@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { generateRestyleFallbackIdea, personalizeRestyleIdeas } from "./restyleAiService.ts";
+import sharp from "sharp";
+
+import { generateRestyleFallbackIdea, personalizeRestyleIdeas, validateRestyleGarmentImage } from "./restyleAiService.ts";
 import { findMatchingRestyleIdeas } from "./restyleIdeaService.ts";
 
 const details = {
@@ -35,6 +37,22 @@ test("uses curated ideas without calling Gemini when the dedicated key is missin
     });
     assert.equal(called, false);
     assert.deepEqual(ideas, candidates);
+  } finally {
+    restore();
+  }
+});
+
+test("rejects footwear images before ReStyle ideas can be generated", async () => {
+  const restore = withRestyleKey("test-key");
+  const image = await sharp({ create: { width: 4, height: 4, channels: 3, background: "white" } }).png().toBuffer();
+  try {
+    const result = await validateRestyleGarmentImage(
+      { data: image, contentType: "image/png" },
+      async () => new Response(JSON.stringify({
+        candidates: [{ content: { parts: [{ text: JSON.stringify({ eligible: false, detectedType: "unsupported" }) }] } }]
+      }), { status: 200, headers: { "Content-Type": "application/json" } })
+    );
+    assert.deepEqual(result, { eligible: false, detectedType: "unsupported" });
   } finally {
     restore();
   }

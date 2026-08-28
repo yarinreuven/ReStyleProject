@@ -3,6 +3,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 
 import ProfileAvatar from "../components/ProfileAvatar";
+import PayPalCheckout from "../components/PayPalCheckout";
 import { useAuth } from "../context/AuthContext";
 import usePageStyles from "../hooks/usePageStyles";
 import {
@@ -21,7 +22,7 @@ const ITEMS_API_URL = "http://localhost:3001/api/items";
 const RESTYLE_PROJECTS_API_URL = "http://localhost:3001/api/restyle-projects";
 const acceptedImageTypes = ["image/jpeg", "image/png", "image/webp"];
 const maxUploadSize = 5 * 1024 * 1024;
-const garmentTypes = ["Tops", "Bottoms", "Dresses", "Skirts", "Jackets", "Shirts", "Sweaters", "Other"];
+const garmentTypes = ["Tops", "Bottoms", "Dresses", "Skirts", "Jackets", "Shirts", "Sweaters"];
 const fabricTypes = ["Denim", "Cotton", "Knit", "Satin", "Linen", "Wool", "Polyester", "Leather", "Unknown"];
 const garmentConditions = [
   ["good", "Good condition"],
@@ -107,7 +108,18 @@ export default function ReStyleStudio() {
   const [guideError, setGuideError] = useState("");
   const [completedStepIds, setCompletedStepIds] = useState([]);
   const [guideProgress, setGuideProgress] = useState(0);
+  const [studioQuota, setStudioQuota] = useState(null);
+  const [plansOpen, setPlansOpen] = useState(false);
+  const [checkoutPlan, setCheckoutPlan] = useState("");
+  const [purchaseMessage, setPurchaseMessage] = useState("");
   const { user, token, logout } = useAuth();
+
+  useEffect(() => {
+    if (!token) return;
+    axios.get(`${RESTYLE_PROJECTS_API_URL}/quota`, {
+      headers: { Authorization: `Bearer ${token}` }
+    }).then(({ data }) => setStudioQuota(data)).catch(() => setStudioQuota(null));
+  }, [token]);
 
   useEffect(() => {
     if (!token) return;
@@ -420,6 +432,7 @@ export default function ReStyleStudio() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       setIdeas(data.ideas || []);
+      if (data.quota) setStudioQuota(data.quota);
       setResponsibleFallback(data.fallback || null);
       setIdeasMessage(data.message || "");
       setIdeasStatus((data.ideas || []).length > 0 ? "ready" : "empty");
@@ -427,6 +440,11 @@ export default function ReStyleStudio() {
       if (error.response?.status === 401) {
         logout();
         navigate("/login", { replace: true });
+        return;
+      }
+      if (error.response?.status === 403 && error.response?.data?.code === "RESTYLE_LIMIT_REACHED") {
+        setIdeasStatus("idle");
+        setPlansOpen(true);
         return;
       }
       setIdeasMessage(error.response?.data?.message || "Could not find ReStyle ideas. Please try again.");
@@ -845,7 +863,7 @@ export default function ReStyleStudio() {
                   <small>JPG, PNG or WEBP · up to 5MB</small>
                 </button>
                 <p><i className="fa-regular fa-lightbulb" /> Use a clear, well-lit photo where the garment is easy to see.</p>
-                <p><i className="fa-solid fa-shield-heart" /> Unsupported accessories will only continue when a practical, verified transformation is available.</p>
+                <p><i className="fa-solid fa-shield-heart" /> Clothing only. Shoes, bags and other accessories are not supported.</p>
                 {uploadError && <div className="restyle-upload-error" role="alert">{uploadError}</div>}
               </div>
             )}
@@ -999,6 +1017,12 @@ export default function ReStyleStudio() {
             <button type="button" className="restyle-stage-back" onClick={() => moveToStudioStep(2)}><i className="fa-solid fa-arrow-left" /> Back to details</button>
             <h2 id="restyleIdeasTitle">Practical ideas for this piece</h2>
             <p>Every result comes from a reviewed transformation catalog and must match your garment details and available tools.</p>
+            {studioQuota && (
+              <small className="restyle-quota-status">
+                {studioQuota.restyleFreeRemaining} of 3 free generations remaining
+                {studioQuota.credits > 0 ? ` · ${studioQuota.credits} ReStyle Studio credits` : ""}
+              </small>
+            )}
             {ideasStatus === "idle" && (
               <button type="button" onClick={generateIdeas}><i className="fa-solid fa-wand-magic-sparkles" /> Find suitable ideas</button>
             )}
@@ -1144,6 +1168,31 @@ export default function ReStyleStudio() {
         </section>
       )}
 
+      {plansOpen && (
+        <div className="restyle-plan-overlay" role="presentation">
+          <section className="restyle-plan-dialog" role="dialog" aria-modal="true" aria-labelledby="restyle-plan-title">
+            <button type="button" className="restyle-plan-close" aria-label="Close plans" onClick={() => { setPlansOpen(false); setCheckoutPlan(""); }}>×</button>
+            <h2 id="restyle-plan-title">Your free Studio generations are complete</h2>
+            <p>{checkoutPlan ? "Complete your purchase with PayPal Sandbox. No real money will be charged." : "Choose a ReStyle Studio credit package. These credits are only for Studio generations."}</p>
+            {!checkoutPlan ? (
+              <div className="restyle-plan-grid">
+                <article><h3>Mini</h3><p>5 Studio credits · ₪15</p><button type="button" onClick={() => setCheckoutPlan("mini")}>Choose Mini</button></article>
+                <article><h3>Style</h3><p>10 Studio credits · ₪30</p><button type="button" onClick={() => setCheckoutPlan("style")}>Choose Style</button></article>
+              </div>
+            ) : (
+              <div className="restyle-paypal-checkout">
+                <PayPalCheckout token={token} plan={checkoutPlan} product="restyle" onSuccess={(data) => {
+                  setStudioQuota((current) => current ? { ...current, credits: data.restyleCredits, subscriptionPlan: data.subscriptionPlan } : current);
+                  setPurchaseMessage(`Payment approved. ${data.creditsAdded} ReStyle Studio credits were added.`);
+                  setCheckoutPlan("");
+                }} />
+                <button type="button" onClick={() => setCheckoutPlan("")}>Back to plans</button>
+              </div>
+            )}
+            {purchaseMessage && <p className="restyle-purchase-message" role="status">{purchaseMessage}</p>}
+          </section>
+        </div>
+      )}
     </main>
   );
 }

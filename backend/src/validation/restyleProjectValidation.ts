@@ -5,7 +5,7 @@ import type { AuthRequest } from "../middleware/auth.ts";
 
 const objectId = Joi.string().hex().length(24);
 const detailsSchema = Joi.object({
-  garmentType: Joi.string().valid("Tops", "Bottoms", "Dresses", "Skirts", "Jackets", "Shirts", "Sweaters", "Other").required(),
+  garmentType: Joi.string().valid("Tops", "Bottoms", "Dresses", "Skirts", "Jackets", "Shirts", "Sweaters").required(),
   fabric: Joi.string().trim().min(2).max(40).required(),
   condition: Joi.string().valid("good", "stained", "torn", "too-small", "too-large", "worn").required(),
   sewingSkill: Joi.string().valid("No sewing", "Basic hand sewing", "Confident", "Advanced").required(),

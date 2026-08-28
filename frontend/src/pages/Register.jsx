@@ -12,7 +12,6 @@ const initialValues = {
   email: "",
   password: "",
   confirmPassword: "",
-  language: "en",
   gender: ""
 };
 
@@ -176,7 +175,7 @@ export default function Register() {
       body.append("email", email);
       body.append("password", values.password);
       body.append("confirmPassword", values.confirmPassword);
-      body.append("language", values.language);
+      body.append("language", "en");
       body.append("gender", values.gender);
 
       if (profileImage) {
@@ -227,23 +226,6 @@ export default function Register() {
 
       <div className="register-card">
         <HangerBrand />
-
-        <label
-          className="language-label"
-          htmlFor="language"
-        >
-          Preferred Language
-        </label>
-
-        <select
-          id="language"
-          name="language"
-          value={values.language}
-          onChange={change}
-        >
-          <option value="en">English</option>
-          <option value="he">Hebrew</option>
-        </select>
 
         <h1>Create Account</h1>
 

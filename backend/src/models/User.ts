@@ -75,6 +75,25 @@ const userSchema = new mongoose.Schema(
       min: 0
     },
 
+    restyleFreeUses: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 3
+    },
+
+    restyleCredits: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+
+    restyleSubscriptionPlan: {
+      type: String,
+      enum: ["free", "mini", "style"],
+      default: "free"
+    },
+
     subscriptionPlan: {
       type: String,
       enum: ["free", "mini", "style"],

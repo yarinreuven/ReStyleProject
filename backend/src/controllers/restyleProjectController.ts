@@ -4,7 +4,13 @@ import Item from "../models/Item.ts";
 import RestyleProject from "../models/RestyleProject.ts";
 import type { AuthRequest } from "../middleware/auth.ts";
 import { findMatchingRestyleIdeas, getResponsibleFallback, getVerifiedRestyleGuide, RESTYLE_CATALOG_VERSION } from "../services/restyleIdeaService.ts";
-import { generateRestyleFallbackIdea, personalizeRestyleIdeas } from "../services/restyleAiService.ts";
+import { generateRestyleFallbackIdea, personalizeRestyleIdeas, validateRestyleGarmentImage } from "../services/restyleAiService.ts";
+import {
+  consumeRestyleQuota,
+  getRestyleQuotaStatus,
+  refundRestyleQuota,
+  RESTYLE_LIMIT_CODE
+} from "../services/restyleQuotaService.ts";
 
 const RESTYLE_INACTIVE_DAYS = 60;
 const restyleCategories = new Set(["Tops", "Bottoms", "Dresses", "Jackets"]);
@@ -17,6 +23,26 @@ const compatibleClosetTypes: Record<string, Set<string>> = {
 
 function detailsMatchClosetCategory(category: string, garmentType: string) {
   return compatibleClosetTypes[category]?.has(garmentType) === true;
+}
+
+function detectedTypeMatchesSelection(detectedType: string, selectedType: string) {
+  const topTypes = new Set(["Tops", "Shirts", "Sweaters"]);
+  return detectedType === selectedType || (topTypes.has(detectedType) && topTypes.has(selectedType));
+}
+
+async function validateUploadedImage(
+  image: { data?: Buffer; contentType?: string },
+  selectedType: string
+) {
+  const validation = await validateRestyleGarmentImage(image);
+  if (!validation) return { status: 503, message: "We could not verify this garment image right now. Please try again." };
+  if (!validation.eligible) {
+    return { status: 400, message: "ReStyle Studio supports clothing only. Shoes, bags and other accessories cannot be used." };
+  }
+  if (!detectedTypeMatchesSelection(validation.detectedType, selectedType)) {
+    return { status: 400, message: `The photo appears to show ${validation.detectedType}, not ${selectedType}. Please choose the correct garment type.` };
+  }
+  return { status: 200, detectedType: validation.detectedType };
 }
 
 function imageToDataUrl(image?: { data?: Buffer; contentType?: string } | null) {
@@ -82,6 +108,12 @@ export async function createRestyleProject(req: AuthRequest, res: Response, next
         return;
       }
       sourceImage = { data: req.file.buffer, contentType: req.file.mimetype };
+      const imageCheck = await validateUploadedImage(sourceImage, req.body.details.garmentType);
+      if (imageCheck.status !== 200) {
+        res.status(imageCheck.status).json({ success: false, code: "INVALID_RESTYLE_IMAGE", message: imageCheck.message });
+        return;
+      }
+      req.body.detectedGarmentType = imageCheck.detectedType;
     }
 
     const project = await RestyleProject.create({
@@ -91,6 +123,8 @@ export async function createRestyleProject(req: AuthRequest, res: Response, next
       sourceItem: sourceItem?._id || null,
       sourceName: req.body.sourceName,
       sourceImage,
+      detectedGarmentType: req.body.detectedGarmentType || "",
+      imageValidatedAt: req.body.detectedGarmentType ? new Date() : null,
       details: req.body.details
     });
 
@@ -141,6 +175,18 @@ export async function updateRestyleProject(req: AuthRequest, res: Response, next
       res.status(400).json({ success: false, message: "The selected garment type does not match this closet item" });
       return;
     }
+    if (
+      existingProject?.sourceType === "upload" &&
+      existingProject.detectedGarmentType &&
+      !detectedTypeMatchesSelection(existingProject.detectedGarmentType, updates.details.garmentType)
+    ) {
+      res.status(400).json({
+        success: false,
+        code: "INVALID_RESTYLE_IMAGE",
+        message: `The photo appears to show ${existingProject.detectedGarmentType}, not ${updates.details.garmentType}. Please choose the correct garment type.`
+      });
+      return;
+    }
     if (updates.status === "completed") {
       updates.progress = 100;
       updates.completedAt = new Date();
@@ -185,6 +231,7 @@ export async function deleteRestyleProject(req: AuthRequest, res: Response, next
 }
 
 export async function generateRestyleIdeas(req: AuthRequest, res: Response, next: NextFunction) {
+  let consumedQuota: "free" | "credit" | null = null;
   try {
     const project = await RestyleProject.findOne({ _id: req.params.projectId, owner: req.userId })
       .populate("sourceItem", "image");
@@ -193,17 +240,45 @@ export async function generateRestyleIdeas(req: AuthRequest, res: Response, next
       return;
     }
 
+
+    if (project.sourceType === "upload" && !project.imageValidatedAt) {
+      const imageCheck = await validateUploadedImage(project.sourceImage, project.details.garmentType);
+      if (imageCheck.status !== 200) {
+        project.set("generatedIdeas", []);
+        project.ideaCatalogVersion = 0;
+        project.selectedIdeaId = null;
+        await project.save();
+        res.status(imageCheck.status).json({ success: false, code: "INVALID_RESTYLE_IMAGE", message: imageCheck.message });
+        return;
+      }
+      project.detectedGarmentType = imageCheck.detectedType || "";
+      project.imageValidatedAt = new Date();
+      await project.save();
+    }
+
     const cachedIdeas = (project.generatedIdeas || []).map((entry: any) => {
       const idea = typeof entry.toObject === "function" ? entry.toObject() : entry;
       return { ...idea, id: idea.ideaId };
     });
     const fallback = getResponsibleFallback(project.details);
     if (cachedIdeas.length > 0 && project.ideaCatalogVersion === RESTYLE_CATALOG_VERSION) {
+      const quota = await getRestyleQuotaStatus(req.userId!);
       res.json({
         success: true,
         ideas: cachedIdeas,
         fallback,
+        quota,
         message: `${cachedIdeas.length} suitable paths, ranked for this garment`
+      });
+      return;
+    }
+
+    consumedQuota = await consumeRestyleQuota(req.userId!);
+    if (!consumedQuota) {
+      res.status(403).json({
+        success: false,
+        code: RESTYLE_LIMIT_CODE,
+        message: "You have used all 3 free ReStyle Studio generations. Choose a credit package to continue."
       });
       return;
     }
@@ -220,14 +295,31 @@ export async function generateRestyleIdeas(req: AuthRequest, res: Response, next
     project.ideaCatalogVersion = RESTYLE_CATALOG_VERSION;
     await project.save();
 
+    const quota = await getRestyleQuotaStatus(req.userId!);
+
     res.json({
       success: true,
       ideas,
       fallback,
+      quota,
       message: ideas.length > 0
         ? `${ideas.length} suitable paths, ranked for this garment`
         : "A creative transformation is not safe with the current details, so we prepared a responsible next path"
     });
+  } catch (error) {
+    if (consumedQuota && req.userId) await refundRestyleQuota(req.userId, consumedQuota);
+    next(error);
+  }
+}
+
+export async function getRestyleQuota(req: AuthRequest, res: Response, next: NextFunction) {
+  try {
+    const quota = await getRestyleQuotaStatus(req.userId!);
+    if (!quota) {
+      res.status(404).json({ success: false, message: "User account not found" });
+      return;
+    }
+    res.json(quota);
   } catch (error) {
     next(error);
   }

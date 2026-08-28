@@ -7,6 +7,7 @@ import {
   getRestyleProject,
   getRestyleProjects,
   generateRestyleIdeas,
+  getRestyleQuota,
   selectRestyleIdea,
   updateRestyleProject
 } from "../controllers/restyleProjectController.ts";
@@ -30,6 +31,7 @@ const upload = multer({
 
 router.use(authenticateToken);
 router.post("/", upload.single("sourceImage"), validateRestyleProjectCreate, createRestyleProject);
+router.get("/quota", getRestyleQuota);
 router.get("/", getRestyleProjects);
 router.post("/:projectId/ideas", validateRestyleProjectId, generateRestyleIdeas);
 router.post("/:projectId/ideas/:ideaId/select", validateRestyleIdeaParams, selectRestyleIdea);

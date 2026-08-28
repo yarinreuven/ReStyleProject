@@ -9,14 +9,18 @@ import { sendPaymentReceiptEmail } from "../services/emailService.ts";
 import {
   capturePayPalOrder,
   createPayPalOrder,
+  getPayPalPlan,
   getPayPalClientConfiguration,
-  PAYPAL_PLANS,
   verifyPayPalWebhook,
-  type PayPalPlan
+  type PayPalPlan,
+  type PayPalProduct
 } from "../services/paypalService.ts";
 
 const router = express.Router();
-const planSchema = Joi.object({ plan: Joi.string().valid("mini", "style").required() });
+const planSchema = Joi.object({
+  plan: Joi.string().valid("mini", "style").required(),
+  product: Joi.string().valid("tryon", "restyle").required()
+});
 const orderIdSchema = Joi.string().pattern(/^[A-Z0-9]+$/).max(30).required();
 
 async function sendReceiptOnce(orderId: string) {
@@ -43,7 +47,8 @@ async function sendReceiptOnce(orderId: string) {
       `${user.firstName} ${user.lastName}`.trim(),
       {
         orderId,
-        planName: purchase.plan === "mini" ? "Mini · 10 try-ons" : "Style · 30 try-ons",
+        planName: `${purchase.product === "restyle" ? "ReStyle Studio" : "Virtual Try-on"} · ${purchase.plan === "mini" ? "Mini" : "Style"}`,
+        creditLabel: purchase.product === "restyle" ? "ReStyle Studio credits" : "Virtual try-on credits",
         credits: purchase.credits,
         amount: purchase.amount,
         currency: purchase.currency,
@@ -67,11 +72,16 @@ async function grantCredits(orderId: string, captureId?: string) {
   const purchase = await PayPalPurchase.findOne({ paypalOrderId: orderId });
   if (!purchase) throw new Error("Purchase record not found");
 
+  const isRestyle = purchase.product === "restyle";
   await User.findOneAndUpdate(
     { _id: purchase.user, completedPayPalOrderIds: { $ne: orderId } },
     {
-      $inc: { tryOnCredits: purchase.credits },
-      $set: { subscriptionPlan: purchase.plan },
+      $inc: isRestyle
+        ? { restyleCredits: purchase.credits }
+        : { tryOnCredits: purchase.credits },
+      $set: isRestyle
+        ? { restyleSubscriptionPlan: purchase.plan }
+        : { subscriptionPlan: purchase.plan },
       $push: { completedPayPalOrderIds: orderId }
     }
   );
@@ -119,11 +129,13 @@ router.post("/orders", async (req: AuthRequest, res, next) => {
       return;
     }
     const plan = value.plan as PayPalPlan;
-    const order = await createPayPalOrder(plan, req.userId);
-    const selected = PAYPAL_PLANS[plan];
+    const product = value.product as PayPalProduct;
+    const order = await createPayPalOrder(plan, product, req.userId);
+    const selected = getPayPalPlan(product, plan);
     await PayPalPurchase.create({
       paypalOrderId: order.id,
       user: req.userId,
+      product,
       plan,
       credits: selected.credits,
       amount: selected.amount,
@@ -157,8 +169,16 @@ router.post("/orders/:orderId/capture", async (req: AuthRequest, res, next) => {
       return;
     }
     await grantCredits(orderId, capture?.id);
-    const user = await User.findById(req.userId).select("freeTryOnsUsed tryOnCredits subscriptionPlan");
-    res.json({ success: true, creditsAdded: purchase.credits, tryOnCredits: user?.tryOnCredits, subscriptionPlan: user?.subscriptionPlan });
+    const user = await User.findById(req.userId).select("tryOnCredits subscriptionPlan restyleCredits restyleSubscriptionPlan");
+    const isRestyle = purchase.product === "restyle";
+    res.json({
+      success: true,
+      product: purchase.product,
+      creditsAdded: purchase.credits,
+      tryOnCredits: user?.tryOnCredits,
+      restyleCredits: user?.restyleCredits,
+      subscriptionPlan: isRestyle ? user?.restyleSubscriptionPlan : user?.subscriptionPlan
+    });
   } catch (error) {
     next(error);
   }

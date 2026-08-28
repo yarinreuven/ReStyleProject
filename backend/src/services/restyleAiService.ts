@@ -23,6 +23,23 @@ interface GeminiRestyleResult {
   ideas?: PersonalizedIdea[];
 }
 
+export interface RestyleImageValidation {
+  eligible: boolean;
+  detectedType: "Tops" | "Bottoms" | "Dresses" | "Skirts" | "Jackets" | "Shirts" | "Sweaters" | "unsupported";
+}
+
+const imageValidationSchema = {
+  type: "OBJECT",
+  properties: {
+    eligible: { type: "BOOLEAN" },
+    detectedType: {
+      type: "STRING",
+      enum: ["Tops", "Bottoms", "Dresses", "Skirts", "Jackets", "Shirts", "Sweaters", "unsupported"]
+    }
+  },
+  required: ["eligible", "detectedType"]
+} as const;
+
 interface GeneratedRestyleResult {
   idea?: {
     title?: string;
@@ -106,6 +123,48 @@ async function optimizeGarmentImage(image?: { data?: Buffer; contentType?: strin
       .jpeg({ quality: RESTYLE_IMAGE_QUALITY, mozjpeg: true })
       .toBuffer();
     return { data, contentType: "image/jpeg" };
+  } catch {
+    return null;
+  }
+}
+
+export async function validateRestyleGarmentImage(
+  image: { data?: Buffer; contentType?: string } | null,
+  fetcher: typeof fetch = fetch
+): Promise<RestyleImageValidation | null> {
+  const apiKey = process.env.GEMINI_RESTYLE_API_KEY?.trim();
+  if (!apiKey) return null;
+  const optimizedImage = await optimizeGarmentImage(image);
+  if (!optimizedImage) return { eligible: false, detectedType: "unsupported" };
+  try {
+    const response = await fetcher(
+      `https://generativelanguage.googleapis.com/v1beta/models/${RESTYLE_AI_MODEL}:generateContent`,
+      {
+        method: "POST",
+        headers: { "x-goog-api-key": apiKey, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [
+            { text: "Classify the main item in this image. ReStyle Studio accepts clothing garments only. Shoes, bags, jewelry, belts, hats, people without a clearly isolated garment, furniture, and other objects are unsupported. Set eligible=false and detectedType=unsupported for them. Do not guess when the item is unclear." },
+            { inline_data: { mime_type: optimizedImage.contentType, data: optimizedImage.data.toString("base64") } }
+          ] }],
+          generationConfig: {
+            temperature: 0,
+            maxOutputTokens: 100,
+            responseMimeType: "application/json",
+            responseSchema: imageValidationSchema
+          }
+        }),
+        signal: AbortSignal.timeout(RESTYLE_AI_TIMEOUT_MS)
+      }
+    );
+    if (!response.ok) return null;
+    const data = await response.json() as GeminiResponse;
+    const raw = data.candidates?.[0]?.content?.parts?.map((part) => part.text || "").join("").trim();
+    if (!raw) return null;
+    const result = JSON.parse(raw) as RestyleImageValidation;
+    const allowed = new Set(["Tops", "Bottoms", "Dresses", "Skirts", "Jackets", "Shirts", "Sweaters"]);
+    if (!result.eligible || !allowed.has(result.detectedType)) return { eligible: false, detectedType: "unsupported" };
+    return result;
   } catch {
     return null;
   }

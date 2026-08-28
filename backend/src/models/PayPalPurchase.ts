@@ -5,6 +5,7 @@ const paypalPurchaseSchema = new mongoose.Schema(
     paypalOrderId: { type: String, required: true, unique: true, index: true },
     paypalCaptureId: { type: String, default: null },
     user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    product: { type: String, enum: ["tryon", "restyle"], required: true, default: "tryon" },
     plan: { type: String, enum: ["mini", "style"], required: true },
     credits: { type: Number, required: true },
     amount: { type: String, required: true },

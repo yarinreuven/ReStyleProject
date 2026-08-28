@@ -1,11 +1,21 @@
 import { randomUUID } from "node:crypto";
 
 export const PAYPAL_PLANS = {
-  mini: { name: "ReStyle Mini · 10 try-ons", credits: 10, amount: "9.90" },
-  style: { name: "ReStyle Style · 30 try-ons", credits: 30, amount: "19.90" }
+  mini: { credits: 10, amount: "9.90" },
+  style: { credits: 30, amount: "19.90" }
+} as const;
+
+export const PAYPAL_RESTYLE_PLANS = {
+  mini: { credits: 5, amount: "15.00" },
+  style: { credits: 10, amount: "30.00" }
 } as const;
 
 export type PayPalPlan = keyof typeof PAYPAL_PLANS;
+export type PayPalProduct = "tryon" | "restyle";
+
+export function getPayPalPlan(product: PayPalProduct, plan: PayPalPlan) {
+  return product === "restyle" ? PAYPAL_RESTYLE_PLANS[plan] : PAYPAL_PLANS[plan];
+}
 
 const currency = "ILS";
 
@@ -57,16 +67,17 @@ export function getPayPalClientConfiguration() {
   return { clientId, currency, environment: "sandbox" as const };
 }
 
-export async function createPayPalOrder(plan: PayPalPlan, userId: string) {
-  const selected = PAYPAL_PLANS[plan];
+export async function createPayPalOrder(plan: PayPalPlan, product: PayPalProduct, userId: string) {
+  const selected = getPayPalPlan(product, plan);
+  const productName = product === "restyle" ? "ReStyle Studio" : "Virtual Try-on";
   return paypalRequest("/v2/checkout/orders", {
     method: "POST",
     headers: { "PayPal-Request-Id": randomUUID() },
     body: JSON.stringify({
       intent: "CAPTURE",
       purchase_units: [{
-        custom_id: `${userId}:${plan}`,
-        description: selected.name,
+        custom_id: `${userId}:${product}:${plan}`,
+        description: `${productName} · ${selected.credits} credits`,
         amount: { currency_code: currency, value: selected.amount }
       }],
       payment_source: {

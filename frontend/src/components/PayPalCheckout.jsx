@@ -22,7 +22,7 @@ function loadPayPalSdk(clientId, currency) {
   });
 }
 
-export default function PayPalCheckout({ token, plan, onSuccess }) {
+export default function PayPalCheckout({ token, plan, product, onSuccess }) {
   const containerRef = useRef(null);
   const [message, setMessage] = useState("Loading secure PayPal checkout...");
 
@@ -41,7 +41,7 @@ export default function PayPalCheckout({ token, plan, onSuccess }) {
         buttons = paypal.Buttons({
           style: { layout: "vertical", shape: "pill", label: "paypal" },
           createOrder: async () => {
-            const { data } = await axios.post(`${PAYPAL_API_URL}/orders`, { plan }, {
+            const { data } = await axios.post(`${PAYPAL_API_URL}/orders`, { plan, product }, {
               headers: { Authorization: `Bearer ${token}` }
             });
             return data.id;
@@ -71,7 +71,7 @@ export default function PayPalCheckout({ token, plan, onSuccess }) {
       cancelled = true;
       buttons?.close?.();
     };
-  }, [onSuccess, plan, token]);
+  }, [onSuccess, plan, product, token]);
 
   return <div className="paypal-checkout"><div ref={containerRef} />{message && <p role="status">{message}</p>}</div>;
 }

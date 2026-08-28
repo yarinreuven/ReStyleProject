@@ -726,3 +726,10 @@ button { font: inherit; }
     .restyle-idea-card { grid-template-columns: 1fr; }
     .restyle-idea-visual { min-height: 190px; }
 }
+.restyle-quota-status{display:block;margin:10px 0;color:#a24c64;font-weight:800}
+.restyle-plan-overlay{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;padding:20px;background:rgba(55,35,42,.48);backdrop-filter:blur(4px)}
+.restyle-plan-dialog{position:relative;width:min(560px,100%);padding:38px;border-radius:28px;background:#fffaf9;box-shadow:0 28px 80px rgba(55,35,42,.24);text-align:center}
+.restyle-plan-dialog h2{margin:0 30px 10px;font:700 28px 'Playfair Display',serif;color:#533b43}.restyle-plan-dialog>p{color:#806c73}
+.restyle-plan-close{position:absolute;top:14px;right:16px;width:38px;height:38px;border:0;border-radius:50%;color:#994b60;background:#f5dfe5;font-size:24px;cursor:pointer}
+.restyle-plan-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:24px}.restyle-plan-grid article{padding:22px;border:1px solid rgba(176,83,108,.18);border-radius:20px;background:white}.restyle-plan-grid h3{margin:0;color:#733f4d}.restyle-plan-grid button,.restyle-paypal-checkout>button{min-height:42px;width:100%;border:0;border-radius:999px;color:white;background:#b65570;font-weight:800;cursor:pointer}
+.restyle-paypal-checkout{display:grid;gap:12px;margin-top:22px}.restyle-paypal-checkout>button{color:#91445a;background:#f4e2e8}.restyle-purchase-message{color:#39734e!important;font-weight:800}

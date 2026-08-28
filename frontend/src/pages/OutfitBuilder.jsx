@@ -716,7 +716,7 @@ export default function OutfitBuilder() {
               <div className="try-on-quota-result">
                 <p>{quota.freeTryOnsRemaining} of 3 free try-ons remaining</p>
                 {quota.tryOnCredits > 0 && (
-                  <small>Additional try-on credits: {quota.tryOnCredits}</small>
+                  <small>Purchased try-on credits: {quota.tryOnCredits}</small>
                 )}
               </div>
             )}
@@ -826,6 +826,7 @@ export default function OutfitBuilder() {
                 <PayPalCheckout
                   token={token}
                   plan={checkoutPlan}
+                  product="tryon"
                   onSuccess={(data) => {
                     setQuota((current) => current ? { ...current, tryOnCredits: data.tryOnCredits, subscriptionPlan: data.subscriptionPlan } : current);
                     setPurchaseMessage(`Payment approved. ${data.creditsAdded} try-on credits were added.`);

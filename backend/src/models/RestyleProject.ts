@@ -91,6 +91,14 @@ const restyleProjectSchema = new mongoose.Schema(
       data: Buffer,
       contentType: String
     },
+    detectedGarmentType: {
+      type: String,
+      default: ""
+    },
+    imageValidatedAt: {
+      type: Date,
+      default: null
+    },
     details: {
       type: restyleDetailsSchema,
       required: true
