@@ -31,6 +31,7 @@ const tryOnResultSchema = new mongoose.Schema(
       fullBodyVisible: Boolean,
       facePreserved: Boolean,
       baseOutfitPresent: Boolean,
+      exactGarmentsMatchReferences: Boolean,
       jacketPresent: Boolean,
       shoesPresent: Boolean,
       bagPresent: Boolean,

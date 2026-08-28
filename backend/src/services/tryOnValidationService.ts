@@ -19,6 +19,7 @@ export interface TryOnQualityResult {
   fullBodyVisible: boolean;
   facePreserved: boolean;
   baseOutfitPresent: boolean;
+  exactGarmentsMatchReferences: boolean;
   jacketPresent: boolean;
   shoesPresent: boolean;
   bagPresent: boolean;
@@ -37,6 +38,7 @@ export function generatedImageAcceptedForUserReview(
     fullBodyVisible: true,
     facePreserved: true,
     baseOutfitPresent: true,
+    exactGarmentsMatchReferences: true,
     jacketPresent: has("Jacket"),
     shoesPresent: has("Shoes"),
     bagPresent: has("Bag"),
@@ -162,7 +164,7 @@ export function qualityValidationError(
   items: TryOnItemDescriptor[]
 ) {
   const booleanFields: Array<keyof TryOnQualityResult> = [
-    "valid", "fullBodyVisible", "facePreserved", "baseOutfitPresent",
+    "valid", "fullBodyVisible", "facePreserved", "baseOutfitPresent", "exactGarmentsMatchReferences",
     "jacketPresent", "shoesPresent", "bagPresent", "accessoryPresent",
     "unexpectedItemsDetected"
   ];
@@ -174,6 +176,9 @@ export function qualityValidationError(
   if (!quality || !quality.valid || !quality.fullBodyVisible ||
     !quality.facePreserved || !quality.baseOutfitPresent) {
     return "The generated image did not preserve a complete, clear try-on";
+  }
+  if (!quality.exactGarmentsMatchReferences) {
+    return "The generated image changed the type, silhouette or length of a selected garment";
   }
   const categories = new Set(items.map((item) => item.detectedCategory));
   if (categories.has("Jacket") && !quality.jacketPresent) return "The selected jacket is missing";

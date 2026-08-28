@@ -6,6 +6,7 @@ import {
   buildTryOnGenerationParts,
   createGeminiTryOnImage,
   inferRequiredGarmentType,
+  reconcileGarmentVisualDescription,
   GEMINI_TRY_ON_IMAGE_FALLBACK_MODEL
 } from "./geminiTryOnService.ts";
 
@@ -13,6 +14,27 @@ test("treats a Hebrew skirt name as a hard skirt requirement", () => {
   assert.equal(
     inferRequiredGarmentType("חצאית", "Bottom", "dark denim bottom"),
     "skirt"
+  );
+});
+
+test("rejects a pants description when the saved item name explicitly says skirt", () => {
+  const description = reconcileGarmentVisualDescription(
+    "חצאית",
+    "Bottom",
+    "Dark straight-leg denim jeans"
+  );
+  assert.match(description, /Skirt shown in the wardrobe reference/);
+  assert.doesNotMatch(description, /straight-leg denim jeans/);
+});
+
+test("locks long and midi skirts to a below-knee hem", () => {
+  assert.equal(
+    inferRequiredGarmentType("חצאית ארוכה", "Bottom", "dark denim skirt"),
+    "long skirt with the reference hemline at or below the knee"
+  );
+  assert.equal(
+    inferRequiredGarmentType("חצאית", "Bottom", "black pleated midi skirt"),
+    "long skirt with the reference hemline at or below the knee"
   );
 });
 
@@ -45,6 +67,8 @@ test("locks facial identity and exact garment subtype in the generation prompt",
   assert.match(prompt, /STRICT CATEGORY ALLOWLIST: Bottom/);
   assert.match(prompt, /NO JACKET OR OUTERWEAR/);
   assert.match(prompt, /black pleated midi skirt/);
+  assert.match(prompt, /SKIRT LENGTH LOCK/);
+  assert.match(prompt, /must never be shortened into a mini skirt/);
 });
 
 test("falls back to the alternate image model after a primary 429 without network access", async () => {

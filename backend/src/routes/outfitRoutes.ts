@@ -20,6 +20,7 @@ import { createUserRateLimit } from "../middleware/userRateLimit.ts";
 import {
   createGeminiTryOnImage,
   inferRequiredGarmentType,
+  validateGeminiTryOnImage,
   GeminiTryOnServiceError
 } from "../services/geminiTryOnService.ts";
 import {
@@ -40,10 +41,10 @@ import {
 } from "../services/outfitSelectionService.ts";
 import {
   hasForbiddenTryOnOverrides,
-  generatedImageAcceptedForUserReview,
   existingTryOnAction,
   isApprovedAvatarId,
   orderTryOnItems,
+  qualityValidationError,
   resourceOwnershipError,
   uploadedAvatarValidationError,
   validateTryOnComposition,
@@ -441,9 +442,22 @@ router.post(
         return;
       }
 
+      const eligibleImageItems = value.preferFavorites
+        ? imageItems.filter((item) => item.favorite === true)
+        : imageItems;
+
+      if (value.preferFavorites && eligibleImageItems.length === 0) {
+        res.status(422).json({
+          success: false,
+          code: "NO_FAVORITE_WARDROBE_ITEMS",
+          message: "Mark wardrobe pieces as favorites before creating a favorites-only look."
+        });
+        return;
+      }
+
       if (isNoCostAiMockMode()) {
-        const byCategory = new Map<string, typeof imageItems[number]>();
-        for (const item of imageItems) {
+        const byCategory = new Map<string, typeof eligibleImageItems[number]>();
+        for (const item of eligibleImageItems) {
           const detectedCategory = normalizeProjectCategory(item.category);
           if (detectedCategory && !byCategory.has(detectedCategory)) {
             byCategory.set(detectedCategory, item);
@@ -504,7 +518,7 @@ router.post(
       }
 
       const shortlistedItems = createBalancedWardrobeShortlist(
-        imageItems.map((item) => ({
+        eligibleImageItems.map((item) => ({
           item,
           id: item._id.toString(),
           category: item.category,
@@ -604,7 +618,7 @@ router.post(
         "Set every cohesion boolean to true only when the complete outfit genuinely works together. If any cohesion check would be false, revise the selection. If no cohesive selection exists, return an empty selectedItems array and explain why.",
         "Use wearCount and lastWornAt for variety only after suitability and harmony; never choose an unsuitable item merely because it was worn less recently.",
         "Do not select a piece merely because it exists. If the wardrobe has no complete outfit that fits the event, return an empty selectedItems array.",
-        "Prefer favorites only when the request says preferFavorites is true.",
+        "When preferFavorites is true, every attached wardrobe image is a verified favorite and every selected item must come only from those attached favorites.",
         "If a complete outfit base cannot be made, return an empty selectedItems array. Do not return a partial outfit.",
         "Every styling tip must refer only to a selected or available valid wardrobe item. Do not suggest buying or adding anything.",
         "If no attached image shows a valid wardrobe item, return an empty selectedItems array.",
@@ -828,7 +842,9 @@ router.post(
         res.status(422).json({
           success: false,
           code: "WARDROBE_BASE_IMAGES_UNCLEAR",
-          message: "Gemini could not clearly identify a complete outfit base in your wardrobe photos. Replace the unclear dress photo, or the unclear top or bottom photo, with a well-lit image that clearly shows the entire item."
+          message: value.preferFavorites
+            ? "Your favorites need one clear dress, or both a clear top and bottom, to create a favorites-only look."
+            : "Gemini could not clearly identify a complete outfit base in your wardrobe photos. Replace the unclear dress photo, or the unclear top or bottom photo, with a well-lit image that clearly shows the entire item."
         });
         return;
       }
@@ -1238,7 +1254,7 @@ router.post(
         userId: req.userId,
         selectionId: selection._id.toString(),
         avatarSource,
-        avatarIdentity: avatar.identity
+        avatarIdentity: `garment-lock-v3:${avatar.identity}`
       });
       const responseItems = orderedSelectionItems.map((entry) => ({
         itemId: entry.itemId,
@@ -1401,7 +1417,15 @@ router.post(
           tryOnInputs
         );
         console.info(`Gemini try-on image completed with ${generated.model}`);
-        const quality = generatedImageAcceptedForUserReview(orderedSelectionItems);
+        const quality = await validateGeminiTryOnImage(
+          generated.data,
+          generated.contentType,
+          avatar.data,
+          avatar.contentType,
+          tryOnInputs
+        );
+        const qualityError = qualityValidationError(quality, orderedSelectionItems);
+        if (qualityError) throw new Error(`TRY_ON_QUALITY_REJECTED: ${qualityError}`);
         if (generated.data.length > 10 * 1024 * 1024) {
           throw new Error("TRY_ON_IMAGE_TOO_LARGE");
         }

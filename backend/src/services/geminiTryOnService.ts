@@ -24,6 +24,11 @@ const GARMENT_TYPE_TERMS = [
   { type: "trousers", terms: ["מכנסיים", "מכנס", "trousers", "pants"] }
 ] as const;
 
+const LONG_SKIRT_TERMS = [
+  "חצאית ארוכה", "חצאית מידי", "חצאית מקסי",
+  "long skirt", "midi skirt", "maxi skirt", "ankle-length skirt", "below-knee skirt"
+] as const;
+
 export function inferRequiredGarmentType(
   name: string,
   detectedCategory: DetectedCategory,
@@ -32,6 +37,12 @@ export function inferRequiredGarmentType(
   if (detectedCategory !== "Bottom") return detectedCategory.toLowerCase();
   const normalizedName = name.trim().toLowerCase();
   const normalizedDescription = visualDescription.trim().toLowerCase();
+
+  if ([...LONG_SKIRT_TERMS].some((term) =>
+    normalizedName.includes(term) || normalizedDescription.includes(term)
+  )) {
+    return "long skirt with the reference hemline at or below the knee";
+  }
 
   for (const candidate of GARMENT_TYPE_TERMS) {
     if (candidate.terms.some((term) => normalizedName.includes(term))) {
@@ -44,6 +55,21 @@ export function inferRequiredGarmentType(
     }
   }
   return "bottom garment shown in the reference";
+}
+
+export function reconcileGarmentVisualDescription(
+  name: string,
+  detectedCategory: DetectedCategory,
+  visualDescription = ""
+) {
+  const requiredType = inferRequiredGarmentType(name, detectedCategory, visualDescription);
+  const description = visualDescription.toLowerCase();
+  const describesPants = ["jeans", "trousers", "pants", "shorts", "מכנס"]
+    .some((term) => description.includes(term));
+  if (requiredType.includes("skirt") && describesPants) {
+    return "Skirt shown in the wardrobe reference. Ignore any conflicting pants or jeans interpretation. Preserve the exact skirt silhouette, denim material, color and reference hem length.";
+  }
+  return visualDescription;
 }
 
 interface GeminiResponsePart {
@@ -103,7 +129,15 @@ export function buildTryOnGenerationParts(
   avatarContentType: string,
   items: OutfitImageInput[]
 ) {
-  const selectedCategories = new Set(items.map((item) => item.detectedCategory));
+  const normalizedItems = items.map((item) => ({
+    ...item,
+    visualDescription: reconcileGarmentVisualDescription(
+      item.name,
+      item.detectedCategory,
+      item.visualDescription
+    )
+  }));
+  const selectedCategories = new Set(normalizedItems.map((item) => item.detectedCategory));
   const optionalCategoryRules = [
     ["Jacket", "NO JACKET OR OUTERWEAR"],
     ["Bag", "NO BAG"],
@@ -114,7 +148,7 @@ export function buildTryOnGenerationParts(
     .filter(([category]) => !selectedCategories.has(category))
     .map(([, rule]) => rule)
     .join("; ");
-  const inventory = items
+  const inventory = normalizedItems
     .map((item, index) =>
       `${index + 1}. itemId=${item.itemId}; detectedCategory=${item.detectedCategory}; REQUIRED_GARMENT_TYPE=${item.requiredGarmentType || inferRequiredGarmentType(item.name, item.detectedCategory, item.visualDescription)}; name=${item.name}; exactVisualGarment=${item.visualDescription || "follow the reference image exactly"}`
     )
@@ -137,6 +171,7 @@ export function buildTryOnGenerationParts(
     "GARMENT LOCK: copy the garment type and silhouette from every wardrobe reference exactly. Preserve its color, print, fabric, cut, waist, leg or hem shape, length and distinctive details.",
     "Never change one garment subtype into another: a skirt must remain a skirt and must never become jeans, trousers or shorts; trousers must remain trousers; jeans must remain jeans; shorts must remain shorts; a dress must remain a dress.",
     "REQUIRED_GARMENT_TYPE is a hard constraint and overrides the broad detectedCategory and any conflicting interpretation. If REQUIRED_GARMENT_TYPE=skirt, the legs must be covered by one connected skirt silhouette with a visible skirt hem and no trouser legs, inseams or jeans construction.",
+    "SKIRT LENGTH LOCK: inspect the skirt reference hem position relative to the model. Reproduce that exact hem length. A midi, maxi, long or below-knee skirt must remain at or below the knee and must never be shortened into a mini skirt. Generate a mini skirt only when the wardrobe reference is unmistakably above the knee.",
     "A Dress replaces Top and Bottom. Otherwise both the Top and Bottom must be visible and no dress may be added.",
     "A Jacket must be the outermost clothing layer. Shoes must be worn on both feet and fully visible.",
     "If Jacket is not in the selected inventory, the finished person must have no jacket, coat, blazer, cardigan, vest or any other outerwear layer. The selected base garment must remain visibly unobstructed.",
@@ -150,7 +185,7 @@ export function buildTryOnGenerationParts(
     { text: instructions },
     { text: "PERSON/AVATAR REFERENCE. Preserve this identity and show the complete body." },
     inlineImage(avatarImage, avatarContentType),
-    ...items.flatMap((item) => [
+    ...normalizedItems.flatMap((item) => [
       {
         text: `WARDROBE REFERENCE itemId=${item.itemId}; detectedCategory=${item.detectedCategory}; REQUIRED_GARMENT_TYPE=${item.requiredGarmentType || inferRequiredGarmentType(item.name, item.detectedCategory, item.visualDescription)}; exactVisualGarment=${item.visualDescription || "inspect this reference precisely"}. REQUIRED_GARMENT_TYPE is mandatory. This exact selected garment type, silhouette, length, material and color must appear without substitution.`
       },
@@ -254,6 +289,7 @@ export async function validateGeminiTryOnImage(
         "Validate the generated virtual try-on conservatively.",
         "Image 1 is the original person/avatar. Image 2 is the generated try-on. Remaining images are the exact selected wardrobe references.",
         "Confirm the full body and shoes are inside the frame, identity and face are preserved, the required Dress or Top+Bottom base is present, every selected optional category is visible, and no unselected fashion item was added.",
+        "Compare every generated garment against its wardrobe reference. exactGarmentsMatchReferences may be true only when every garment has the same subtype, silhouette, color and length. A skirt rendered as jeans, trousers or shorts is always false. A midi, maxi or long skirt shortened above the knee is always false.",
         `Selected categories: ${categories.join(", ")}.`,
         "Return only the requested structured JSON. Do not use external information."
       ].join("\n")
@@ -263,7 +299,9 @@ export async function validateGeminiTryOnImage(
     { text: "IMAGE 2: GENERATED TRY-ON TO VALIDATE" },
     inlineImage(generatedImage, generatedContentType),
     ...items.flatMap((item) => [
-      { text: `SELECTED REFERENCE itemId=${item.itemId}; detectedCategory=${item.detectedCategory}` },
+      {
+        text: `SELECTED REFERENCE itemId=${item.itemId}; detectedCategory=${item.detectedCategory}; REQUIRED_GARMENT_TYPE=${item.requiredGarmentType || inferRequiredGarmentType(item.name, item.detectedCategory, item.visualDescription)}; exactVisualGarment=${reconcileGarmentVisualDescription(item.name, item.detectedCategory, item.visualDescription) || "inspect this reference precisely"}`
+      },
       inlineImage(item.data, item.contentType)
     ])
   ];
@@ -286,6 +324,7 @@ export async function validateGeminiTryOnImage(
               fullBodyVisible: { type: "BOOLEAN" },
               facePreserved: { type: "BOOLEAN" },
               baseOutfitPresent: { type: "BOOLEAN" },
+              exactGarmentsMatchReferences: { type: "BOOLEAN" },
               jacketPresent: { type: "BOOLEAN" },
               shoesPresent: { type: "BOOLEAN" },
               bagPresent: { type: "BOOLEAN" },
@@ -294,7 +333,7 @@ export async function validateGeminiTryOnImage(
               failureReasons: { type: "ARRAY", items: { type: "STRING" } }
             },
             required: [
-              "valid", "fullBodyVisible", "facePreserved", "baseOutfitPresent",
+              "valid", "fullBodyVisible", "facePreserved", "baseOutfitPresent", "exactGarmentsMatchReferences",
               "jacketPresent", "shoesPresent", "bagPresent", "accessoryPresent",
               "unexpectedItemsDetected", "failureReasons"
             ]

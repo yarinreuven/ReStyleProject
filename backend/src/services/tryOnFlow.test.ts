@@ -29,6 +29,7 @@ const validQuality = (): TryOnQualityResult => ({
   fullBodyVisible: true,
   facePreserved: true,
   baseOutfitPresent: true,
+  exactGarmentsMatchReferences: true,
   jacketPresent: true,
   shoesPresent: true,
   bagPresent: true,

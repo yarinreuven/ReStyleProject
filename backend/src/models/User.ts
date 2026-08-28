@@ -81,6 +81,12 @@ const userSchema = new mongoose.Schema(
       default: "free"
     },
 
+    completedPayPalOrderIds: {
+      type: [String],
+      default: [],
+      select: false
+    },
+
     tryOnReservations: {
       type: [{
         token: { type: String, required: true },

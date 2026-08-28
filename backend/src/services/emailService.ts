@@ -87,3 +87,50 @@ export async function sendEmailChangeCode(
     `
   });
 }
+
+export async function sendPaymentReceiptEmail(
+  recipientEmail: string,
+  recipientName: string,
+  receipt: {
+    orderId: string;
+    planName: string;
+    credits: number;
+    amount: string;
+    currency: string;
+    paidAt: Date;
+  }
+) {
+  const from = process.env.EMAIL_FROM?.trim() || process.env.SMTP_USER?.trim();
+  if (!from) throw new Error("EMAIL_FROM is missing");
+
+  const safeName = escapeHtml(recipientName);
+  const safeOrderId = escapeHtml(receipt.orderId);
+  const safePlanName = escapeHtml(receipt.planName);
+  const paidAt = receipt.paidAt.toLocaleString("en-IL", { timeZone: "Asia/Jerusalem" });
+  const total = `${receipt.amount} ${receipt.currency}`;
+
+  await getTransporter().sendMail({
+    from: `ReStyle <${from}>`,
+    to: recipientEmail,
+    subject: "Your ReStyle payment receipt (PayPal Sandbox)",
+    text: `Hi ${recipientName},\n\nYour PayPal Sandbox payment was approved successfully and the credits were added to your ReStyle account.\nPackage: ${receipt.planName}\nTry-on credits: ${receipt.credits}\nAmount: ${total}\nOrder ID: ${receipt.orderId}\nDate: ${paidAt}\n\nThis was a Sandbox test payment. No real money was charged.`,
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:580px;margin:auto;color:#3b3034;line-height:1.6">
+        <h1 style="margin-bottom:6px;color:#b45c6d">ReStyle</h1>
+        <h2 style="margin-top:0">Your payment was approved</h2>
+        <p>Hi ${safeName},</p>
+        <p>PayPal confirmed your payment and the credits were added to your ReStyle account.</p>
+        <div style="margin:24px 0;padding:18px;border-radius:12px;background:#faeef1">
+          <p style="margin:0 0 7px"><strong>Package:</strong> ${safePlanName}</p>
+          <p style="margin:0 0 7px"><strong>Try-on credits:</strong> ${receipt.credits}</p>
+          <p style="margin:0 0 7px"><strong>Amount:</strong> ${total}</p>
+          <p style="margin:0 0 7px"><strong>Order ID:</strong> ${safeOrderId}</p>
+          <p style="margin:0"><strong>Date:</strong> ${paidAt}</p>
+        </div>
+        <p style="padding:12px;border-radius:8px;background:#fff6d9;color:#6b5520">
+          This was a PayPal Sandbox test payment. No real money was charged.
+        </p>
+      </div>
+    `
+  });
+}

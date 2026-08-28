@@ -4,6 +4,7 @@ import axios from "axios";
 import usePageStyles from "../hooks/usePageStyles";
 import { useAuth } from "../context/AuthContext";
 import ProfileAvatar from "../components/ProfileAvatar";
+import PayPalCheckout from "../components/PayPalCheckout";
 
 const OUTFIT_API_URL = "http://localhost:3001/api/outfits/generate";
 const TRY_ON_API_URL = "http://localhost:3001/api/outfits/try-on";
@@ -68,7 +69,8 @@ export default function OutfitBuilder() {
   const [isQuotaLoading, setIsQuotaLoading] = useState(false);
   const [quotaError, setQuotaError] = useState("");
   const [isPlansOpen, setIsPlansOpen] = useState(false);
-  const [plansMessage, setPlansMessage] = useState("");
+  const [checkoutPlan, setCheckoutPlan] = useState("");
+  const [purchaseMessage, setPurchaseMessage] = useState("");
   const userId = user?.id || user?._id;
   const sessionKey = userId ? `restyle:outfit-builder:${userId}` : "";
 
@@ -290,7 +292,6 @@ export default function OutfitBuilder() {
       return;
     }
     if (quota.freeTryOnsRemaining === 0 && quota.tryOnCredits === 0) {
-      setPlansMessage("");
       setIsPlansOpen(true);
       return;
     }
@@ -357,7 +358,6 @@ export default function OutfitBuilder() {
       return;
     }
     if (quota.freeTryOnsRemaining === 0 && quota.tryOnCredits === 0) {
-      setPlansMessage("");
       setIsPlansOpen(true);
       return;
     }
@@ -407,7 +407,6 @@ export default function OutfitBuilder() {
       }
       if (error.response?.status === 403 &&
         error.response?.data?.code === "FREE_TRY_ON_LIMIT_REACHED") {
-        setPlansMessage("");
         setIsPlansOpen(true);
         return;
       }
@@ -566,8 +565,8 @@ export default function OutfitBuilder() {
                     <i className="fa-solid fa-heart" />
                   </span>
                   <span>
-                    <strong>Favorites first</strong>
-                    Prefer pieces I love
+                    <strong>Favorites only</strong>
+                    Use only pieces I love
                   </span>
                 </label>
               </div>
@@ -795,31 +794,48 @@ export default function OutfitBuilder() {
               type="button"
               className="try-on-plan-close"
               aria-label="Close plans"
-              onClick={() => setIsPlansOpen(false)}
+              onClick={() => { setIsPlansOpen(false); setCheckoutPlan(""); }}
             >
               ×
             </button>
             <h2 id="try-on-plan-title">Your free try-ons are complete</h2>
             <p id="try-on-plan-description">
-              You have used all 3 free virtual try-ons. Choose a plan to continue creating personal looks.
+              {checkoutPlan
+                ? "Complete your purchase securely with PayPal Sandbox. No real money will be charged."
+                : "Choose a try-on credit package to keep creating personal looks."}
             </p>
-            <div className="try-on-plans">
-              <article>
-                <h3>Mini Plan</h3>
-                <p>10 Try-ons for ₪9.90</p>
-                <button type="button" onClick={() => setPlansMessage("Payments will be available soon.")}>
-                  Choose Mini
-                </button>
-              </article>
-              <article>
-                <h3>Style Plan</h3>
-                <p>30 Try-ons for ₪19.90</p>
-                <button type="button" onClick={() => setPlansMessage("Payments will be available soon.")}>
-                  Choose Style
-                </button>
-              </article>
-            </div>
-            {plansMessage && <p className="plans-coming-soon" role="status">{plansMessage}</p>}
+            {!checkoutPlan ? (
+              <div className="try-on-plans">
+                <article>
+                  <h3>Mini Plan</h3>
+                  <p>10 Try-ons for ₪9.90</p>
+                  <button type="button" onClick={() => { setCheckoutPlan("mini"); setPurchaseMessage(""); }}>Choose Mini</button>
+                </article>
+                <article>
+                  <h3>Style Plan</h3>
+                  <p>30 Try-ons for ₪19.90</p>
+                  <button type="button" onClick={() => { setCheckoutPlan("style"); setPurchaseMessage(""); }}>Choose Style</button>
+                </article>
+              </div>
+            ) : (
+              <div className="paypal-plan-checkout">
+                <div className="paypal-order-summary">
+                  <span>{checkoutPlan === "mini" ? "Mini · 10 try-ons" : "Style · 30 try-ons"}</span>
+                  <strong>{checkoutPlan === "mini" ? "₪9.90" : "₪19.90"}</strong>
+                </div>
+                <PayPalCheckout
+                  token={token}
+                  plan={checkoutPlan}
+                  onSuccess={(data) => {
+                    setQuota((current) => current ? { ...current, tryOnCredits: data.tryOnCredits, subscriptionPlan: data.subscriptionPlan } : current);
+                    setPurchaseMessage(`Payment approved. ${data.creditsAdded} try-on credits were added.`);
+                    setCheckoutPlan("");
+                  }}
+                />
+                <button type="button" className="paypal-back-button" onClick={() => setCheckoutPlan("")}>Back to plans</button>
+              </div>
+            )}
+            {purchaseMessage && <p className="plans-coming-soon" role="status">{purchaseMessage}</p>}
           </section>
         </div>
       )}

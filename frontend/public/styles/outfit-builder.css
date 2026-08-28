@@ -1246,3 +1246,8 @@ textarea {
         padding: 28px 20px;
     }
 }
+.paypal-plan-checkout{display:grid;gap:14px;margin-top:20px}
+.paypal-order-summary{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-radius:14px;background:#f8ebef;color:#5f3b46;font-weight:700}
+.paypal-checkout{min-height:48px}
+.paypal-checkout>p{margin:10px 0;color:#765d65;font-size:12px;text-align:center}
+.paypal-back-button{min-height:42px;border:0;border-radius:999px;background:#f4e2e8;color:#91445a;font-weight:800;cursor:pointer}

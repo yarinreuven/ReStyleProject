@@ -2,3 +2,28 @@ html, body, #root {
   min-height: 100%;
   margin: 0;
 }
+
+/* Shared account avatar: every page uses the signed-in user's uploaded image. */
+.profile-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 2px solid rgba(185, 95, 118, 0.28);
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
+  background: linear-gradient(145deg, #d88ba0, #a95068);
+  color: white;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.profile-avatar-large {
+  width: 130px;
+  height: 130px;
+}
