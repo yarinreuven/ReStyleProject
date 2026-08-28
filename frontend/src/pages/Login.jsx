@@ -178,7 +178,7 @@ export default function Login() {
             <span>OR</span>
           </div>
 
-          <GoogleSignInButton onError={setGoogleError} />
+          <GoogleSignInButton intent="login" onError={setGoogleError} />
           {errors.google && <p className="google-error" role="alert">{errors.google}</p>}
         </form>
 

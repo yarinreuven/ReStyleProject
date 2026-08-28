@@ -25,3 +25,22 @@
 .settings-email-change > p { margin: 8px 0 22px; color: #777; font-size: 13px; line-height: 1.5; }
 .settings-email-actions { display: flex; align-items: center; gap: 14px; }
 .settings-email-actions > button:last-child { margin-top: 5px; border: 0; color: #a64f5e; background: transparent; font-weight: 700; cursor: pointer; }
+
+.settings-danger-zone { max-width: 590px; display: flex; gap: 16px; margin: 28px 0 24px; padding: 20px; border: 1px solid #e7aaaa; border-radius: 8px; background: #fff5f4; color: #8f2924; }
+.settings-danger-zone > i { margin-top: 3px; font-size: 22px; }
+.settings-danger-zone h3 { margin: 0 0 8px; font: 700 19px Georgia, serif; }
+.settings-danger-zone p { margin: 0; color: #6f4542; font-size: 14px; line-height: 1.6; }
+.settings-delete-btn { min-height: 46px; padding: 0 22px; border: 0; border-radius: 4px; background: #b8322b; color: white; font-weight: 800; cursor: pointer; }
+.settings-delete-btn:hover { background: #98251f; }
+.settings-delete-btn:disabled { opacity: .45; cursor: not-allowed; }
+.settings-delete-overlay { position: fixed; inset: 0; z-index: 1200; display: grid; place-items: center; padding: 20px; background: rgba(42, 27, 31, .55); backdrop-filter: blur(4px); }
+.settings-delete-dialog { width: min(520px, 100%); padding: 34px; border-radius: 22px; background: white; box-shadow: 0 24px 70px rgba(42, 27, 31, .28); text-align: center; }
+.settings-delete-dialog-icon { width: 58px; height: 58px; display: grid; place-items: center; margin: 0 auto 18px; border-radius: 50%; background: #fff0ee; color: #b8322b; font-size: 25px; }
+.settings-delete-dialog h2 { margin: 0 0 14px; font: 700 28px Georgia, serif; color: #3b3033; }
+.settings-delete-dialog p { margin: 0; color: #745f64; line-height: 1.65; }
+.settings-delete-dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 28px; }
+.settings-delete-dialog-actions button { min-height: 46px; padding: 0 16px; border-radius: 5px; font-weight: 800; cursor: pointer; }
+.settings-delete-dialog-actions button:first-child { border: 1px solid #d8c9cc; background: white; color: #594a4e; }
+.settings-delete-dialog-actions button:last-child { border: 0; background: #b8322b; color: white; }
+.settings-delete-dialog-actions button:disabled { opacity: .55; cursor: not-allowed; }
+@media(max-width:560px){.settings-delete-dialog{padding:26px 20px}.settings-delete-dialog-actions{grid-template-columns:1fr}.settings-delete-dialog h2{font-size:24px}}

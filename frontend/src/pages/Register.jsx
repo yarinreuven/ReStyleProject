@@ -408,7 +408,7 @@ export default function Register() {
             <span>OR</span>
           </div>
 
-          <GoogleSignInButton onError={setGoogleError} />
+          <GoogleSignInButton intent="register" onError={setGoogleError} />
           {errors.google && <p className="google-error" role="alert">{errors.google}</p>}
         </form>
 

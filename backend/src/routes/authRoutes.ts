@@ -6,6 +6,7 @@ import {
   changePassword,
   confirmEmailChange,
   deleteProfileImage,
+  deleteCurrentUser,
   deleteVirtualModelImage,
   forgotPassword,
   getCurrentUser,
@@ -101,6 +102,12 @@ router.put(
   authenticateToken,
   validate(updateProfileSchema),
   updateCurrentUser
+);
+
+router.delete(
+  "/me",
+  authenticateToken,
+  deleteCurrentUser
 );
 
 router.put(

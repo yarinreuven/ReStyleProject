@@ -8,8 +8,30 @@ import User from "../models/User.ts";
 import type { AuthRequest } from "../middleware/auth.ts";
 import { sendEmailChangeCode, sendPasswordResetEmail } from "../services/emailService.ts";
 import { uploadedAvatarValidationError } from "../services/tryOnValidationService.ts";
+import { deleteUserAccountData } from "../services/accountDeletionService.ts";
 
 const googleClient = new OAuth2Client();
+
+export async function deleteCurrentUser(
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    if (req.body.confirmation !== "DELETE") {
+      res.status(400).json({ success: false, message: "Type DELETE to confirm account deletion" });
+      return;
+    }
+    await deleteUserAccountData(req.userId!);
+    res.status(204).send();
+  } catch (error) {
+    if (error instanceof Error && error.message === "ACCOUNT_NOT_FOUND") {
+      res.status(404).json({ success: false, message: "Account not found" });
+      return;
+    }
+    next(error);
+  }
+}
 
 function createToken(userId: string, email: string) {
   const jwtSecret = process.env.JWT_SECRET;
@@ -727,6 +749,10 @@ export async function googleAuth(
     });
 
     if (user) {
+      if (req.body.intent === "register") {
+        res.status(409).json({ success: false, message: "An account with this email already exists" });
+        return;
+      }
       if (user.googleId && user.googleId !== payload.sub) {
         res.status(409).json({
           success: false,
@@ -740,6 +766,10 @@ export async function googleAuth(
         await user.save();
       }
     } else {
+      if (req.body.intent === "login") {
+        res.status(404).json({ success: false, code: "ACCOUNT_NOT_FOUND", message: "No account exists for this Google email. Please register first." });
+        return;
+      }
       const firstName = (payload.given_name || payload.name || "ReStyle").trim().slice(0, 50);
       const lastName = (payload.family_name || "Member").trim().slice(0, 50);
       const generatedPassword = await bcrypt.hash(

@@ -25,7 +25,7 @@ function loadGoogleScript() {
   });
 }
 
-export default function GoogleSignInButton({ onError }) {
+export default function GoogleSignInButton({ intent, onError }) {
   const buttonRef = useRef(null);
   const navigate = useNavigate();
   const { login } = useAuth();
@@ -49,7 +49,7 @@ export default function GoogleSignInButton({ onError }) {
             onError?.("");
             const { data } = await axios.post(
               "http://localhost:3001/api/auth/google",
-              { credential }
+              { credential, intent }
             );
             login(data.token, data.user);
             navigate("/closet", { replace: true });
@@ -76,7 +76,7 @@ export default function GoogleSignInButton({ onError }) {
     });
 
     return () => { active = false; };
-  }, [clientId, login, navigate, onError]);
+  }, [clientId, intent, login, navigate, onError]);
 
   return <div className="google-signin-wrap">
     {isLoading && <span className="google-signin-loading">Loading Google sign-in...</span>}

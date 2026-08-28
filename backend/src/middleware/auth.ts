@@ -4,6 +4,7 @@ import type {
     Response
   } from "express";
   import jwt from "jsonwebtoken";
+  import User from "../models/User.ts";
   
   export interface AuthRequest extends Request {
     userId?: string;
@@ -14,7 +15,7 @@ import type {
     email: string;
   }
   
-  export function authenticateToken(
+  export async function authenticateToken(
     req: AuthRequest,
     res: Response,
     next: NextFunction
@@ -47,6 +48,13 @@ import type {
       ) as TokenPayload;
   
       req.userId = payload.userId;
+      if (!await User.exists({ _id: payload.userId })) {
+        res.status(401).json({
+          success: false,
+          message: "Invalid or expired token"
+        });
+        return;
+      }
       next();
     } catch {
       res.status(401).json({

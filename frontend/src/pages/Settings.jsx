@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import ProfileAvatar from "../components/ProfileAvatar";
 import usePageStyles from "../hooks/usePageStyles";
 import { useAuth } from "../context/AuthContext";
@@ -9,15 +9,17 @@ const AUTH_URL = "http://localhost:3001/api/auth";
 const sections = [
   { id: "profile", label: "Personal Information", icon: "fa-regular fa-user" },
   { id: "password", label: "Password & Security", icon: "fa-solid fa-lock" },
-  { id: "blocked", label: "Blocked Users", icon: "fa-solid fa-user-slash" }
+  { id: "blocked", label: "Blocked Users", icon: "fa-solid fa-user-slash" },
+  { id: "delete", label: "Delete Account", icon: "fa-regular fa-trash-can" }
 ];
 
 export default function Settings() {
   usePageStyles("settings.css");
   usePageStyles("settings-fields.css");
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, token, logout, updateUser } = useAuth();
-  const [activeSection, setActiveSection] = useState("profile");
+  const [activeSection, setActiveSection] = useState(() => searchParams.get("section") === "delete" ? "delete" : "profile");
   const [profileForm, setProfileForm] = useState({ firstName: "", lastName: "", email: "", gender: "unspecified" });
   const [emailCode, setEmailCode] = useState("");
   const [emailVerificationPending, setEmailVerificationPending] = useState(false);
@@ -34,6 +36,8 @@ export default function Settings() {
   const [isSaving, setIsSaving] = useState(false);
   const [blockedUsers, setBlockedUsers] = useState([]);
   const [isLoadingBlocked, setIsLoadingBlocked] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   useEffect(() => {
     setProfileForm({
@@ -204,6 +208,27 @@ export default function Settings() {
     }
   }
 
+  async function deleteAccount() {
+    try {
+      setIsDeletingAccount(true);
+      setRequestError("");
+      await axios.delete(`${AUTH_URL}/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+        data: { confirmation: "DELETE" }
+      });
+      const userId = user.id || user._id;
+      if (userId) sessionStorage.removeItem(`restyle:outfit-builder:${userId}`);
+      logout();
+      navigate("/register", { replace: true });
+    } catch (error) {
+      setDeleteDialogOpen(false);
+      if (error.response?.status === 401) logout();
+      else setRequestError(error.response?.data?.message || "Could not delete your account. Nothing was deleted from the browser.");
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  }
+
   if (!user || !token) return null;
 
   return (
@@ -277,8 +302,37 @@ export default function Settings() {
               ))}</div>
             )}
           </>}
+
+          {activeSection === "delete" && <>
+            <header><h2>Delete Account</h2><p>Permanently remove your ReStyle account and its associated data.</p></header>
+            <section className="settings-danger-zone">
+              <i className="fa-solid fa-triangle-exclamation" aria-hidden="true" />
+              <div>
+                <h3>This action cannot be undone</h3>
+                <p>Your wardrobe items and images, saved looks, virtual try-ons, Studio projects, favorites, conversations, payment records and account profile will be permanently deleted.</p>
+              </div>
+            </section>
+            <Feedback error={requestError} />
+            <button className="settings-delete-btn" type="button" disabled={isDeletingAccount} onClick={() => { setRequestError(""); setDeleteDialogOpen(true); }}>
+              Delete My Account
+            </button>
+          </>}
         </section>
       </section>
+
+      {deleteDialogOpen && (
+        <div className="settings-delete-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !isDeletingAccount) setDeleteDialogOpen(false); }}>
+          <section className="settings-delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="delete-account-title" aria-describedby="delete-account-description">
+            <div className="settings-delete-dialog-icon"><i className="fa-solid fa-triangle-exclamation" /></div>
+            <h2 id="delete-account-title">Are you sure you want to delete your account?</h2>
+            <p id="delete-account-description">Once your account is deleted, everything you uploaded—including wardrobe images, saved looks, Studio projects and conversations—will be permanently deleted. This action cannot be undone.</p>
+            <div className="settings-delete-dialog-actions">
+              <button type="button" disabled={isDeletingAccount} onClick={() => setDeleteDialogOpen(false)}>No, keep my account</button>
+              <button type="button" disabled={isDeletingAccount} onClick={deleteAccount}>{isDeletingAccount ? "Deleting..." : "Yes, delete my account"}</button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
