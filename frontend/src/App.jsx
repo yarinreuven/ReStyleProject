@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import MarketplaceChat from "./components/MarketplaceChat";
 import ProtectedRoute from "./components/ProtectedRoute";
+import SiteFooter from "./components/SiteFooter";
 import { useAuth } from "./context/AuthContext";
 
 const Home = lazy(() => import("./pages/Home"));
@@ -20,6 +21,9 @@ const MarketplaceFavorites = lazy(() => import("./pages/MarketplaceFavorites"));
 const MarketplaceItemDetails = lazy(() => import("./pages/MarketplaceItemDetails"));
 const MarketplaceSellerProfile = lazy(() => import("./pages/MarketplaceSellerProfile"));
 const Messages = lazy(() => import("./pages/Messages"));
+const About = lazy(() => import("./pages/About"));
+const Contact = lazy(() => import("./pages/Contact"));
+const Terms = lazy(() => import("./pages/Terms"));
 
 function PageLoader() {
   return (
@@ -32,7 +36,7 @@ function PageLoader() {
 function RealtimeChatLayer() {
   const location = useLocation();
   const { user, token, isAuthenticated, isAuthLoading } = useAuth();
-  const publicPaths = ["/login", "/register", "/forgot-password", "/reset-password"];
+  const publicPaths = ["/login", "/register", "/forgot-password", "/reset-password", "/about", "/contact", "/terms"];
 
   if (isAuthLoading || !isAuthenticated || publicPaths.includes(location.pathname)) return null;
 
@@ -56,6 +60,9 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/terms" element={<Terms />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/closet" element={<MyCloset />} />
             <Route path="/profile" element={<Profile />} />
@@ -73,6 +80,7 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
+      <SiteFooter />
     </BrowserRouter>
   );
 }

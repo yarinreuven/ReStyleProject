@@ -390,7 +390,8 @@ export async function register(
       email,
       password,
       language,
-      gender
+      gender,
+      termsAccepted
     } = req.body;
 
     const existingUser = await User.findOne({ email });
@@ -412,6 +413,7 @@ export async function register(
       password: hashedPassword,
       language,
       gender,
+      termsAcceptedAt: termsAccepted ? new Date() : null,
       profileImage: req.file
         ? {
             data: req.file.buffer,
@@ -804,7 +806,8 @@ export async function googleAuth(
         email,
         password: generatedPassword,
         language: "en",
-        gender: "unspecified"
+        gender: "unspecified",
+        termsAcceptedAt: new Date()
       });
     }
 

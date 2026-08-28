@@ -62,6 +62,16 @@ export const registerSchema = Joi.object({
       "any.only": "Please select Female or Male",
       "any.required": "Gender is required",
       "string.empty": "Gender is required"
+    }),
+
+  termsAccepted: Joi.boolean()
+    .truthy("true")
+    .falsy("false")
+    .valid(true)
+    .required()
+    .messages({
+      "any.only": "You must agree to the Terms of Service",
+      "any.required": "You must agree to the Terms of Service"
     })
 });
 
@@ -88,7 +98,15 @@ export const googleAuthSchema = Joi.object({
     "string.empty": "Google credential is required",
     "string.min": "Google credential is invalid"
   }),
-  intent: Joi.string().valid("login", "register").required()
+  intent: Joi.string().valid("login", "register").required(),
+  termsAccepted: Joi.when("intent", {
+    is: "register",
+    then: Joi.boolean().valid(true).required().messages({
+      "any.only": "You must agree to the Terms of Service",
+      "any.required": "You must agree to the Terms of Service"
+    }),
+    otherwise: Joi.forbidden()
+  })
 });
 
 export const updateProfileSchema = Joi.object({

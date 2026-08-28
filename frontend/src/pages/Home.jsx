@@ -101,7 +101,6 @@ export default function Home() {
         <Link to={user ? "/restyle-studio" : "/login"} className="feature-card"><i className="fa-solid fa-recycle icon" /><h4>ReStyle Studio</h4><p>Discover tutorials and clothing transformation ideas.</p></Link>
       </section>
 
-      <footer><a href="#contact">Contact Us</a><span>|</span><a href="#privacy">Privacy Policy</a><span>|</span><a href="#terms">Terms of Service</a></footer>
     </>
   );
 }

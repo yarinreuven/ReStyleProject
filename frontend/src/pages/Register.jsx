@@ -27,6 +27,8 @@ export default function Register() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [profileImage, setProfileImage] = useState(null);
   const [profilePreview, setProfilePreview] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsOpen, setTermsOpen] = useState(false);
   const setGoogleError = useCallback((message) => {
     setErrors((current) => ({ ...current, google: message }));
   }, []);
@@ -159,6 +161,10 @@ export default function Register() {
       nextErrors.gender = "Please select your gender";
     }
 
+    if (!termsAccepted) {
+      nextErrors.termsAccepted = "You must agree to the Terms of Service";
+    }
+
     setErrors(nextErrors);
 
     if (Object.keys(nextErrors).length > 0) {
@@ -177,6 +183,7 @@ export default function Register() {
       body.append("confirmPassword", values.confirmPassword);
       body.append("language", "en");
       body.append("gender", values.gender);
+      body.append("termsAccepted", "true");
 
       if (profileImage) {
         body.append("profileImage", profileImage);
@@ -395,6 +402,22 @@ export default function Register() {
             </p>
           </div>
 
+          <div className={`terms-consent${errors.termsAccepted ? " terms-consent-error" : ""}`}>
+            <label>
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(event) => {
+                  setTermsAccepted(event.target.checked);
+                  setErrors((current) => ({ ...current, termsAccepted: "", google: "" }));
+                }}
+              />
+              <span>I have read and agree to the</span>
+            </label>
+            <button type="button" onClick={() => setTermsOpen(true)}>Terms of Service</button>
+          </div>
+          <p className="error-message terms-error">{errors.termsAccepted || ""}</p>
+
           <button
             type="submit"
             className="register-btn"
@@ -409,7 +432,10 @@ export default function Register() {
             <span>OR</span>
           </div>
 
-          <GoogleSignInButton intent="register" onError={setGoogleError} />
+          <div className={!termsAccepted ? "google-terms-disabled" : ""}>
+            <GoogleSignInButton intent="register" termsAccepted={termsAccepted} onError={setGoogleError} />
+          </div>
+          {!termsAccepted && <p className="google-terms-help">Agree to the Terms of Service before registering with Google.</p>}
           {errors.google && <p className="google-error" role="alert">{errors.google}</p>}
         </form>
 
@@ -418,6 +444,26 @@ export default function Register() {
           <Link to="/login">Login</Link>
         </div>
       </div>
+
+      {termsOpen && (
+        <div className="terms-modal-backdrop" role="presentation" onMouseDown={() => setTermsOpen(false)}>
+          <section className="terms-modal" role="dialog" aria-modal="true" aria-labelledby="terms-modal-title" onMouseDown={(event) => event.stopPropagation()}>
+            <header><div><span>RESTYLE</span><h2 id="terms-modal-title">Terms of Service</h2></div><button type="button" aria-label="Close Terms of Service" onClick={() => setTermsOpen(false)}>×</button></header>
+            <div className="terms-modal-content">
+              <h3>A respectful and safe community</h3>
+              <p>By creating an account, you agree to provide accurate information, protect your account and use ReStyle responsibly.</p>
+              <h3>Marketplace behavior</h3>
+              <ul><li>Use respectful and appropriate language.</li><li>Do not harass, threaten, discriminate, spam or scam.</li><li>Describe listed items, their condition and price truthfully.</li><li>Do not list counterfeit, stolen, unsafe or unlawful items.</li><li>Respect other members’ privacy and report suspicious behavior.</li></ul>
+              <h3>AI features and uploaded content</h3>
+              <p>Virtual try-ons, item recognition and Studio ideas may be inaccurate and are provided as visual guidance. Upload only content you own or have permission to use.</p>
+              <h3>Account and enforcement</h3>
+              <p>ReStyle may remove content or restrict accounts that violate these rules. Account deletion is permanent and removes associated data as described in Settings.</p>
+              <p className="terms-modal-note">This window is a readable summary. The full terms remain available on the dedicated Terms of Service page.</p>
+            </div>
+            <footer><Link to="/terms" target="_blank" rel="noreferrer">Read the full Terms</Link><button type="button" onClick={() => { setTermsAccepted(true); setTermsOpen(false); setErrors((current) => ({ ...current, termsAccepted: "" })); }}>I Agree</button></footer>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

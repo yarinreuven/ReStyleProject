@@ -24,6 +24,15 @@ app.get("/", (req, res) => {
   res.send("ReStyle API is running");
 });
 
+app.get("/api/public/contact", (_req, res) => {
+  const email = process.env.SUPPORT_EMAIL?.trim() || process.env.EMAIL_FROM?.trim();
+  if (!email) {
+    res.status(503).json({ success: false, message: "Contact email is not configured" });
+    return;
+  }
+  res.json({ email });
+});
+
 app.use("/api/auth", authRoutes);
 app.use("/api/items", itemRoutes);
 app.use("/api/outfits", outfitRoutes);

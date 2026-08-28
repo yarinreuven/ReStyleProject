@@ -27,3 +27,33 @@ html, body, #root {
   width: 130px;
   height: 130px;
 }
+
+.site-footer {
+  min-height: 82px;
+  padding: 26px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  color: #b87589;
+  background: #f2dfe5;
+  border-top: 1px solid #dfbdc7;
+  font-family: "Segoe UI", sans-serif;
+}
+
+.site-footer a {
+  color: #634c54;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.site-footer a:hover {
+  color: #983f5a;
+  text-decoration: underline;
+}
+
+@media (max-width: 480px) {
+  .site-footer { gap: 11px; }
+  .site-footer a { font-size: 12px; }
+}

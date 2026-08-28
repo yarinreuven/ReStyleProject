@@ -45,6 +45,11 @@ const userSchema = new mongoose.Schema(
       default: "unspecified"
     },
 
+    termsAcceptedAt: {
+      type: Date,
+      default: null
+    },
+
     publicBio: {
       type: String,
       trim: true,

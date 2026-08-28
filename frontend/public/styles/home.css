@@ -210,26 +210,6 @@ body{
     line-height:1.6;
 }
 
-/* FOOTER */
-
-footer{
-    background:var(--dark);
-    height:70px;
-    display:flex;
-    justify-content:center;
-    align-items:center;
-    gap:15px;
-}
-
-footer a{
-    color:white;
-    text-decoration:none;
-}
-
-footer span{
-    color:white;
-}
-
 /* USER MENU */
 
 .user-area{
