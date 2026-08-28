@@ -184,7 +184,8 @@ export default function Register() {
 
       const { data } = await axios.post(
         "http://localhost:3001/api/auth/register",
-        body
+        body,
+        { withCredentials: true }
       );
 
       if (data.success) {

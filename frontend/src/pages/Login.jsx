@@ -78,7 +78,8 @@ export default function Login() {
         {
           email,
           password: values.password
-        }
+        },
+        { withCredentials: true }
       );
 
       if (data.success) {

@@ -2,37 +2,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 
-const AUTH_ME_URL = "http://localhost:3001/api/auth/me";
+const AUTH_URL = "http://localhost:3001/api/auth";
 const AuthContext = createContext(null);
-const bootstrapRequests = new Map();
-
-function readStoredUser() {
-  try {
-    return JSON.parse(localStorage.getItem("user"));
-  } catch {
-    localStorage.removeItem("user");
-    return null;
-  }
-}
-
-function getCurrentUser(token) {
-  if (!bootstrapRequests.has(token)) {
-    const request = axios.get(AUTH_ME_URL, {
-      headers: { Authorization: `Bearer ${token}` }
-    }).finally(() => {
-      window.setTimeout(() => bootstrapRequests.delete(token), 0);
-    });
-    bootstrapRequests.set(token, request);
-  }
-
-  return bootstrapRequests.get(token);
-}
 
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => localStorage.getItem("token"));
-  const [user, setUser] = useState(() => readStoredUser());
+  const [token, setToken] = useState(null);
+  const [user, setUser] = useState(null);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const skipNextTokenValidation = useRef(false);
+  const refreshPromiseRef = useRef(null);
 
   const clearAuthentication = useCallback(() => {
     setToken(null);
@@ -41,67 +18,78 @@ export function AuthProvider({ children }) {
     localStorage.removeItem("user");
   }, []);
 
+  const refreshAccessToken = useCallback(async () => {
+    if (!refreshPromiseRef.current) {
+      refreshPromiseRef.current = axios.post(`${AUTH_URL}/refresh`, {}, { withCredentials: true })
+        .then(({ data }) => {
+          setToken(data.token);
+          return data.token;
+        })
+        .finally(() => { refreshPromiseRef.current = null; });
+    }
+    return refreshPromiseRef.current;
+  }, []);
+
   useEffect(() => {
     let active = true;
-
-    if (skipNextTokenValidation.current) {
-      skipNextTokenValidation.current = false;
-      setIsAuthLoading(false);
-      return () => { active = false; };
-    }
-
-    if (!token) {
-      setUser(null);
-      setIsAuthLoading(false);
-      return () => { active = false; };
-    }
-
-    setIsAuthLoading(true);
-    getCurrentUser(token).then(({ data }) => {
-      if (!active) return;
-      setUser((currentUser) => ({ ...currentUser, ...data.user }));
-      localStorage.setItem("user", JSON.stringify({ ...readStoredUser(), ...data.user }));
-    }).catch((error) => {
-      if (!active) return;
-      if (error.response?.status === 401) clearAuthentication();
-      else setUser(null);
-    }).finally(() => {
-      if (active) setIsAuthLoading(false);
-    });
-
+    refreshAccessToken()
+      .then((nextToken) => axios.get(`${AUTH_URL}/me`, {
+        headers: { Authorization: `Bearer ${nextToken}` }
+      }))
+      .then(({ data }) => { if (active) setUser(data.user); })
+      .catch(() => { if (active) clearAuthentication(); })
+      .finally(() => { if (active) setIsAuthLoading(false); });
     return () => { active = false; };
-  }, [clearAuthentication, token]);
+  }, [clearAuthentication, refreshAccessToken]);
+
+  useEffect(() => {
+    const interceptor = axios.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const request = error.config;
+        const isAuthLifecycleRequest = request?.url?.includes("/api/auth/refresh") ||
+          request?.url?.includes("/api/auth/login") ||
+          request?.url?.includes("/api/auth/register") ||
+          request?.url?.includes("/api/auth/google") ||
+          request?.url?.includes("/api/auth/logout");
+        if (error.response?.status !== 401 || request?._restyleRetried || isAuthLifecycleRequest) {
+          return Promise.reject(error);
+        }
+        request._restyleRetried = true;
+        try {
+          const nextToken = await refreshAccessToken();
+          request.headers = { ...request.headers, Authorization: `Bearer ${nextToken}` };
+          return axios(request);
+        } catch (refreshError) {
+          clearAuthentication();
+          return Promise.reject(refreshError);
+        }
+      }
+    );
+    return () => axios.interceptors.response.eject(interceptor);
+  }, [clearAuthentication, refreshAccessToken]);
 
   const login = useCallback((nextToken, nextUser) => {
-    skipNextTokenValidation.current = true;
     setToken(nextToken);
     setUser(nextUser);
     setIsAuthLoading(false);
-    localStorage.setItem("token", nextToken);
-    localStorage.setItem("user", JSON.stringify(nextUser));
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
   }, []);
 
   const logout = useCallback(() => {
+    axios.post(`${AUTH_URL}/logout`, {}, { withCredentials: true }).catch(() => {});
     clearAuthentication();
     setIsAuthLoading(false);
   }, [clearAuthentication]);
 
   const updateUser = useCallback((updates) => {
-    setUser((currentUser) => {
-      const nextUser = { ...currentUser, ...updates };
-      localStorage.setItem("user", JSON.stringify(nextUser));
-      return nextUser;
-    });
+    setUser((currentUser) => ({ ...currentUser, ...updates }));
   }, []);
 
   const value = useMemo(() => ({
-    user,
-    token,
-    isAuthenticated: Boolean(user && token),
-    isAuthLoading,
-    login,
-    logout,
-    updateUser
+    user, token, isAuthenticated: Boolean(user && token), isAuthLoading,
+    login, logout, updateUser
   }), [isAuthLoading, login, logout, token, updateUser, user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
@@ -109,10 +97,6 @@ export function AuthProvider({ children }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-
-  if (!context) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-
+  if (!context) throw new Error("useAuth must be used within an AuthProvider");
   return context;
 }

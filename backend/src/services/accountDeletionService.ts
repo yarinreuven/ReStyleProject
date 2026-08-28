@@ -4,6 +4,7 @@ import MarketplaceFavorite from "../models/MarketplaceFavorite.ts";
 import OutfitSelection from "../models/OutfitSelection.ts";
 import PayPalPurchase from "../models/PayPalPurchase.ts";
 import RestyleProject from "../models/RestyleProject.ts";
+import RefreshSession from "../models/RefreshSession.ts";
 import TryOnResult from "../models/TryOnResult.ts";
 import User from "../models/User.ts";
 
@@ -23,6 +24,7 @@ export async function deleteUserAccountData(userId: string) {
     TryOnResult.deleteMany({ owner: userId }),
     RestyleProject.deleteMany({ owner: userId }),
     PayPalPurchase.deleteMany({ user: userId }),
+    RefreshSession.deleteMany({ user: userId }),
     MarketplaceFavorite.deleteMany(filters.favorites),
     Conversation.deleteMany(filters.conversations),
     User.updateMany({ blockedUsers: userId }, { $pull: { blockedUsers: userId } })

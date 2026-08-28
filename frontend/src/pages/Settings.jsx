@@ -182,11 +182,13 @@ export default function Settings() {
       setIsSaving(true);
       setMessage("");
       setRequestError("");
-      const { data } = await axios.put(`${AUTH_URL}/password`, passwordForm, {
-        headers: { Authorization: `Bearer ${token}` }
+      await axios.put(`${AUTH_URL}/password`, passwordForm, {
+        headers: { Authorization: `Bearer ${token}` },
+        withCredentials: true
       });
       setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-      setMessage(data.message);
+      logout();
+      navigate("/login", { replace: true });
     } catch (error) {
       if (error.response?.status === 401) logout();
       else setRequestError(error.response?.data?.message || "Could not update your password.");
@@ -214,7 +216,8 @@ export default function Settings() {
       setRequestError("");
       await axios.delete(`${AUTH_URL}/me`, {
         headers: { Authorization: `Bearer ${token}` },
-        data: { confirmation: "DELETE" }
+        data: { confirmation: "DELETE" },
+        withCredentials: true
       });
       const userId = user.id || user._id;
       if (userId) sessionStorage.removeItem(`restyle:outfit-builder:${userId}`);

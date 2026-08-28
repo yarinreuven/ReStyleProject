@@ -15,6 +15,8 @@ import {
   getBlockedUsers,
   googleAuth,
   login,
+  logoutCurrentUser,
+  refreshAccessToken,
   register,
   resetPassword,
   requestEmailChange,
@@ -72,6 +74,9 @@ router.post(
   validate(loginSchema),
   login
 );
+
+router.post("/refresh", refreshAccessToken);
+router.post("/logout", logoutCurrentUser);
 
 router.post(
   "/google",

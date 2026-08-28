@@ -1,6 +1,5 @@
 import type { NextFunction, Request, Response } from "express";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import sharp from "sharp";
 import { OAuth2Client } from "google-auth-library";
@@ -9,8 +8,46 @@ import type { AuthRequest } from "../middleware/auth.ts";
 import { sendEmailChangeCode, sendPasswordResetEmail } from "../services/emailService.ts";
 import { uploadedAvatarValidationError } from "../services/tryOnValidationService.ts";
 import { deleteUserAccountData } from "../services/accountDeletionService.ts";
+import {
+  clearRefreshCookie,
+  consumeRefreshSession,
+  issueAuthSession,
+  revokeAllRefreshSessions,
+  revokeRefreshSession
+} from "../services/authTokenService.ts";
 
 const googleClient = new OAuth2Client();
+
+export async function refreshAccessToken(req: Request, res: Response, next: NextFunction) {
+  try {
+    const session = await consumeRefreshSession(req);
+    if (!session) {
+      clearRefreshCookie(res);
+      res.status(401).json({ success: false, message: "Your session has expired. Please log in again." });
+      return;
+    }
+    const user = await User.findById(session.user).select("email");
+    if (!user) {
+      clearRefreshCookie(res);
+      res.status(401).json({ success: false, message: "Your session has expired. Please log in again." });
+      return;
+    }
+    const token = await issueAuthSession(user, res);
+    res.json({ success: true, token });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function logoutCurrentUser(req: Request, res: Response, next: NextFunction) {
+  try {
+    await revokeRefreshSession(req);
+    clearRefreshCookie(res);
+    res.status(204).send();
+  } catch (error) {
+    next(error);
+  }
+}
 
 export async function deleteCurrentUser(
   req: AuthRequest,
@@ -23,6 +60,7 @@ export async function deleteCurrentUser(
       return;
     }
     await deleteUserAccountData(req.userId!);
+    clearRefreshCookie(res);
     res.status(204).send();
   } catch (error) {
     if (error instanceof Error && error.message === "ACCOUNT_NOT_FOUND") {
@@ -31,20 +69,6 @@ export async function deleteCurrentUser(
     }
     next(error);
   }
-}
-
-function createToken(userId: string, email: string) {
-  const jwtSecret = process.env.JWT_SECRET;
-
-  if (!jwtSecret) {
-    throw new Error("JWT_SECRET is missing");
-  }
-
-  return jwt.sign(
-    { userId, email },
-    jwtSecret,
-    { expiresIn: "7d" }
-  );
 }
 
 export async function getCurrentUser(
@@ -262,8 +286,10 @@ export async function changePassword(
 
     user.password = await bcrypt.hash(req.body.newPassword, 10);
     await user.save();
+    await revokeAllRefreshSessions(user._id.toString());
+    clearRefreshCookie(res);
 
-    res.json({ success: true, message: "Password updated successfully" });
+    res.json({ success: true, message: "Password updated successfully. Please log in again." });
   } catch (error) {
     next(error);
   }
@@ -394,10 +420,7 @@ export async function register(
         : undefined
     });
 
-    const token = createToken(
-      newUser._id.toString(),
-      newUser.email
-    );
+    const token = await issueAuthSession(newUser, res);
 
     res.status(201).json({
       success: true,
@@ -693,10 +716,7 @@ export async function login(
       return;
     }
 
-    const token = createToken(
-      user._id.toString(),
-      user.email
-    );
+    const token = await issueAuthSession(user, res);
 
     res.status(200).json({
       success: true,
@@ -788,7 +808,7 @@ export async function googleAuth(
       });
     }
 
-    const token = createToken(user._id.toString(), user.email);
+    const token = await issueAuthSession(user, res);
 
     res.json({
       success: true,
@@ -906,6 +926,7 @@ export async function resetPassword(
     user.passwordResetTokenHash = null;
     user.passwordResetExpiresAt = null;
     await user.save();
+    await revokeAllRefreshSessions(user._id.toString());
 
     res.json({
       success: true,

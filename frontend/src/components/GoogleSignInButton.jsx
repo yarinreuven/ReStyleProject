@@ -49,7 +49,8 @@ export default function GoogleSignInButton({ intent, onError }) {
             onError?.("");
             const { data } = await axios.post(
               "http://localhost:3001/api/auth/google",
-              { credential, intent }
+              { credential, intent },
+              { withCredentials: true }
             );
             login(data.token, data.user);
             navigate("/closet", { replace: true });
