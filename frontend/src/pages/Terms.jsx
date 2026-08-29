@@ -17,7 +17,6 @@ export default function Terms() {
         <span className="info-eyebrow">CLEAR RULES FOR A RESPECTFUL COMMUNITY</span>
         <h1>Terms of Service</h1>
         <p>These terms explain the basic rules for using ReStyle, protecting your account and participating safely and respectfully in the Marketplace.</p>
-        <span className="terms-meta">Effective August 28, 2026</span>
       </header>
 
       <section className="community-promise">
@@ -42,7 +41,7 @@ export default function Terms() {
           <section className="terms-section" id="content"><h2>6. Your content</h2><p>You keep ownership of photos and content you upload. You give ReStyle permission to store, process and display that content only as needed to provide and operate the features you use. Upload only content you own or are permitted to use, and do not upload another person’s image without permission.</p></section>
           <section className="terms-section" id="enforcement"><h2>7. Safety and enforcement</h2><p>We may review reports and remove content, restrict features, suspend an account or permanently close an account when reasonably necessary to protect members, enforce these Terms, prevent fraud or comply with law. Serious or repeated violations may lead to immediate action.</p></section>
           <section className="terms-section" id="deletion"><h2>8. Account deletion</h2><p>You can request permanent account deletion from Settings. Deletion removes the account and associated data described on that screen and cannot be undone. Some limited records may need to be retained where required for security, dispute handling or legal compliance.</p></section>
-          <section className="terms-section" id="changes"><h2>9. Changes and contact</h2><p>We may update these Terms when ReStyle features or legal requirements change. The effective date above will be updated when a new version applies. For questions, support or reports, visit the <Link to="/contact">Contact page</Link>.</p></section>
+          <section className="terms-section" id="changes"><h2>9. Changes and contact</h2><p>We may update these Terms when ReStyle features or legal requirements change. For questions, support or reports, visit the <Link to="/contact">Contact page</Link>.</p></section>
         </article>
       </div>
     </main>
