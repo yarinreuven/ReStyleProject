@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { normalizeAnalyzedWardrobeItem } from "./geminiStylistValidationService.ts";
+import {
+  isPersonalAvatarAcceptable,
+  normalizeAnalyzedWardrobeItem
+} from "./geminiStylistValidationService.ts";
 import { outfitCohesionValidationError } from "./outfitSelectionService.ts";
 
 const itemId = "507f1f77bcf86cd799439011";
@@ -59,6 +62,34 @@ test("normalizes plural categories", () => {
   }, candidateIds);
 
   assert.equal(result?.detectedCategory, "Dress");
+});
+
+test("does not reject a full-body avatar only because the face is small in frame", () => {
+  assert.equal(isPersonalAvatarAcceptable({
+    valid: false,
+    singlePerson: true,
+    fullBodyVisible: true,
+    frontFacing: true,
+    faceClear: false
+  }), true);
+});
+
+test("still rejects cropped, side-facing and group avatar photos", () => {
+  assert.equal(isPersonalAvatarAcceptable({
+    singlePerson: true,
+    fullBodyVisible: false,
+    frontFacing: true
+  }), false);
+  assert.equal(isPersonalAvatarAcceptable({
+    singlePerson: true,
+    fullBodyVisible: true,
+    frontFacing: false
+  }), false);
+  assert.equal(isPersonalAvatarAcceptable({
+    singlePerson: false,
+    fullBodyVisible: true,
+    frontFacing: true
+  }), false);
 });
 
 test("requires the complete look to pass every cohesion check", () => {

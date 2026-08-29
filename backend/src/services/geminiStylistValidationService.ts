@@ -13,6 +13,20 @@ export interface AnalyzedWardrobeItem {
   visualDescription: string;
 }
 
+interface AvatarValidationResult {
+  singlePerson?: unknown;
+  fullBodyVisible?: unknown;
+  frontFacing?: unknown;
+}
+
+export function isPersonalAvatarAcceptable(value: unknown) {
+  if (!value || typeof value !== "object") return false;
+  const validation = value as AvatarValidationResult;
+  return validation.singlePerson === true &&
+    validation.fullBodyVisible === true &&
+    validation.frontFacing === true;
+}
+
 const NORMALIZED_CATEGORIES = new Map<string, DetectedCategory | "None">([
   ["dress", "Dress"],
   ["dresses", "Dress"],

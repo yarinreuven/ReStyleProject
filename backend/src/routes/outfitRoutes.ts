@@ -24,6 +24,7 @@ import {
   GeminiTryOnServiceError
 } from "../services/geminiTryOnService.ts";
 import {
+  isPersonalAvatarAcceptable,
   normalizeAnalyzedWardrobeItem,
   normalizeGeminiCategory,
   type AnalyzedWardrobeItem
@@ -764,18 +765,12 @@ router.post(
         return;
       }
 
-      if (value.avatarSource === "personal" && (
-        !aiSuggestion.avatarValidation ||
-        !aiSuggestion.avatarValidation.valid ||
-        !aiSuggestion.avatarValidation.singlePerson ||
-        !aiSuggestion.avatarValidation.fullBodyVisible ||
-        !aiSuggestion.avatarValidation.frontFacing ||
-        !aiSuggestion.avatarValidation.faceClear
-      )) {
+      if (value.avatarSource === "personal" &&
+        !isPersonalAvatarAcceptable(aiSuggestion.avatarValidation)) {
         res.status(422).json({
           success: false,
           code: "VIRTUAL_MODEL_PHOTO_UNSUITABLE",
-          message: "Your digital model photo is not suitable for virtual try-on. Replace it with a clear, well-lit, front-facing photo of one person standing with the full body visible from head to both feet."
+          message: "Your digital model photo must show one front-facing person with the full body visible from head to both feet."
         });
         return;
       }
