@@ -1,10 +1,7 @@
 import mongoose from "mongoose";
-import dotenv from "dotenv";
 import { createServer } from "http";
 import app from "./app.ts";
 import { initializeSocketServer } from "./services/socketService.ts";
-
-dotenv.config();
 
 const PORT = process.env.PORT || 3001;
 const MONGO_URI = process.env.MONGO_URI;
@@ -26,4 +23,5 @@ mongoose
   })
   .catch((err) => {
     console.error("MongoDB connection failed:", err);
+    process.exit(1);
   });
