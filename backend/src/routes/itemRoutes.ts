@@ -2,6 +2,15 @@ import express from "express";
 import multer from "multer";
 
 import Item from "../models/Item.ts";
+import { validate, validateParams } from "../middleware/validate.ts";
+import {
+  createItemSchema,
+  itemIdParamsSchema,
+  requiredWearDateSchema,
+  updateFavoriteSchema,
+  updateItemSchema,
+  wearDateSchema
+} from "../validation/itemValidation.ts";
 import { validateWardrobeImage } from "../services/wardrobeImageService.ts";
 import {
   authenticateToken,
@@ -40,6 +49,7 @@ const upload = multer({
 router.post(
   "/",
   upload.single("image"),
+  validate(createItemSchema),
   async (req: AuthRequest, res, next) => {
     try {
       const {
@@ -170,6 +180,8 @@ router.get(
 
 router.put(
   "/:id/favorite",
+  validateParams(itemIdParamsSchema),
+  validate(updateFavoriteSchema),
   async (req: AuthRequest, res, next) => {
     try {
       const { favorite } = req.body;
@@ -211,6 +223,8 @@ router.put(
 
 router.put(
   "/:id/worn",
+  validateParams(itemIdParamsSchema),
+  validate(wearDateSchema),
   async (req: AuthRequest, res, next) => {
     try {
       const selectedDate = req.body.date
@@ -280,6 +294,8 @@ router.put(
 
 router.delete(
   "/:id/worn",
+  validateParams(itemIdParamsSchema),
+  validate(requiredWearDateSchema),
   async (req: AuthRequest, res, next) => {
     try {
       const { date } = req.body;
@@ -337,6 +353,18 @@ router.delete(
 router.put(
   "/:id",
   upload.single("image"),
+  validateParams(itemIdParamsSchema),
+  validate(updateItemSchema),
+  (req, res, next) => {
+    if (!req.file && Object.keys(req.body).length === 0) {
+      res.status(400).json({
+        success: false,
+        message: "Provide at least one item field or a new image"
+      });
+      return;
+    }
+    next();
+  },
   async (req: AuthRequest, res, next) => {
     try {
       const { id } = req.params;
@@ -441,6 +469,7 @@ router.put(
 
 router.delete(
   "/:id",
+  validateParams(itemIdParamsSchema),
   async (req: AuthRequest, res, next) => {
     try {
       const { id } = req.params;
