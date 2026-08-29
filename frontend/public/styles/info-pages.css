@@ -195,6 +195,7 @@ body { margin: 0; }
 
 .terms-hero { max-width: 920px; margin: 80px auto 58px; padding: 0 28px; text-align: center; }
 .terms-hero p { max-width: 720px; margin: 0 auto; color: var(--info-muted); font-size: 18px; line-height: 1.7; }
+.terms-hero .info-primary-link { margin-top: 30px; }
 .terms-meta { display: inline-flex; margin-top: 22px; padding: 8px 14px; color: var(--info-rose-dark); background: var(--info-blush); border-radius: 999px; font-size: 13px; font-weight: 700; }
 .community-promise { max-width: 1120px; margin: 0 auto 44px; padding: 34px 38px; display: grid; grid-template-columns: auto 1fr; gap: 22px; background: #f1f7f3; border: 1px solid #cfe2d7; border-radius: 22px; }
 .community-promise i { width: 54px; height: 54px; display: grid; place-items: center; color: var(--info-green); background: white; border-radius: 50%; font-size: 22px; }
