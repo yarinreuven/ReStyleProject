@@ -12,6 +12,7 @@ import marketplaceFavoriteRoutes from "./routes/marketplaceFavoriteRoutes.ts";
 import messageRoutes from "./routes/messageRoutes.ts";
 import restyleProjectRoutes from "./routes/restyleProjectRoutes.ts";
 import { errorHandler } from "./middleware/errorHandler.ts";
+import { apiRateLimit } from "./middleware/apiRateLimit.ts";
 import { getAllowedOrigins } from "./services/socketService.ts";
 
 const app = express();
@@ -24,6 +25,8 @@ app.use(express.urlencoded({ extended: true, limit: "7mb" }));
 app.get("/", (req, res) => {
   res.send("ReStyle API is running");
 });
+
+app.use("/api", apiRateLimit);
 
 app.get("/api/public/contact", (_req, res) => {
   const email = process.env.SUPPORT_EMAIL?.trim() || process.env.EMAIL_FROM?.trim();

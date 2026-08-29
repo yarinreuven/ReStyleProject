@@ -26,6 +26,7 @@ import {
   updateVirtualModelImage
 } from "../controllers/authController.ts";
 import { authenticateToken } from "../middleware/auth.ts";
+import { authRateLimit } from "../middleware/apiRateLimit.ts";
 import { validate } from "../middleware/validate.ts";
 import {
   changePasswordSchema,
@@ -64,6 +65,7 @@ const upload = multer({
 
 router.post(
   "/register",
+  authRateLimit,
   upload.single("profileImage"),
   validate(registerSchema),
   register
@@ -71,6 +73,7 @@ router.post(
 
 router.post(
   "/login",
+  authRateLimit,
   validate(loginSchema),
   login
 );
@@ -80,18 +83,21 @@ router.post("/logout", logoutCurrentUser);
 
 router.post(
   "/google",
+  authRateLimit,
   validate(googleAuthSchema),
   googleAuth
 );
 
 router.post(
   "/forgot-password",
+  authRateLimit,
   validate(forgotPasswordSchema),
   forgotPassword
 );
 
 router.post(
   "/reset-password",
+  authRateLimit,
   validate(resetPasswordSchema),
   resetPassword
 );
