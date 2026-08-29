@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../config/api";
 
 const PROFILE_IMAGE_URL =
-  "http://localhost:3001/api/auth/profile-image";
+  `${API_BASE_URL}/auth/profile-image`;
 
 export default function ProfileAvatar({ token, user, size = "normal" }) {
   const [imageUrl, setImageUrl] = useState("");

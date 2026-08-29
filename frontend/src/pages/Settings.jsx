@@ -4,8 +4,9 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import ProfileAvatar from "../components/ProfileAvatar";
 import usePageStyles from "../hooks/usePageStyles";
 import { useAuth } from "../context/AuthContext";
+import { API_BASE_URL } from "../config/api";
 
-const AUTH_URL = "http://localhost:3001/api/auth";
+const AUTH_URL = `${API_BASE_URL}/auth`;
 const sections = [
   { id: "profile", label: "Personal Information", icon: "fa-regular fa-user" },
   { id: "password", label: "Password & Security", icon: "fa-solid fa-lock" },

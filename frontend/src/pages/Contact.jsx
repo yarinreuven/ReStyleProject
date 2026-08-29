@@ -3,8 +3,9 @@ import axios from "axios";
 import { Link } from "react-router-dom";
 import usePageStyles from "../hooks/usePageStyles";
 import InformationHeader from "../components/InformationHeader";
+import { API_BASE_URL } from "../config/api";
 
-const CONTACT_URL = "http://localhost:3001/api/public/contact";
+const CONTACT_URL = `${API_BASE_URL}/public/contact`;
 
 export default function Contact() {
   usePageStyles("info-pages.css");

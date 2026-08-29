@@ -5,6 +5,7 @@ import HangerBrand from "../components/HangerBrand";
 import { useAuth } from "../context/AuthContext";
 import usePageStyles from "../hooks/usePageStyles";
 import GoogleSignInButton from "../components/GoogleSignInButton";
+import { API_BASE_URL } from "../config/api";
 
 const initialValues = {
   firstName: "",
@@ -190,7 +191,7 @@ export default function Register() {
       }
 
       const { data } = await axios.post(
-        "http://localhost:3001/api/auth/register",
+        `${API_BASE_URL}/auth/register`,
         body,
         { withCredentials: true }
       );

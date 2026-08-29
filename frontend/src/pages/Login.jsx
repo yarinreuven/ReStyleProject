@@ -8,6 +8,7 @@ import HangerBrand from "../components/HangerBrand";
 import { useAuth } from "../context/AuthContext";
 import usePageStyles from "../hooks/usePageStyles";
 import GoogleSignInButton from "../components/GoogleSignInButton";
+import { API_BASE_URL } from "../config/api";
 
 const initialValues = {
   email: "",
@@ -74,7 +75,7 @@ export default function Login() {
       setIsSubmitting(true);
 
       const { data } = await axios.post(
-        "http://localhost:3001/api/auth/login",
+        `${API_BASE_URL}/auth/login`,
         {
           email,
           password: values.password

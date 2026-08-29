@@ -4,8 +4,9 @@ import { useNavigate, useParams } from "react-router-dom";
 import ProfileAvatar from "../components/ProfileAvatar";
 import usePageStyles from "../hooks/usePageStyles";
 import { useAuth } from "../context/AuthContext";
+import { API_BASE_URL } from "../config/api";
 
-const API_URL = "http://localhost:3001/api/messages";
+const API_URL = `${API_BASE_URL}/messages`;
 
 function formatTime(value) {
   if (!value) return "";

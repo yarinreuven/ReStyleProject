@@ -1,8 +1,9 @@
 /* oxlint-disable react/only-export-components -- The provider and its hook form one Context API module. */
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../config/api";
 
-const AUTH_URL = "http://localhost:3001/api/auth";
+const AUTH_URL = `${API_BASE_URL}/auth`;
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {

@@ -5,13 +5,14 @@ import usePageStyles from "../hooks/usePageStyles";
 import { useAuth } from "../context/AuthContext";
 import ProfileAvatar from "../components/ProfileAvatar";
 import PayPalCheckout from "../components/PayPalCheckout";
+import { API_BASE_URL } from "../config/api";
 
-const OUTFIT_API_URL = "http://localhost:3001/api/outfits/generate";
-const TRY_ON_API_URL = "http://localhost:3001/api/outfits/try-on";
-const TRY_ON_STATUS_API_URL = "http://localhost:3001/api/outfits/try-on/status";
-const SAVED_LOOKS_API_URL = "http://localhost:3001/api/outfits/saved";
+const OUTFIT_API_URL = `${API_BASE_URL}/outfits/generate`;
+const TRY_ON_API_URL = `${API_BASE_URL}/outfits/try-on`;
+const TRY_ON_STATUS_API_URL = `${API_BASE_URL}/outfits/try-on/status`;
+const SAVED_LOOKS_API_URL = `${API_BASE_URL}/outfits/saved`;
 const VIRTUAL_MODEL_API_URL =
-  "http://localhost:3001/api/auth/virtual-model-image";
+  `${API_BASE_URL}/auth/virtual-model-image`;
 const FEMALE_AVATAR_URL = "/images/avatars/fashion-avatar-v2.png";
 const MALE_AVATAR_URL = "/images/avatars/fashion-avatar-male.png";
 

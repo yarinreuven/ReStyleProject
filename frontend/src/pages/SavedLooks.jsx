@@ -3,8 +3,9 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import usePageStyles from "../hooks/usePageStyles";
+import { API_BASE_URL } from "../config/api";
 
-const SAVED_LOOKS_API_URL = "http://localhost:3001/api/outfits/saved";
+const SAVED_LOOKS_API_URL = `${API_BASE_URL}/outfits/saved`;
 
 export default function SavedLooks() {
   usePageStyles("saved-looks.css");

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import axios from "axios";
 import HangerBrand from "../components/HangerBrand";
 import usePageStyles from "../hooks/usePageStyles";
+import { API_BASE_URL } from "../config/api";
 
 export default function ForgotPassword() {
   usePageStyles("forgot-password.css");
@@ -20,7 +21,7 @@ export default function ForgotPassword() {
       setError("");
       setMessage("");
       const { data } = await axios.post(
-        "http://localhost:3001/api/auth/forgot-password",
+        `${API_BASE_URL}/auth/forgot-password`,
         { email: email.trim() }
       );
       setMessage(data.message);

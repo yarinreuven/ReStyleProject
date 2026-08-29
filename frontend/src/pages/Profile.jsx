@@ -4,9 +4,10 @@ import { useNavigate } from "react-router-dom";
 import ProfileAvatar from "../components/ProfileAvatar";
 import usePageStyles from "../hooks/usePageStyles";
 import { useAuth } from "../context/AuthContext";
+import { API_BASE_URL } from "../config/api";
 
 const PROFILE_IMAGE_URL =
-  "http://localhost:3001/api/auth/profile-image";
+  `${API_BASE_URL}/auth/profile-image`;
 
 export default function Profile() {
   usePageStyles("profile.css");

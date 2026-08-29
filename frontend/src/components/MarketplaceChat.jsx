@@ -3,9 +3,10 @@ import axios from "axios";
 import { io } from "socket.io-client";
 import { useNavigate } from "react-router-dom";
 import usePageStyles from "../hooks/usePageStyles";
+import { API_BASE_URL, SOCKET_BASE_URL } from "../config/api";
 
-const API_URL = "http://localhost:3001/api/messages";
-const SOCKET_URL = "http://localhost:3001";
+const API_URL = `${API_BASE_URL}/messages`;
+const SOCKET_URL = SOCKET_BASE_URL;
 
 function timeLabel(value) {
   if (!value) return "";

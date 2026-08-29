@@ -10,6 +10,7 @@ import {
   isAutomaticallyEligibleForRestyle,
   LESS_WORN_DAYS
 } from "../utils/wardrobeInsights";
+import { API_BASE_URL } from "../config/api";
 
 const studioSteps = [
   ["Choose a garment", "fa-shirt"],
@@ -18,8 +19,8 @@ const studioSteps = [
   ["Make it yours", "fa-scissors"]
 ];
 
-const ITEMS_API_URL = "http://localhost:3001/api/items";
-const RESTYLE_PROJECTS_API_URL = "http://localhost:3001/api/restyle-projects";
+const ITEMS_API_URL = `${API_BASE_URL}/items`;
+const RESTYLE_PROJECTS_API_URL = `${API_BASE_URL}/restyle-projects`;
 const acceptedImageTypes = ["image/jpeg", "image/png", "image/webp"];
 const maxUploadSize = 5 * 1024 * 1024;
 const garmentTypes = ["Tops", "Bottoms", "Dresses", "Skirts", "Jackets", "Shirts", "Sweaters"];

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../config/api";
 
-const PAYPAL_API_URL = "http://localhost:3001/api/paypal";
+const PAYPAL_API_URL = `${API_BASE_URL}/paypal`;
 
 function loadPayPalSdk(clientId, currency) {
   if (window.paypal) return Promise.resolve(window.paypal);

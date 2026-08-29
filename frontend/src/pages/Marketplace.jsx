@@ -9,8 +9,9 @@ import usePageStyles from "../hooks/usePageStyles";
 import { useAuth } from "../context/AuthContext";
 import useMarketplaceFavoritesSync from "../hooks/useMarketplaceFavoritesSync";
 import { selectMarketplaceFavoritesError } from "../store/marketplaceFavoritesSlice.js";
+import { API_BASE_URL } from "../config/api";
 
-const API_URL = "http://localhost:3001/api/marketplace";
+const API_URL = `${API_BASE_URL}/marketplace`;
 const imageShapes = ["tall", "standard", "compact"];
 
 function normalizeMarketplaceItem(item, index) {

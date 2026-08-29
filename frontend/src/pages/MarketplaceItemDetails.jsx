@@ -10,8 +10,9 @@ import usePageStyles from "../hooks/usePageStyles";
 import { useAuth } from "../context/AuthContext";
 import useMarketplaceFavoritesSync from "../hooks/useMarketplaceFavoritesSync";
 import { selectMarketplaceFavoritesError } from "../store/marketplaceFavoritesSlice.js";
+import { API_BASE_URL } from "../config/api";
 
-const API_URL = "http://localhost:3001/api/marketplace";
+const API_URL = `${API_BASE_URL}/marketplace`;
 const imageShapes = ["standard", "compact", "tall"];
 
 function normalizeMarketplaceItem(item, index) {
@@ -151,7 +152,7 @@ export default function MarketplaceItemDetails() {
       setContacting(true);
       setMessage("");
       const { data } = await axios.post(
-        "http://localhost:3001/api/messages/conversations",
+        `${API_BASE_URL}/messages/conversations`,
         { itemId },
         { headers: { Authorization: `Bearer ${token}` } }
       );

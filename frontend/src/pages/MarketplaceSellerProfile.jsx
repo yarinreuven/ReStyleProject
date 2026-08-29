@@ -6,8 +6,9 @@ import MarketplaceSellerAvatar from "../components/MarketplaceSellerAvatar";
 import ProfileAvatar from "../components/ProfileAvatar";
 import usePageStyles from "../hooks/usePageStyles";
 import { useAuth } from "../context/AuthContext";
+import { API_BASE_URL } from "../config/api";
 
-const API_URL = "http://localhost:3001/api/marketplace";
+const API_URL = `${API_BASE_URL}/marketplace`;
 const imageShapes = ["tall", "standard", "compact"];
 
 function normalizeItem(item, index) {
@@ -110,7 +111,7 @@ export default function MarketplaceSellerProfile() {
       setContacting(true);
       setContactError("");
       const { data } = await axios.post(
-        "http://localhost:3001/api/messages/conversations",
+        `${API_BASE_URL}/messages/conversations`,
         { sellerId: seller.id },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -133,7 +134,7 @@ export default function MarketplaceSellerProfile() {
       setBlocking(true);
       setContactError("");
       await axios.post(
-        `http://localhost:3001/api/auth/blocked-users/${seller.id}`,
+        `${API_BASE_URL}/auth/blocked-users/${seller.id}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );

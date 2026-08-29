@@ -10,8 +10,9 @@ import ProfileAvatar from "../components/ProfileAvatar";
 import usePageStyles from "../hooks/usePageStyles";
 import { useAuth } from "../context/AuthContext";
 import { isLessWorn, isRecentlyAdded } from "../utils/wardrobeInsights";
+import { API_BASE_URL } from "../config/api";
 
-const API_URL = "http://localhost:3001/api/items";
+const API_URL = `${API_BASE_URL}/items`;
 
 const categories = [
   "All",

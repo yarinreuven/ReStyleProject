@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
+import { API_BASE_URL } from "../config/api";
 
-const API_URL = "http://localhost:3001/api/marketplace";
+const API_URL = `${API_BASE_URL}/marketplace`;
 const MAX_IMAGES = 4;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 const acceptedImageTypes = ["image/jpeg", "image/png", "image/webp"];

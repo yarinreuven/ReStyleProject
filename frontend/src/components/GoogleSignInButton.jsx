@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { API_BASE_URL } from "../config/api";
 
 const GOOGLE_SCRIPT_ID = "google-identity-services";
 
@@ -48,7 +49,7 @@ export default function GoogleSignInButton({ intent, termsAccepted, onError }) {
           try {
             onError?.("");
             const { data } = await axios.post(
-              "http://localhost:3001/api/auth/google",
+              `${API_BASE_URL}/auth/google`,
               { credential, intent, ...(intent === "register" ? { termsAccepted } : {}) },
               { withCredentials: true }
             );
