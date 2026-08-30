@@ -1,6 +1,5 @@
-import { Router, type NextFunction, type Request, type Response } from "express";
+import { Router } from "express";
 import multer from "multer";
-import mongoose from "mongoose";
 import {
   blockUser,
   changePassword,
@@ -27,7 +26,7 @@ import {
 } from "../controllers/authController.ts";
 import { authenticateToken } from "../middleware/auth.ts";
 import { authRateLimit } from "../middleware/apiRateLimit.ts";
-import { validate } from "../middleware/validate.ts";
+import { validate, validateParams } from "../middleware/validate.ts";
 import {
   changePasswordSchema,
   confirmEmailChangeSchema,
@@ -37,6 +36,7 @@ import {
   registerSchema,
   resetPasswordSchema,
   requestEmailChangeSchema,
+  userIdParamsSchema,
   updateProfileSchema
 } from "../validation/authValidation.ts";
 
@@ -148,25 +148,17 @@ router.get(
   getBlockedUsers
 );
 
-function validateUserId(req: Request, res: Response, next: NextFunction) {
-  if (!mongoose.isValidObjectId(req.params.userId)) {
-    res.status(400).json({ success: false, message: "Invalid user ID" });
-    return;
-  }
-  next();
-}
-
 router.post(
   "/blocked-users/:userId",
   authenticateToken,
-  validateUserId,
+  validateParams(userIdParamsSchema),
   blockUser
 );
 
 router.delete(
   "/blocked-users/:userId",
   authenticateToken,
-  validateUserId,
+  validateParams(userIdParamsSchema),
   unblockUser
 );
 

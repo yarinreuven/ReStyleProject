@@ -1,5 +1,14 @@
 import Joi from "joi";
 
+export const userIdParamsSchema = Joi.object({
+  userId: Joi.string().hex().length(24).required().messages({
+    "any.required": "Invalid user ID",
+    "string.empty": "Invalid user ID",
+    "string.hex": "Invalid user ID",
+    "string.length": "Invalid user ID"
+  })
+});
+
 export const registerSchema = Joi.object({
   firstName: Joi.string()
     .trim()
