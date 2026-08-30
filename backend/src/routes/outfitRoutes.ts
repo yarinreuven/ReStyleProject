@@ -8,6 +8,11 @@ import multer from "multer";
 import path from "node:path";
 import sharp, { type Metadata } from "sharp";
 
+import {
+  deleteSavedOutfit,
+  getSavedOutfits,
+  saveOutfit
+} from "../controllers/savedOutfitController.ts";
 import Item from "../models/Item.ts";
 import OutfitSelection from "../models/OutfitSelection.ts";
 import TryOnResult from "../models/TryOnResult.ts";
@@ -17,6 +22,7 @@ import {
   type AuthRequest
 } from "../middleware/auth.ts";
 import { createUserRateLimit } from "../middleware/userRateLimit.ts";
+import { validate, validateParams } from "../middleware/validate.ts";
 import {
   createGeminiTryOnImage,
   inferRequiredGarmentType,
@@ -65,6 +71,10 @@ import {
   type QuotaStatus,
   type ReservationType
 } from "../services/tryOnQuotaService.ts";
+import {
+  savedLookParamsSchema,
+  saveOutfitSchema
+} from "../validation/outfitValidation.ts";
 
 const router = express.Router();
 const generateRateLimit = createUserRateLimit({
@@ -117,10 +127,6 @@ const outfitRequestSchema = Joi.object({
     .required(),
   preferFavorites: Joi.boolean().required(),
   avatarSource: Joi.string().valid("preset", "personal").required()
-});
-
-const saveOutfitSchema = Joi.object({
-  selectionId: Joi.string().hex().length(24).required()
 });
 
 interface GeminiResponse {
@@ -970,156 +976,13 @@ router.get("/try-on/status", async (req: AuthRequest, res, next) => {
   }
 });
 
-router.get("/saved", async (req: AuthRequest, res, next) => {
-  try {
-    if (!req.userId || !mongoose.isValidObjectId(req.userId)) {
-      res.status(401).json({ success: false, message: "Authentication is required" });
-      return;
-    }
-
-    const results = await TryOnResult.find({
-      owner: req.userId,
-      status: "succeeded",
-      savedAt: { $ne: null },
-      "image.data": { $exists: true }
-    })
-      .sort({ savedAt: -1 })
-      .populate({
-        path: "selection",
-        match: { user: req.userId },
-        select: "title explanation stylingTips"
-      })
-      .populate({
-        path: "items.item",
-        match: { user: req.userId },
-        select: "name category image"
-      });
-
-    const savedLooks = results.flatMap((result) => {
-      const selection = result.selection as unknown as {
-        _id: mongoose.Types.ObjectId;
-        title: string;
-        explanation: string;
-        stylingTips: string[];
-      } | null;
-      if (!selection || !result.image?.data || !result.image.contentType) return [];
-
-      return [{
-        id: result._id,
-        selectionId: selection._id,
-        title: selection.title,
-        explanation: selection.explanation,
-        stylingTips: selection.stylingTips,
-        image: `data:${result.image.contentType};base64,${result.image.data.toString("base64")}`,
-        savedAt: result.savedAt,
-        items: result.items.flatMap((entry) => {
-          const item = entry.item as unknown as {
-            _id: mongoose.Types.ObjectId;
-            name: string;
-            category: string;
-            image?: { data?: Buffer; contentType?: string };
-          } | null;
-          if (!item) return [];
-          return [{
-            id: item._id,
-            name: item.name,
-            category: entry.detectedCategory || item.category,
-            image: item.image?.data && item.image.contentType
-              ? `data:${item.image.contentType};base64,${item.image.data.toString("base64")}`
-              : ""
-          }];
-        })
-      }];
-    });
-
-    res.json({ success: true, savedLooks });
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.post("/saved", async (req: AuthRequest, res, next) => {
-  try {
-    if (!req.userId || !mongoose.isValidObjectId(req.userId)) {
-      res.status(401).json({ success: false, message: "Authentication is required" });
-      return;
-    }
-
-    const { error, value } = saveOutfitSchema.validate(req.body, {
-      abortEarly: false,
-      stripUnknown: true
-    });
-    if (error) {
-      res.status(400).json({ success: false, message: "Choose a valid generated look" });
-      return;
-    }
-
-    const savedAt = new Date();
-    const savedLook = await TryOnResult.findOneAndUpdate(
-      {
-        owner: req.userId,
-        selection: value.selectionId,
-        status: "succeeded",
-        "image.data": { $exists: true }
-      },
-      { $set: { savedAt } },
-      { new: true, sort: { createdAt: -1 } }
-    );
-
-    if (!savedLook) {
-      res.status(404).json({
-        success: false,
-        message: "A completed virtual look was not found for this account"
-      });
-      return;
-    }
-
-    await OutfitSelection.updateOne(
-      { _id: savedLook.selection, user: req.userId },
-      { $unset: { expiresAt: 1 } }
-    );
-
-    res.json({
-      success: true,
-      savedLookId: savedLook._id,
-      savedAt: savedLook.savedAt
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.delete("/saved/:lookId", async (req: AuthRequest, res, next) => {
-  try {
-    if (!req.userId || !mongoose.isValidObjectId(req.userId)) {
-      res.status(401).json({ success: false, message: "Authentication is required" });
-      return;
-    }
-    if (!mongoose.isValidObjectId(req.params.lookId)) {
-      res.status(400).json({ success: false, message: "Choose a valid saved look" });
-      return;
-    }
-
-    const deletedLook = await TryOnResult.findOneAndDelete({
-      _id: req.params.lookId,
-      owner: req.userId,
-      savedAt: { $ne: null }
-    });
-    if (!deletedLook) {
-      res.status(404).json({ success: false, message: "The saved look was not found" });
-      return;
-    }
-
-    await OutfitSelection.deleteOne({
-      _id: deletedLook.selection,
-      user: req.userId
-    });
-
-    res.json({ success: true, deletedLookId: deletedLook._id });
-  } catch (error) {
-    next(error);
-  }
-});
+router.get("/saved", getSavedOutfits);
+router.post("/saved", validate(saveOutfitSchema), saveOutfit);
+router.delete(
+  "/saved/:lookId",
+  validateParams(savedLookParamsSchema),
+  deleteSavedOutfit
+);
 
 router.post(
   "/try-on",
