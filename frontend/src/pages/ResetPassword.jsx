@@ -4,6 +4,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import HangerBrand from "../components/HangerBrand";
 import usePageStyles from "../hooks/usePageStyles";
 import { API_BASE_URL } from "../config/api";
+import { validateResetPassword } from "../utils/passwordResetValidation.js";
 
 export default function ResetPassword() {
   usePageStyles("forgot-password.css");
@@ -21,9 +22,8 @@ export default function ResetPassword() {
 
   async function submit(event) {
     event.preventDefault();
-    if (!token) return setError("This password reset link is invalid.");
-    if (form.newPassword.length < 6) return setError("Password must contain at least 6 characters.");
-    if (form.newPassword !== form.confirmPassword) return setError("Passwords do not match.");
+    const validationError = validateResetPassword(token, form);
+    if (validationError) return setError(validationError);
 
     try {
       setIsSaving(true);
@@ -48,8 +48,8 @@ export default function ResetPassword() {
       <h1>Create New Password</h1>
       <p className="subtitle">Choose a new password for your ReStyle account.</p>
       {message ? <div className="reset-complete"><p>{message}</p><Link to="/login">Continue to Login</Link></div> : <form onSubmit={submit} noValidate>
-        <input id="newPassword" type="password" name="newPassword" placeholder="New Password" aria-label="New Password" aria-invalid={Boolean(error)} aria-describedby={error ? "resetPasswordError" : undefined} value={form.newPassword} onChange={updateField} autoComplete="new-password" />
-        <input id="confirmPassword" type="password" name="confirmPassword" placeholder="Confirm New Password" aria-label="Confirm New Password" aria-invalid={Boolean(error)} aria-describedby={error ? "resetPasswordError" : undefined} value={form.confirmPassword} onChange={updateField} autoComplete="new-password" />
+        <input id="newPassword" type="password" name="newPassword" placeholder="New Password" aria-label="New Password" aria-invalid={Boolean(error)} aria-describedby={error ? "resetPasswordError" : undefined} value={form.newPassword} onChange={updateField} autoComplete="new-password" maxLength="100" />
+        <input id="confirmPassword" type="password" name="confirmPassword" placeholder="Confirm New Password" aria-label="Confirm New Password" aria-invalid={Boolean(error)} aria-describedby={error ? "resetPasswordError" : undefined} value={form.confirmPassword} onChange={updateField} autoComplete="new-password" maxLength="100" />
         <p id="resetPasswordError" className="error-message" role={error ? "alert" : undefined}>{error}</p>
         <button type="submit" className="reset-btn" disabled={isSaving}>{isSaving ? "Updating..." : "Reset Password"}</button>
       </form>}

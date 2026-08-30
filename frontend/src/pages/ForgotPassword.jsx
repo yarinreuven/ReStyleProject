@@ -4,6 +4,7 @@ import axios from "axios";
 import HangerBrand from "../components/HangerBrand";
 import usePageStyles from "../hooks/usePageStyles";
 import { API_BASE_URL } from "../config/api";
+import { validateForgotPasswordEmail } from "../utils/passwordResetValidation.js";
 
 export default function ForgotPassword() {
   usePageStyles("forgot-password.css");
@@ -14,15 +15,15 @@ export default function ForgotPassword() {
 
   async function submit(event) {
     event.preventDefault();
-    if (!email.trim()) return setError("Email is required");
-    if (!email.includes("@")) return setError("Invalid email format");
+    const validation = validateForgotPasswordEmail(email);
+    if (validation.error) return setError(validation.error);
     try {
       setIsSending(true);
       setError("");
       setMessage("");
       const { data } = await axios.post(
         `${API_BASE_URL}/auth/forgot-password`,
-        { email: email.trim() }
+        { email: validation.email }
       );
       setMessage(data.message);
     } catch (requestError) {
