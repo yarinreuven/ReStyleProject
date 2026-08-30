@@ -3,6 +3,7 @@ import test from "node:test";
 import sharp from "sharp";
 
 import {
+  buildGeminiStylistPrompt,
   buildGeminiWardrobeImageParts,
   geminiStylistFailureMessage,
   GEMINI_STYLIST_RESPONSE_SCHEMA,
@@ -12,6 +13,23 @@ import {
   isSafeStylistText,
   requestGeminiStylist
 } from "./geminiStylistService.ts";
+
+test("builds the stylist prompt with the request, wardrobe and avatar rules", () => {
+  const request = { event: "Work", avatarSource: "personal" };
+  const wardrobe = [{ itemId: "item-123", category: "Tops" }];
+  const personalPrompt = buildGeminiStylistPrompt(request, wardrobe, "personal");
+  const presetPrompt = buildGeminiStylistPrompt(
+    { ...request, avatarSource: "preset" },
+    wardrobe,
+    "preset"
+  );
+
+  assert.match(personalPrompt, /PERSONAL MODEL PHOTO/);
+  assert.match(personalPrompt, /"event":"Work"/);
+  assert.match(personalPrompt, /"itemId":"item-123"/);
+  assert.match(presetPrompt, /No personal model photo was requested/);
+  assert.doesNotMatch(presetPrompt, /PERSONAL MODEL PHOTO/);
+});
 
 test("accepts only safe stylist selections with valid MongoDB IDs", () => {
   const valid = {

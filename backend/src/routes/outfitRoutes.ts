@@ -26,6 +26,7 @@ import {
 } from "../services/geminiTryOnService.ts";
 import {
   buildGeminiWardrobeImageParts,
+  buildGeminiStylistPrompt,
   geminiStylistFailureMessage,
   GEMINI_STYLIST_MAX_ITEMS,
   GEMINI_STYLIST_MODEL,
@@ -247,47 +248,11 @@ router.post(
         personalModelPart = personalModel.parts;
       }
 
-      const prompt = [
-        "You are ReStyle, a personal fashion stylist.",
-        "First inspect every attached image yourself.",
-        "Return exactly one analyzedItems entry for every attached item ID. Mark isValid false and detectedCategory None for rejected images.",
-        "For each image return its visually detected category, a precise short visualDescription of the exact garment subtype and silhouette (for example pleated midi skirt, straight-leg jeans, tailored shorts), and separate booleans for whether it is truly suitable for the requested event, requested style and requested weather.",
-        "Accept a valid item image when it shows either one clear product by itself or one person clearly wearing the intended product. When worn, the intended product must remain unambiguous and its color, cut, shape and design must be reliably visible.",
-        "Normal accompanying clothes on one person are allowed only when the intended product and its category are visually clear. Reject closet scenes, clothing racks, piles, collages, screenshots, groups of people, full-outfit photos where no single intended product is clear, and images where the intended product is distant, blurred, hidden, heavily cropped or too small.",
-        "Create one cohesive outfit using ONLY valid item IDs whose attached images clearly show real wearable items.",
-        "CONSISTENCY RULE: selectedItems may contain ONLY analyzedItems where isValid, eventSuitable, styleSuitable and weatherSuitable are all true.",
-        "Every selected item must have all three suitability booleans set to true in its analyzedItems entry. Never select an item while marking any of those booleans false.",
-        "Before returning JSON, cross-check every selected item against analyzedItems and revise the selection if there is any contradiction.",
-        "Never trust an item's name or category when its image contradicts them.",
-        "Never invent, recommend or mention any clothing, shoes, bag or accessory that is not among the valid attached wardrobe images.",
-        "Use only these normalized detectedCategory values: Dress, Top, Bottom, Jacket, Shoes, Bag, Accessory. Use None only for an invalid analyzed image.",
-        "A complete outfit MUST contain exactly one of these two bases: (1) one Top plus one Bottom, or (2) one Dress. Never combine a Dress with a Top or Bottom.",
-        "Jacket, Shoes, Bag and Accessory never count as the required outfit base.",
-        "Jacket means outerwear worn over the completed outfit, including jackets, coats, blazers and trench coats. It never means a long-sleeve shirt, blouse, sweatshirt or ordinary sweater.",
-        "A jacket is an optional outer layer. Include at most one suitable jacket when it improves the outfit for the requested event and weather.",
-        "If at least one valid Shoes item exists, the completed outfit MUST include exactly one suitable pair of shoes.",
-        "If at least one valid Bags item exists, the completed outfit MUST include exactly one suitable bag. If at least one valid Accessories item exists, it MUST include exactly one suitable accessory without overloading the look.",
-        "Select exactly one top and one bottom OR exactly one dress, plus at most one jacket, one pair of shoes, one bag and one accessory.",
-        "Return each selected item's itemId, visually detected category based on the image rather than claimed metadata, and a short reason.",
-        "The requested event is a HARD constraint, not a suggestion. The outfit must be genuinely appropriate for that event.",
-        "For Work choose polished, professional and practical pieces. For Party choose festive, expressive evening-appropriate pieces. For Formal choose refined dressy pieces. For Date choose stylish occasion-appropriate pieces. For Casual choose relaxed everyday pieces. For a custom event infer its real dress code from the user's description.",
-        "After satisfying the event, match the requested style and weather, then coordinate categories, colors and season.",
-        "Coordinate silhouettes and volumes, match shoes to the base, match the bag to the shoes and overall look, and keep the accessory restrained.",
-        "Before returning the outfit, evaluate the selected pieces together as one complete look. All selected colors, formality levels, silhouettes and the requested occasion must coordinate; individual suitability is not enough.",
-        "Set every cohesion boolean to true only when the complete outfit genuinely works together. If any cohesion check would be false, revise the selection. If no cohesive selection exists, return an empty selectedItems array and explain why.",
-        "Use wearCount and lastWornAt for variety only after suitability and harmony; never choose an unsuitable item merely because it was worn less recently.",
-        "Do not select a piece merely because it exists. If the wardrobe has no complete outfit that fits the event, return an empty selectedItems array.",
-        "When preferFavorites is true, every attached wardrobe image is a verified favorite and every selected item must come only from those attached favorites.",
-        "If a complete outfit base cannot be made, return an empty selectedItems array. Do not return a partial outfit.",
-        "Every styling tip must refer only to a selected or available valid wardrobe item. Do not suggest buying or adding anything.",
-        "If no attached image shows a valid wardrobe item, return an empty selectedItems array.",
-        "Keep the explanation concise and encouraging.",
-        value.avatarSource === "personal"
-          ? "Validate the separately labeled PERSONAL MODEL PHOTO. avatarValidation.valid may be true only when there is exactly one person, their face is clear, they are approximately front-facing, and their entire body including head, legs and both feet is visible. A selfie, seated pose, side-facing pose, cropped body, hidden feet or face, group photo, or distant person is invalid."
-          : "No personal model photo was requested. Return every avatarValidation boolean as true and reason as Preset avatar.",
-        "Return one JSON object matching the provided response schema. The cohesion reason must briefly explain why the selected pieces work together. Keep stylingTips to between one and three short strings.",
-        JSON.stringify({ request: value, wardrobe })
-      ].join("\n");
+      const prompt = buildGeminiStylistPrompt(
+        value,
+        wardrobe,
+        value.avatarSource
+      );
 
       const imageParts = await buildGeminiWardrobeImageParts(shortlistedItems);
 
