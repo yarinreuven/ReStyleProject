@@ -77,6 +77,7 @@ import {
   TRY_ON_RESERVATION_TTL_MS,
   type ReservationType
 } from "../services/tryOnQuotaService.ts";
+import { resolveSuccessfulTryOnQuota } from "../services/tryOnResultService.ts";
 import { buildTryOnSuccessResponse } from "../services/tryOnResponseService.ts";
 import {
   outfitRequestSchema,
@@ -567,21 +568,7 @@ router.post(
       }
       let existing = await TryOnResult.findOne({ requestKey });
       if (existing?.status === "succeeded" && existing.image?.data && existing.image.contentType) {
-        let quota = await getTryOnQuotaStatus(req.userId);
-        if (!isLocalTryOnQuotaBypass() && !existing.quotaCommitted &&
-          existing.reservationToken && existing.reservationType) {
-          quota = await finalizeTryOnQuota(
-            req.userId,
-            existing.reservationToken,
-            existing.reservationType as ReservationType,
-            requestKey
-          );
-          await TryOnResult.updateOne(
-            { _id: existing._id, quotaCommitted: false },
-            { $set: { quotaCommitted: true } }
-          );
-        }
-        if (!quota) throw new Error("TRY_ON_QUOTA_STATUS_NOT_FOUND");
+        const quota = await resolveSuccessfulTryOnQuota(req.userId, existing, requestKey);
         res.json(buildTryOnSuccessResponse({
           selectionId: selection._id,
           imageData: existing.image.data,
@@ -668,21 +655,7 @@ router.post(
         await refundTryOnReservation(req.userId, reservationToken);
         const raced = await TryOnResult.findOne({ requestKey });
         if (raced?.status === "succeeded" && raced.image?.data && raced.image.contentType) {
-          let quota = await getTryOnQuotaStatus(req.userId);
-          if (!isLocalTryOnQuotaBypass() && !raced.quotaCommitted &&
-            raced.reservationToken && raced.reservationType) {
-            quota = await finalizeTryOnQuota(
-              req.userId,
-              raced.reservationToken,
-              raced.reservationType as ReservationType,
-              requestKey
-            );
-            await TryOnResult.updateOne(
-              { _id: raced._id, quotaCommitted: false },
-              { $set: { quotaCommitted: true } }
-            );
-          }
-          if (!quota) throw new Error("TRY_ON_QUOTA_STATUS_NOT_FOUND");
+          const quota = await resolveSuccessfulTryOnQuota(req.userId, raced, requestKey);
           res.json(buildTryOnSuccessResponse({
             selectionId: selection._id,
             imageData: raced.image.data,
