@@ -9,6 +9,7 @@ import { useAuth } from "../context/AuthContext";
 import usePageStyles from "../hooks/usePageStyles";
 import GoogleSignInButton from "../components/GoogleSignInButton";
 import { API_BASE_URL } from "../config/api";
+import { validateLoginValues } from "../utils/loginValidation.js";
 
 const initialValues = {
   email: "",
@@ -46,24 +47,7 @@ export default function Login() {
   async function submit(event) {
     event.preventDefault();
 
-    const nextErrors = {};
-    const email = values.email
-      .trim()
-      .toLowerCase();
-
-    if (!email) {
-      nextErrors.email = "Please enter your email.";
-    } else if (
-      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-    ) {
-      nextErrors.email =
-        "Please enter a valid email address.";
-    }
-
-    if (!values.password.trim()) {
-      nextErrors.password =
-        "Please enter your password.";
-    }
+    const { email, errors: nextErrors } = validateLoginValues(values);
 
     setErrors(nextErrors);
 
@@ -166,11 +150,6 @@ export default function Login() {
           </div>
 
           <div className="options">
-            <label>
-              <input type="checkbox" />
-              Remember Me
-            </label>
-
             <Link to="/forgot-password">
               Forgot Password?
             </Link>
