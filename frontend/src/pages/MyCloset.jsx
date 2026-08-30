@@ -132,6 +132,7 @@ export default function MyCloset() {
   );
   const [isSavingWear, setIsSavingWear] = useState(false);
   const accountMenuRef = useRef(null);
+  const currentDateKey = todayKey();
   const itemDialogRef = useDialogFocus(modalOpen, closeModal, !isSaving);
   const wearDialogRef = useDialogFocus(
     Boolean(wearItem),
@@ -244,12 +245,13 @@ export default function MyCloset() {
     return result;
   }, [items, filter, insightFilter]);
 
-  const favorites = items.filter(
-    (item) => item.favorite
-  ).length;
-
-  const lessWorn = items.filter(isLessWorn).length;
-  const recentlyAdded = items.filter(isRecentlyAdded).length;
+  const { favorites, lessWorn, recentlyAdded } = useMemo(() =>
+    items.reduce((counts, item) => ({
+      favorites: counts.favorites + (item.favorite ? 1 : 0),
+      lessWorn: counts.lessWorn + (isLessWorn(item) ? 1 : 0),
+      recentlyAdded: counts.recentlyAdded + (isRecentlyAdded(item) ? 1 : 0)
+    }), { favorites: 0, lessWorn: 0, recentlyAdded: 0 }),
+  [items]);
 
   function openNewItem() {
     setEditingId(null);
@@ -785,7 +787,9 @@ export default function MyCloset() {
                   )}
                 </div>
               ) : (
-                visibleItems.map((item) => (
+                visibleItems.map((item) => {
+                  const wornToday = hasWearDate(item, currentDateKey);
+                  return (
                   <article
                     className="item-card"
                     key={item._id}
@@ -859,7 +863,7 @@ export default function MyCloset() {
                             type="button"
                             className={
                               `worn-today-btn${
-                                hasWearDate(item, todayKey())
+                                wornToday
                                   ? " marked"
                                   : ""
                               }`
@@ -869,12 +873,12 @@ export default function MyCloset() {
                           >
                             <i
                               className={
-                                hasWearDate(item, todayKey())
+                                wornToday
                                   ? "fa-solid fa-check"
                                   : "fa-regular fa-calendar-check"
                               }
                             />
-                            {hasWearDate(item, todayKey())
+                            {wornToday
                               ? "Worn today"
                               : "Wear today"}
                           </button>
@@ -884,7 +888,7 @@ export default function MyCloset() {
                             className="past-date-btn"
                             onClick={() => {
                               setWearItem(item);
-                              setWearDate(todayKey());
+                              setWearDate(currentDateKey);
                             }}
                           >
                             <i className="fa-solid fa-plus" />
@@ -925,7 +929,8 @@ export default function MyCloset() {
                       </div>
                     </div>
                   </article>
-                ))
+                  );
+                })
               )}
             </section>
           </div>
