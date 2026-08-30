@@ -30,8 +30,14 @@ import {
   GeminiTryOnServiceError
 } from "../services/geminiTryOnService.ts";
 import {
+  GEMINI_STYLIST_IMAGE_EDGE,
+  GEMINI_STYLIST_JPEG_QUALITY,
+  GEMINI_STYLIST_MAX_ITEMS,
   GEMINI_STYLIST_MODEL,
-  requestGeminiStylist
+  GEMINI_STYLIST_RESPONSE_SCHEMA,
+  isSafeStylistText,
+  requestGeminiStylist,
+  type OutfitSuggestion
 } from "../services/geminiStylistService.ts";
 import {
   isPersonalAvatarAcceptable,
@@ -41,7 +47,6 @@ import {
 } from "../services/geminiStylistValidationService.ts";
 import {
   createBalancedWardrobeShortlist,
-  DETECTED_CATEGORIES,
   isDetectedCategory,
   normalizeProjectCategory,
   outfitCohesionValidationError,
@@ -122,82 +127,6 @@ const tryOnUpload = multer({
 
 router.use(authenticateToken);
 
-const GEMINI_STYLIST_MAX_ITEMS = 14;
-const GEMINI_STYLIST_IMAGE_EDGE = 640;
-const GEMINI_STYLIST_JPEG_QUALITY = 65;
-const GEMINI_STYLIST_RESPONSE_SCHEMA = {
-  type: "OBJECT",
-  properties: {
-    title: { type: "STRING" },
-    explanation: { type: "STRING" },
-    analyzedItems: {
-      type: "ARRAY",
-      items: {
-        type: "OBJECT",
-        properties: {
-          itemId: { type: "STRING" },
-          isValid: { type: "BOOLEAN" },
-          detectedCategory: {
-            type: "STRING",
-            enum: [...DETECTED_CATEGORIES, "None"]
-          },
-          eventSuitable: { type: "BOOLEAN" },
-          styleSuitable: { type: "BOOLEAN" },
-          weatherSuitable: { type: "BOOLEAN" },
-          visualDescription: { type: "STRING" }
-        },
-        required: [
-          "itemId", "isValid", "detectedCategory", "eventSuitable",
-          "styleSuitable", "weatherSuitable", "visualDescription"
-        ]
-      }
-    },
-    selectedItems: {
-      type: "ARRAY",
-      items: {
-        type: "OBJECT",
-        properties: {
-          itemId: { type: "STRING" },
-          detectedCategory: { type: "STRING", enum: [...DETECTED_CATEGORIES] },
-          reason: { type: "STRING" }
-        },
-        required: ["itemId", "detectedCategory", "reason"]
-      }
-    },
-    cohesion: {
-      type: "OBJECT",
-      properties: {
-        colorsCoordinate: { type: "BOOLEAN" },
-        formalityCoordinates: { type: "BOOLEAN" },
-        silhouettesCoordinate: { type: "BOOLEAN" },
-        occasionCoordinates: { type: "BOOLEAN" },
-        reason: { type: "STRING" }
-      },
-      required: [
-        "colorsCoordinate", "formalityCoordinates", "silhouettesCoordinate",
-        "occasionCoordinates", "reason"
-      ]
-    },
-    stylingTips: { type: "ARRAY", items: { type: "STRING" } },
-    avatarValidation: {
-      type: "OBJECT",
-      properties: {
-        valid: { type: "BOOLEAN" },
-        singlePerson: { type: "BOOLEAN" },
-        fullBodyVisible: { type: "BOOLEAN" },
-        frontFacing: { type: "BOOLEAN" },
-        faceClear: { type: "BOOLEAN" },
-        reason: { type: "STRING" }
-      },
-      required: ["valid", "singlePerson", "fullBodyVisible", "frontFacing", "faceClear", "reason"]
-    }
-  },
-  required: [
-    "title", "explanation", "analyzedItems", "selectedItems", "cohesion", "stylingTips",
-    "avatarValidation"
-  ]
-} as const;
-
 function isNoCostAiMockMode() {
   return process.env.NODE_ENV !== "production" && process.env.RESTYLE_AI_MOCK_MODE === "1";
 }
@@ -207,34 +136,6 @@ function isLocalTryOnQuotaBypass() {
     process.env.NODE_ENV,
     process.env.RESTYLE_DISABLE_TRYON_QUOTA
   );
-}
-
-interface OutfitSuggestion {
-  title: string;
-  explanation: string;
-  analyzedItems: AnalyzedWardrobeItem[];
-  selectedItems: SelectedOutfitItem[];
-  cohesion: {
-    colorsCoordinate: boolean;
-    formalityCoordinates: boolean;
-    silhouettesCoordinate: boolean;
-    occasionCoordinates: boolean;
-    reason: string;
-  };
-  stylingTips: string[];
-  avatarValidation: {
-    valid: boolean;
-    singlePerson: boolean;
-    fullBodyVisible: boolean;
-    frontFacing: boolean;
-    faceClear: boolean;
-    reason: string;
-  };
-}
-
-function isSafeStylistText(value: unknown) {
-  return typeof value === "string" && value.trim().length > 0 &&
-    !/(?:https?:\/\/|www\.|\bbuy\b|\bpurchase\b|\bshop\b)/i.test(value);
 }
 
 async function validateAvatarImage(
