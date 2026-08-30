@@ -2,12 +2,12 @@ import express from "express";
 import { createHash, randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import Joi from "joi";
 import mongoose from "mongoose";
 import multer from "multer";
 import path from "node:path";
 import sharp, { type Metadata } from "sharp";
 
+import { getTryOnStatus } from "../controllers/outfitController.ts";
 import {
   deleteSavedOutfit,
   getSavedOutfits,
@@ -72,6 +72,7 @@ import {
   type ReservationType
 } from "../services/tryOnQuotaService.ts";
 import {
+  outfitRequestSchema,
   savedLookParamsSchema,
   saveOutfitSchema
 } from "../validation/outfitValidation.ts";
@@ -116,18 +117,6 @@ const tryOnUpload = multer({
 });
 
 router.use(authenticateToken);
-
-const outfitRequestSchema = Joi.object({
-  event: Joi.string().trim().min(2).max(250).required(),
-  style: Joi.string()
-    .valid("Casual", "Classic", "Elegant", "Sporty", "Streetwear")
-    .required(),
-  weather: Joi.string()
-    .valid("Warm", "Mild", "Cold", "Rainy")
-    .required(),
-  preferFavorites: Joi.boolean().required(),
-  avatarSource: Joi.string().valid("preset", "personal").required()
-});
 
 interface GeminiResponse {
   candidates?: Array<{
@@ -959,22 +948,7 @@ router.post(
   }
 );
 
-router.get("/try-on/status", async (req: AuthRequest, res, next) => {
-  try {
-    if (!req.userId || !mongoose.isValidObjectId(req.userId)) {
-      res.status(401).json({ success: false, message: "Authentication is required" });
-      return;
-    }
-    const quota = await getTryOnQuotaStatus(req.userId);
-    if (!quota) {
-      res.status(404).json({ success: false, message: "User account not found" });
-      return;
-    }
-    res.json(quota);
-  } catch (error) {
-    next(error);
-  }
-});
+router.get("/try-on/status", getTryOnStatus);
 
 router.get("/saved", getSavedOutfits);
 router.post("/saved", validate(saveOutfitSchema), saveOutfit);
