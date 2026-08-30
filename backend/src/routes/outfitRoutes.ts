@@ -1,7 +1,6 @@
 import express from "express";
 import { randomUUID } from "node:crypto";
 import mongoose from "mongoose";
-import multer from "multer";
 import sharp, { type Metadata } from "sharp";
 
 import { getTryOnStatus } from "../controllers/outfitController.ts";
@@ -19,6 +18,7 @@ import {
   type AuthRequest
 } from "../middleware/auth.ts";
 import { createUserRateLimit } from "../middleware/userRateLimit.ts";
+import { tryOnImageUpload } from "../middleware/tryOnUpload.ts";
 import { validate, validateParams } from "../middleware/validate.ts";
 import {
   createGeminiTryOnImage,
@@ -98,21 +98,6 @@ const tryOnRateLimit = createUserRateLimit({
   code: "TRY_ON_RATE_LIMITED",
   message: "You are creating virtual try-ons too quickly. Please wait a few minutes and try again."
 });
-const tryOnUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (_req, file, callback) => {
-    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
-
-    if (!allowedTypes.includes(file.mimetype)) {
-      callback(new Error("The virtual model must be a JPG, PNG or WEBP image"));
-      return;
-    }
-
-    callback(null, true);
-  }
-});
-
 router.use(authenticateToken);
 
 function isNoCostAiMockMode() {
@@ -731,7 +716,7 @@ router.delete(
 router.post(
   "/try-on",
   tryOnRateLimit,
-  tryOnUpload.single("modelImage"),
+  tryOnImageUpload.single("modelImage"),
   async (req: AuthRequest, res, next) => {
     try {
       if (!req.userId || !mongoose.isValidObjectId(req.userId)) {
