@@ -5,6 +5,7 @@ import { buildTryOnGenerationParts, type OutfitImageInput } from "./geminiTryOnS
 import { isTryOnQuotaBypassEnabled } from "./tryOnQuotaService.ts";
 import {
   hasForbiddenTryOnOverrides,
+  tryOnRequestValidationError,
   generatedImageAcceptedForUserReview,
   qualityValidationError,
   resourceOwnershipError,
@@ -12,6 +13,19 @@ import {
   type TryOnItemDescriptor,
   type TryOnQualityResult
 } from "./tryOnValidationService.ts";
+
+test("validates the saved selection request before virtual try-on", () => {
+  assert.equal(tryOnRequestValidationError({
+    selectionId: "507f1f77bcf86cd799439011"
+  }), "");
+  assert.equal(tryOnRequestValidationError({
+    selectionId: "invalid"
+  }), "Choose a valid saved outfit");
+  assert.equal(tryOnRequestValidationError({
+    selectionId: "507f1f77bcf86cd799439011",
+    tryOnCredits: 100
+  }), "The try-on must use the saved verified outfit selection");
+});
 
 const item = (detectedCategory: OutfitImageInput["detectedCategory"]): OutfitImageInput => ({
   itemId: detectedCategory.toLowerCase(),

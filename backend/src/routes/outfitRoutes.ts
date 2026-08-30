@@ -18,6 +18,7 @@ import {
 } from "../middleware/auth.ts";
 import { createUserRateLimit } from "../middleware/userRateLimit.ts";
 import { tryOnImageUpload } from "../middleware/tryOnUpload.ts";
+import { validateTryOnRequest } from "../middleware/validateTryOnRequest.ts";
 import { validate, validateParams } from "../middleware/validate.ts";
 import {
   createGeminiTryOnImage,
@@ -55,7 +56,6 @@ import {
   type VerifiedCandidate
 } from "../services/outfitSelectionService.ts";
 import {
-  hasForbiddenTryOnOverrides,
   existingTryOnAction,
   orderTryOnItems,
   qualityValidationError,
@@ -553,24 +553,9 @@ router.post(
   "/try-on",
   tryOnRateLimit,
   tryOnImageUpload.single("modelImage"),
+  validateTryOnRequest,
   async (req: AuthRequest, res, next) => {
     try {
-      if (!req.userId || !mongoose.isValidObjectId(req.userId)) {
-        res.status(401).json({ success: false, message: "Authentication is required" });
-        return;
-      }
-      if (hasForbiddenTryOnOverrides(req.body)) {
-        res.status(400).json({
-          success: false,
-          message: "The try-on must use the saved verified outfit selection"
-        });
-        return;
-      }
-      if (!mongoose.isValidObjectId(req.body.selectionId)) {
-        res.status(400).json({ success: false, message: "Choose a valid saved outfit" });
-        return;
-      }
-
       const selection = await OutfitSelection.findById(req.body.selectionId);
       if (!selection || selection.expiresAt <= new Date()) {
         res.status(404).json({ success: false, message: "The saved outfit was not found or has expired" });

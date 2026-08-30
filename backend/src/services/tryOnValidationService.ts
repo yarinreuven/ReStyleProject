@@ -1,4 +1,5 @@
 import type { DetectedCategory } from "./outfitSelectionService.ts";
+import mongoose from "mongoose";
 
 export const APPROVED_AVATAR_IDS = [
   "female-illustrated",
@@ -68,6 +69,16 @@ export function hasForbiddenTryOnOverrides(body: Record<string, unknown>) {
     "tryOnReservations", "reservationToken", "quotaCommitted"
   ]
     .some((field) => body[field] !== undefined);
+}
+
+export function tryOnRequestValidationError(body: Record<string, unknown>) {
+  if (hasForbiddenTryOnOverrides(body)) {
+    return "The try-on must use the saved verified outfit selection";
+  }
+  if (!mongoose.isValidObjectId(body.selectionId)) {
+    return "Choose a valid saved outfit";
+  }
+  return "";
 }
 
 export function resourceOwnershipError(input: {
