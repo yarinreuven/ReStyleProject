@@ -7,10 +7,23 @@ import {
   geminiStylistFailureMessage,
   GEMINI_STYLIST_RESPONSE_SCHEMA,
   isCompleteStylistSuggestion,
+  isValidStylistSelection,
   isNoCostAiMockMode,
   isSafeStylistText,
   requestGeminiStylist
 } from "./geminiStylistService.ts";
+
+test("accepts only safe stylist selections with valid MongoDB IDs", () => {
+  const valid = {
+    itemId: "507f1f77bcf86cd799439011",
+    detectedCategory: "Top" as const,
+    reason: "Matches the requested event"
+  };
+
+  assert.equal(isValidStylistSelection(valid), true);
+  assert.equal(isValidStylistSelection({ ...valid, itemId: "invalid" }), false);
+  assert.equal(isValidStylistSelection({ ...valid, reason: "Buy this top" }), false);
+});
 
 test("maps Gemini provider failures to safe user-facing messages", () => {
   assert.match(geminiStylistFailureMessage(429), /allowance/);

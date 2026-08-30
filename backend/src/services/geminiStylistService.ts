@@ -1,8 +1,10 @@
 import sharp from "sharp";
+import mongoose from "mongoose";
 
 import type { AnalyzedWardrobeItem } from "./geminiStylistValidationService.ts";
 import {
   DETECTED_CATEGORIES,
+  isDetectedCategory,
   type SelectedOutfitItem
 } from "./outfitSelectionService.ts";
 
@@ -131,6 +133,16 @@ export interface OutfitSuggestion {
 export function isSafeStylistText(value: unknown) {
   return typeof value === "string" && value.trim().length > 0 &&
     !/(?:https?:\/\/|www\.|\bbuy\b|\bpurchase\b|\bshop\b)/i.test(value);
+}
+
+export function isValidStylistSelection(selection: SelectedOutfitItem) {
+  return Boolean(
+    selection &&
+    typeof selection.itemId === "string" &&
+    mongoose.isValidObjectId(selection.itemId) &&
+    isDetectedCategory(selection.detectedCategory) &&
+    isSafeStylistText(selection.reason)
+  );
 }
 
 export function isCompleteStylistSuggestion(

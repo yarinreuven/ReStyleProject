@@ -33,7 +33,7 @@ import {
   GEMINI_STYLIST_RESPONSE_SCHEMA,
   isCompleteStylistSuggestion,
   isNoCostAiMockMode,
-  isSafeStylistText,
+  isValidStylistSelection,
   requestGeminiStylist,
   type OutfitSuggestion
 } from "../services/geminiStylistService.ts";
@@ -438,12 +438,7 @@ router.post(
         return;
       }
 
-      if (aiSuggestion.selectedItems.some((selection) =>
-        !selection || typeof selection.itemId !== "string" ||
-        !mongoose.isValidObjectId(selection.itemId) ||
-        !isDetectedCategory(selection.detectedCategory) ||
-        !isSafeStylistText(selection.reason)
-      )) {
+      if (!aiSuggestion.selectedItems.every(isValidStylistSelection)) {
         res.status(502).json({
           success: false,
           message: "The AI stylist returned an invalid wardrobe selection. Please try again."
