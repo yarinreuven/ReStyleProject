@@ -133,6 +133,30 @@ export function isSafeStylistText(value: unknown) {
     !/(?:https?:\/\/|www\.|\bbuy\b|\bpurchase\b|\bshop\b)/i.test(value);
 }
 
+export function isCompleteStylistSuggestion(
+  suggestion: OutfitSuggestion,
+  expectedAnalyzedItems: number
+) {
+  return Boolean(
+    suggestion &&
+    isSafeStylistText(suggestion.title) &&
+    isSafeStylistText(suggestion.explanation) &&
+    Array.isArray(suggestion.stylingTips) &&
+    suggestion.stylingTips.length >= 1 &&
+    suggestion.stylingTips.length <= 3 &&
+    suggestion.stylingTips.every(isSafeStylistText) &&
+    suggestion.cohesion &&
+    typeof suggestion.cohesion.colorsCoordinate === "boolean" &&
+    typeof suggestion.cohesion.formalityCoordinates === "boolean" &&
+    typeof suggestion.cohesion.silhouettesCoordinate === "boolean" &&
+    typeof suggestion.cohesion.occasionCoordinates === "boolean" &&
+    isSafeStylistText(suggestion.cohesion.reason) &&
+    Array.isArray(suggestion.analyzedItems) &&
+    suggestion.analyzedItems.length === expectedAnalyzedItems &&
+    Array.isArray(suggestion.selectedItems)
+  );
+}
+
 export async function buildGeminiWardrobeImageParts(items: Array<{
   id: string;
   item: {

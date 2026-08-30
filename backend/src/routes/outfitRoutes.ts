@@ -30,6 +30,7 @@ import {
   GEMINI_STYLIST_MAX_ITEMS,
   GEMINI_STYLIST_MODEL,
   GEMINI_STYLIST_RESPONSE_SCHEMA,
+  isCompleteStylistSuggestion,
   isNoCostAiMockMode,
   isSafeStylistText,
   requestGeminiStylist,
@@ -381,20 +382,7 @@ router.post(
         return;
       }
 
-      if (!aiSuggestion || !isSafeStylistText(aiSuggestion.title) ||
-        !isSafeStylistText(aiSuggestion.explanation) ||
-        !Array.isArray(aiSuggestion.stylingTips) ||
-        aiSuggestion.stylingTips.length < 1 || aiSuggestion.stylingTips.length > 3 ||
-        aiSuggestion.stylingTips.some((tip) => !isSafeStylistText(tip)) ||
-        !aiSuggestion.cohesion ||
-        typeof aiSuggestion.cohesion.colorsCoordinate !== "boolean" ||
-        typeof aiSuggestion.cohesion.formalityCoordinates !== "boolean" ||
-        typeof aiSuggestion.cohesion.silhouettesCoordinate !== "boolean" ||
-        typeof aiSuggestion.cohesion.occasionCoordinates !== "boolean" ||
-        !isSafeStylistText(aiSuggestion.cohesion.reason) ||
-        !Array.isArray(aiSuggestion.analyzedItems) ||
-        aiSuggestion.analyzedItems.length !== shortlistedItems.length ||
-        !Array.isArray(aiSuggestion.selectedItems)) {
+      if (!isCompleteStylistSuggestion(aiSuggestion, shortlistedItems.length)) {
         res.status(502).json({
           success: false,
           message: "The wardrobe inspection returned an incomplete result. Please try again."

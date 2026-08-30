@@ -5,10 +5,43 @@ import sharp from "sharp";
 import {
   buildGeminiWardrobeImageParts,
   GEMINI_STYLIST_RESPONSE_SCHEMA,
+  isCompleteStylistSuggestion,
   isNoCostAiMockMode,
   isSafeStylistText,
   requestGeminiStylist
 } from "./geminiStylistService.ts";
+
+test("accepts only complete and safe stylist suggestions", () => {
+  const suggestion = {
+    title: "Evening look",
+    explanation: "The colors and silhouettes coordinate.",
+    analyzedItems: [{}],
+    selectedItems: [],
+    cohesion: {
+      colorsCoordinate: true,
+      formalityCoordinates: true,
+      silhouettesCoordinate: true,
+      occasionCoordinates: true,
+      reason: "The complete outfit works together."
+    },
+    stylingTips: ["Wear the jacket open."],
+    avatarValidation: {
+      valid: true,
+      singlePerson: true,
+      fullBodyVisible: true,
+      frontFacing: true,
+      faceClear: true,
+      reason: "Preset avatar"
+    }
+  } as Parameters<typeof isCompleteStylistSuggestion>[0];
+
+  assert.equal(isCompleteStylistSuggestion(suggestion, 1), true);
+  assert.equal(isCompleteStylistSuggestion(suggestion, 2), false);
+  assert.equal(isCompleteStylistSuggestion({
+    ...suggestion,
+    stylingTips: ["Buy a new bag"]
+  }, 1), false);
+});
 
 test("optimizes wardrobe images and preserves their internal item IDs", async () => {
   const sourceImage = await sharp({
