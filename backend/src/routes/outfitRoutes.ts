@@ -40,7 +40,7 @@ import {
 import {
   isPersonalAvatarAcceptable,
   normalizeCompleteWardrobeAnalysis,
-  normalizeGeminiCategory,
+  normalizeSelectedOutfitItems
 } from "../services/geminiStylistValidationService.ts";
 import {
   createBalancedWardrobeShortlist,
@@ -51,7 +51,6 @@ import {
   selectNoCostOutfitItems,
   selectedOutfitValidationError,
   type DetectedCategory,
-  type SelectedOutfitItem,
   type VerifiedCandidate
 } from "../services/outfitSelectionService.ts";
 import {
@@ -408,20 +407,15 @@ router.post(
       aiSuggestion.analyzedItems = normalizedAnalysis.analyses;
       const analysisById = normalizedAnalysis.byId;
 
-      const normalizedSelections = aiSuggestion.selectedItems.map((selection) => {
-        const detectedCategory = normalizeGeminiCategory(selection?.detectedCategory);
-        return detectedCategory && detectedCategory !== "None"
-          ? { ...selection, detectedCategory }
-          : null;
-      });
-      if (normalizedSelections.some((selection) => !selection)) {
+      const normalizedSelections = normalizeSelectedOutfitItems(aiSuggestion.selectedItems);
+      if (!normalizedSelections) {
         res.status(502).json({
           success: false,
           message: "The wardrobe inspection returned an invalid outfit selection. Please try again."
         });
         return;
       }
-      aiSuggestion.selectedItems = normalizedSelections as SelectedOutfitItem[];
+      aiSuggestion.selectedItems = normalizedSelections;
 
       if (aiSuggestion.selectedItems.length > 0 &&
         outfitCohesionValidationError(aiSuggestion.cohesion)) {

@@ -4,7 +4,8 @@ import test from "node:test";
 import {
   isPersonalAvatarAcceptable,
   normalizeAnalyzedWardrobeItem,
-  normalizeCompleteWardrobeAnalysis
+  normalizeCompleteWardrobeAnalysis,
+  normalizeSelectedOutfitItems
 } from "./geminiStylistValidationService.ts";
 import { outfitCohesionValidationError } from "./outfitSelectionService.ts";
 
@@ -91,6 +92,24 @@ test("requires one normalized analysis for every candidate ID", () => {
     validAnalysis(itemId),
     validAnalysis(itemId)
   ], ids), null);
+});
+
+test("normalizes selected categories and rejects None selections", () => {
+  assert.deepEqual(normalizeSelectedOutfitItems([{
+    itemId,
+    detectedCategory: "Dresses" as "Dress",
+    reason: "Suitable for the event"
+  }]), [{
+    itemId,
+    detectedCategory: "Dress",
+    reason: "Suitable for the event"
+  }]);
+
+  assert.equal(normalizeSelectedOutfitItems([{
+    itemId,
+    detectedCategory: "None" as "Dress",
+    reason: "Invalid selection"
+  }]), null);
 });
 
 test("does not reject a full-body avatar only because the face is small in frame", () => {

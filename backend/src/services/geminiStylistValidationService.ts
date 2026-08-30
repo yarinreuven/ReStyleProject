@@ -1,6 +1,7 @@
 import {
   isDetectedCategory,
-  type DetectedCategory
+  type DetectedCategory,
+  type SelectedOutfitItem
 } from "./outfitSelectionService.ts";
 
 export interface AnalyzedWardrobeItem {
@@ -123,4 +124,16 @@ export function normalizeCompleteWardrobeAnalysis(
   }
 
   return { analyses, byId };
+}
+
+export function normalizeSelectedOutfitItems(values: SelectedOutfitItem[]) {
+  const selections: SelectedOutfitItem[] = [];
+
+  for (const selection of values) {
+    const detectedCategory = normalizeGeminiCategory(selection?.detectedCategory);
+    if (!detectedCategory || detectedCategory === "None") return null;
+    selections.push({ ...selection, detectedCategory });
+  }
+
+  return selections;
 }
