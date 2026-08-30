@@ -120,7 +120,10 @@ export async function resolveTryOnSelection(userId: string, selectionId: string)
   }
 
   const itemIds = selectionItems.map((entry) => entry.itemId);
-  const items = await Item.find({ _id: { $in: itemIds } })
+  const items = await Item.find({
+    _id: { $in: itemIds },
+    listingType: null
+  })
     .select("name category image user");
   const ownershipError = resourceOwnershipError({
     userId,

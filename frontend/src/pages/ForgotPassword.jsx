@@ -43,9 +43,9 @@ export default function ForgotPassword() {
         <h1>Forgot Password?</h1>
         <p className="subtitle">Enter your email and we'll send you a password reset link.</p>
         <form onSubmit={submit} noValidate>
-          <input type="email" placeholder="Email Address" value={email} onChange={(event) => { setEmail(event.target.value); setError(""); setMessage(""); }} className={error ? "input-error" : ""} />
-          <p className="error-message">{error}</p>
-          {message && <p className="reset-success">{message}</p>}
+          <input id="forgotEmail" type="email" placeholder="Email Address" aria-label="Email Address" aria-invalid={Boolean(error)} aria-describedby={error ? "forgotEmailError" : undefined} autoComplete="email" value={email} onChange={(event) => { setEmail(event.target.value); setError(""); setMessage(""); }} className={error ? "input-error" : ""} />
+          <p id="forgotEmailError" className="error-message" role={error ? "alert" : undefined}>{error}</p>
+          {message && <p className="reset-success" role="status">{message}</p>}
           <button type="submit" className="reset-btn" disabled={isSending}>{isSending ? "Sending..." : "Send Reset Link"}</button>
         </form>
         <div className="login-link">Remember your password? <Link to="/login">Login</Link></div>

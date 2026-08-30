@@ -28,6 +28,7 @@ export const GEMINI_STYLIST_MAX_ITEMS = 14;
 export const GEMINI_STYLIST_IMAGE_EDGE = 640;
 export const GEMINI_STYLIST_JPEG_QUALITY = 65;
 const GEMINI_STYLIST_MAX_REQUEST_BYTES = 18 * 1024 * 1024;
+const GEMINI_STYLIST_TRANSIENT_STATUSES = new Set([429, 500, 502, 503, 504]);
 
 export function isNoCostAiMockMode() {
   return process.env.NODE_ENV !== "production" &&
@@ -282,7 +283,7 @@ export function buildGeminiStylistPrompt(
     "If no attached image shows a valid wardrobe item, return an empty selectedItems array.",
     "Keep the explanation concise and encouraging.",
     avatarSource === "personal"
-      ? "Validate the separately labeled PERSONAL MODEL PHOTO. avatarValidation.valid may be true only when there is exactly one person, their face is clear, they are approximately front-facing, and their entire body including head, legs and both feet is visible. A selfie, seated pose, side-facing pose, cropped body, hidden feet or face, group photo, or distant person is invalid."
+      ? "Validate the separately labeled PERSONAL MODEL PHOTO. Treat fullBodyVisible as true when exactly one person is clearly visible from the head through both knees, even when the lower legs or feet are outside the frame. The person should be approximately front-facing and their face identifiable. A natural arm position or mirror selfie is allowed; hands do not need to be beside the body. Reject face-only or upper-torso crops, photos cropped above the knees, strongly side-facing poses, a face substantially hidden by the phone, group photos, or a person too small or blurred to use."
       : "No personal model photo was requested. Return every avatarValidation boolean as true and reason as Preset avatar.",
     "Return one JSON object matching the provided response schema. The cohesion reason must briefly explain why the selected pieces work together. Keep stylingTips to between one and three short strings.",
     JSON.stringify({ request, wardrobe })
@@ -298,19 +299,28 @@ export async function requestGeminiStylist(
     throw new Error("GEMINI_STYLIST_PAYLOAD_TOO_LARGE");
   }
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_STYLIST_MODEL}:generateContent`,
-    {
-      method: "POST",
-      headers: {
-        "x-goog-api-key": apiKey,
-        "Content-Type": "application/json"
-      },
-      body: serializedBody,
-      signal: AbortSignal.timeout(90 * 1000)
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_STYLIST_MODEL}:generateContent`,
+        {
+          method: "POST",
+          headers: {
+            "x-goog-api-key": apiKey,
+            "Content-Type": "application/json"
+          },
+          body: serializedBody,
+          signal: AbortSignal.timeout(90 * 1000)
+        }
+      );
+      const data = await response.json() as GeminiResponse;
+      if (response.ok || !GEMINI_STYLIST_TRANSIENT_STATUSES.has(response.status) || attempt === 2) {
+        return { response, data, model: GEMINI_STYLIST_MODEL };
+      }
+    } catch (error) {
+      if (attempt === 2) throw error;
     }
-  );
-  const data = await response.json() as GeminiResponse;
-
-  return { response, data, model: GEMINI_STYLIST_MODEL };
+    await new Promise((resolve) => setTimeout(resolve, 350));
+  }
+  throw new Error("GEMINI_STYLIST_RETRY_EXHAUSTED");
 }

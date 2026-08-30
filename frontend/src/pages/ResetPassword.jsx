@@ -48,9 +48,9 @@ export default function ResetPassword() {
       <h1>Create New Password</h1>
       <p className="subtitle">Choose a new password for your ReStyle account.</p>
       {message ? <div className="reset-complete"><p>{message}</p><Link to="/login">Continue to Login</Link></div> : <form onSubmit={submit} noValidate>
-        <input type="password" name="newPassword" placeholder="New Password" value={form.newPassword} onChange={updateField} autoComplete="new-password" />
-        <input type="password" name="confirmPassword" placeholder="Confirm New Password" value={form.confirmPassword} onChange={updateField} autoComplete="new-password" />
-        <p className="error-message">{error}</p>
+        <input id="newPassword" type="password" name="newPassword" placeholder="New Password" aria-label="New Password" aria-invalid={Boolean(error)} aria-describedby={error ? "resetPasswordError" : undefined} value={form.newPassword} onChange={updateField} autoComplete="new-password" />
+        <input id="confirmPassword" type="password" name="confirmPassword" placeholder="Confirm New Password" aria-label="Confirm New Password" aria-invalid={Boolean(error)} aria-describedby={error ? "resetPasswordError" : undefined} value={form.confirmPassword} onChange={updateField} autoComplete="new-password" />
+        <p id="resetPasswordError" className="error-message" role={error ? "alert" : undefined}>{error}</p>
         <button type="submit" className="reset-btn" disabled={isSaving}>{isSaving ? "Updating..." : "Reset Password"}</button>
       </form>}
     </div>

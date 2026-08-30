@@ -121,9 +121,14 @@ export default function Login() {
         <form onSubmit={submit} noValidate>
           <div className="input-group">
             <input
+              id="loginEmail"
               name="email"
               type="email"
               placeholder="Email"
+              aria-label="Email"
+              aria-invalid={Boolean(errors.email)}
+              aria-describedby={errors.email ? "loginEmailError" : undefined}
+              autoComplete="email"
               value={values.email}
               onChange={change}
               className={
@@ -131,16 +136,21 @@ export default function Login() {
               }
             />
 
-            <p className="error-message">
+            <p id="loginEmailError" className="error-message" role={errors.email ? "alert" : undefined}>
               {errors.email || ""}
             </p>
           </div>
 
           <div className="input-group">
             <input
+              id="loginPassword"
               name="password"
               type="password"
               placeholder="Password"
+              aria-label="Password"
+              aria-invalid={Boolean(errors.password)}
+              aria-describedby={errors.password ? "loginPasswordError" : undefined}
+              autoComplete="current-password"
               value={values.password}
               onChange={change}
               className={
@@ -150,7 +160,7 @@ export default function Login() {
               }
             />
 
-            <p className="error-message">
+            <p id="loginPasswordError" className="error-message" role={errors.password ? "alert" : undefined}>
               {errors.password || ""}
             </p>
           </div>

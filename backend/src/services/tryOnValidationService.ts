@@ -155,17 +155,17 @@ export function uploadedAvatarValidationError(input: {
     webp: "image/webp"
   };
   if (input.size <= 0 || input.size > 5 * 1024 * 1024) {
-    return "The full-body image must be smaller than 5MB";
+    return "The model photo must be smaller than 5MB";
   }
   const detectedMimeType = input.detectedFormat
     ? formats[input.detectedFormat.toLowerCase()]
     : undefined;
   if (!detectedMimeType || detectedMimeType !== input.declaredMimeType) {
-    return "The full-body image must be a genuine JPG, PNG or WEBP image";
+    return "The model photo must be a genuine JPG, PNG or WEBP image";
   }
   if (!input.width || !input.height || input.width < 300 || input.height < 600 ||
     input.height / input.width < 1.15) {
-    return "Choose a clear vertical full-body image with the person visible from head to feet";
+    return "Choose a clear vertical photo with one person visible from head to at least both knees";
   }
   return "";
 }

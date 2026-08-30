@@ -17,9 +17,31 @@
     { "key": "listingId", "value": "507f1f77bcf86cd799439013" },
     { "key": "conversationId", "value": "507f1f77bcf86cd799439014" },
     { "key": "projectId", "value": "507f1f77bcf86cd799439015" },
+    { "key": "userId", "value": "507f1f77bcf86cd799439016" },
+    { "key": "messageId", "value": "507f1f77bcf86cd799439017" },
+    { "key": "lookId", "value": "507f1f77bcf86cd799439018" },
+    { "key": "ideaId", "value": "idea-1" },
+    { "key": "resetToken", "value": "REPLACE_WITH_64_CHARACTER_RESET_TOKEN" },
     { "key": "orderId", "value": "REPLACEWITHPAYPALORDERID" }
   ],
   "item": [
+    {
+      "name": "Public",
+      "item": [
+        {
+          "name": "API health check",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [], "url": "http://localhost:3001/" }
+        },
+        {
+          "name": "Get public contact email",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [], "url": "{{baseUrl}}/public/contact" }
+        },
+        {
+          "name": "API 404 response example",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "header": [], "url": "{{baseUrl}}/route-that-does-not-exist" }
+        }
+      ]
+    },
     {
       "name": "Authentication",
       "item": [
@@ -90,6 +112,122 @@
             "header": [],
             "url": "{{baseUrl}}/auth/refresh"
           }
+        },
+        {
+          "name": "Logout",
+          "request": { "auth": { "type": "noauth" }, "method": "POST", "header": [], "url": "{{baseUrl}}/auth/logout" }
+        },
+        {
+          "name": "Google authentication",
+          "request": {
+            "auth": { "type": "noauth" }, "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"credential\": \"REPLACE_WITH_GOOGLE_CREDENTIAL\",\n  \"intent\": \"login\"\n}" },
+            "url": "{{baseUrl}}/auth/google"
+          }
+        },
+        {
+          "name": "Forgot password",
+          "request": {
+            "auth": { "type": "noauth" }, "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"user@example.com\"\n}" },
+            "url": "{{baseUrl}}/auth/forgot-password"
+          }
+        },
+        {
+          "name": "Reset password",
+          "request": {
+            "auth": { "type": "noauth" }, "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"token\": \"{{resetToken}}\",\n  \"newPassword\": \"NewPassword123!\",\n  \"confirmPassword\": \"NewPassword123!\"\n}" },
+            "url": "{{baseUrl}}/auth/reset-password"
+          }
+        },
+        {
+          "name": "Update current user",
+          "request": {
+            "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"firstName\": \"ReStyle\",\n  \"lastName\": \"User\",\n  \"gender\": \"female\"\n}" },
+            "url": "{{baseUrl}}/auth/me"
+          }
+        },
+        {
+          "name": "Delete current user (destructive)",
+          "request": {
+            "method": "DELETE", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"confirmation\": \"DELETE\"\n}" },
+            "description": "Permanently deletes the authenticated account and its related data. Run this request only with a disposable test account.",
+            "url": "{{baseUrl}}/auth/me"
+          }
+        },
+        {
+          "name": "Change password",
+          "request": {
+            "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"currentPassword\": \"ChangeMe123!\",\n  \"newPassword\": \"NewPassword123!\",\n  \"confirmPassword\": \"NewPassword123!\"\n}" },
+            "url": "{{baseUrl}}/auth/password"
+          }
+        },
+        {
+          "name": "Request email change",
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"new-email@example.com\"\n}" },
+            "url": "{{baseUrl}}/auth/email-change/request"
+          }
+        },
+        {
+          "name": "Confirm email change",
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"code\": \"123456\"\n}" },
+            "url": "{{baseUrl}}/auth/email-change/confirm"
+          }
+        },
+        {
+          "name": "List blocked users",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/auth/blocked-users" }
+        },
+        {
+          "name": "Block user",
+          "request": { "method": "POST", "header": [], "url": "{{baseUrl}}/auth/blocked-users/{{userId}}" }
+        },
+        {
+          "name": "Unblock user",
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/auth/blocked-users/{{userId}}" }
+        },
+        {
+          "name": "Get profile image",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/auth/profile-image" }
+        },
+        {
+          "name": "Upload profile image",
+          "request": {
+            "method": "PUT", "header": [],
+            "body": { "mode": "formdata", "formdata": [{ "key": "profileImage", "type": "file", "src": "" }] },
+            "url": "{{baseUrl}}/auth/profile-image"
+          }
+        },
+        {
+          "name": "Delete profile image",
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/auth/profile-image" }
+        },
+        {
+          "name": "Get virtual model image",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/auth/virtual-model-image" }
+        },
+        {
+          "name": "Upload virtual model image",
+          "request": {
+            "method": "PUT", "header": [],
+            "body": { "mode": "formdata", "formdata": [{ "key": "virtualModelImage", "type": "file", "src": "" }] },
+            "url": "{{baseUrl}}/auth/virtual-model-image"
+          }
+        },
+        {
+          "name": "Delete virtual model image",
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/auth/virtual-model-image" }
         }
       ]
     },
@@ -130,6 +268,37 @@
           }
         },
         {
+          "name": "Add worn date",
+          "request": {
+            "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"date\": \"2026-08-30\"\n}" },
+            "url": "{{baseUrl}}/items/{{itemId}}/worn"
+          }
+        },
+        {
+          "name": "Remove worn date",
+          "request": {
+            "method": "DELETE", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"date\": \"2026-08-30\"\n}" },
+            "url": "{{baseUrl}}/items/{{itemId}}/worn"
+          }
+        },
+        {
+          "name": "Update wardrobe item",
+          "request": {
+            "method": "PUT", "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "Updated white shirt", "type": "text" },
+                { "key": "category", "value": "Tops", "type": "text" },
+                { "key": "color", "value": "White", "type": "text" }
+              ]
+            },
+            "url": "{{baseUrl}}/items/{{itemId}}"
+          }
+        },
+        {
           "name": "Delete wardrobe item",
           "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/items/{{itemId}}" }
         }
@@ -166,6 +335,25 @@
         {
           "name": "List saved outfits",
           "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/outfits/saved" }
+        },
+        {
+          "name": "Delete saved outfit",
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/outfits/saved/{{lookId}}" }
+        },
+        {
+          "name": "Create virtual try-on",
+          "request": {
+            "method": "POST", "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "selectionId", "value": "{{selectionId}}", "type": "text" },
+                { "key": "avatarSource", "value": "upload", "type": "text" },
+                { "key": "modelImage", "type": "file", "src": "" }
+              ]
+            },
+            "url": "{{baseUrl}}/outfits/try-on"
+          }
         }
       ]
     },
@@ -181,8 +369,67 @@
           "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/marketplace/{{listingId}}" }
         },
         {
+          "name": "List my marketplace items",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/marketplace/mine" }
+        },
+        {
+          "name": "Get marketplace seller",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/marketplace/sellers/{{userId}}" }
+        },
+        {
+          "name": "Create marketplace item",
+          "request": {
+            "method": "POST", "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "Classic jacket", "type": "text" },
+                { "key": "listingType", "value": "sale", "type": "text" },
+                { "key": "price", "value": "120", "type": "text" },
+                { "key": "rentalPricePerDay", "value": "", "type": "text" },
+                { "key": "size", "value": "M", "type": "text" },
+                { "key": "condition", "value": "Excellent", "type": "text" },
+                { "key": "category", "value": "Jackets", "type": "text" },
+                { "key": "brand", "value": "ReStyle", "type": "text" },
+                { "key": "description", "value": "A classic jacket in excellent condition.", "type": "text" },
+                { "key": "images", "type": "file", "src": "" }
+              ]
+            },
+            "url": "{{baseUrl}}/marketplace"
+          }
+        },
+        {
+          "name": "Update marketplace item",
+          "request": {
+            "method": "PUT", "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "listingType", "value": "sale", "type": "text" },
+                { "key": "price", "value": "110", "type": "text" },
+                { "key": "rentalPricePerDay", "value": "", "type": "text" },
+                { "key": "size", "value": "M", "type": "text" },
+                { "key": "condition", "value": "Excellent", "type": "text" },
+                { "key": "category", "value": "Jackets", "type": "text" },
+                { "key": "brand", "value": "ReStyle", "type": "text" },
+                { "key": "description", "value": "Updated marketplace item description.", "type": "text" },
+                { "key": "availabilityStatus", "value": "active", "type": "text" }
+              ]
+            },
+            "url": "{{baseUrl}}/marketplace/{{listingId}}"
+          }
+        },
+        {
           "name": "Add marketplace favorite",
           "request": { "method": "POST", "header": [], "url": "{{baseUrl}}/marketplace-favorites/{{listingId}}" }
+        },
+        {
+          "name": "List marketplace favorites",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/marketplace-favorites" }
+        },
+        {
+          "name": "Remove marketplace favorite",
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/marketplace-favorites/{{listingId}}" }
         },
         {
           "name": "Hide marketplace item",
@@ -192,6 +439,10 @@
             "body": { "mode": "raw", "raw": "{\n  \"availabilityStatus\": \"hidden\"\n}" },
             "url": "{{baseUrl}}/marketplace/{{listingId}}/availability"
           }
+        },
+        {
+          "name": "Delete marketplace item",
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/marketplace/{{listingId}}" }
         }
       ]
     },
@@ -201,6 +452,14 @@
         {
           "name": "List conversations",
           "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/messages/conversations" }
+        },
+        {
+          "name": "Start conversation for marketplace item",
+          "request": {
+            "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"itemId\": \"{{listingId}}\"\n}" },
+            "url": "{{baseUrl}}/messages/conversations"
+          }
         },
         {
           "name": "Get conversation",
@@ -214,12 +473,41 @@
             "body": { "mode": "raw", "raw": "{\n  \"text\": \"Is this item still available?\"\n}" },
             "url": "{{baseUrl}}/messages/conversations/{{conversationId}}/messages"
           }
+        },
+        {
+          "name": "Mark conversation as read",
+          "request": { "method": "POST", "header": [], "url": "{{baseUrl}}/messages/conversations/{{conversationId}}/read" }
+        },
+        {
+          "name": "Hide conversation",
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/messages/conversations/{{conversationId}}" }
+        },
+        {
+          "name": "Delete message",
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/messages/conversations/{{conversationId}}/messages/{{messageId}}" }
         }
       ]
     },
     {
       "name": "ReStyle Studio",
       "item": [
+        {
+          "name": "Create ReStyle project from upload",
+          "request": {
+            "method": "POST", "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "Denim redesign", "type": "text" },
+                { "key": "sourceType", "value": "upload", "type": "text" },
+                { "key": "sourceName", "value": "Old denim shirt", "type": "text" },
+                { "key": "details", "value": "{\"garmentType\":\"Shirts\",\"fabric\":\"Denim\",\"condition\":\"worn\",\"sewingSkill\":\"Basic hand sewing\",\"tools\":[\"Scissors\",\"Needle\"],\"difficulty\":\"Easy\",\"preference\":\"accessory\"}", "type": "text" },
+                { "key": "sourceImage", "type": "file", "src": "" }
+              ]
+            },
+            "url": "{{baseUrl}}/restyle-projects"
+          }
+        },
         {
           "name": "Get ReStyle quota",
           "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/restyle-projects/quota" }
@@ -235,12 +523,38 @@
         {
           "name": "Generate redesign ideas",
           "request": { "method": "POST", "header": [], "url": "{{baseUrl}}/restyle-projects/{{projectId}}/ideas" }
+        },
+        {
+          "name": "Select redesign idea",
+          "request": { "method": "POST", "header": [], "url": "{{baseUrl}}/restyle-projects/{{projectId}}/ideas/{{ideaId}}/select" }
+        },
+        {
+          "name": "Update ReStyle project",
+          "request": {
+            "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"in_progress\",\n  \"progress\": 25\n}" },
+            "url": "{{baseUrl}}/restyle-projects/{{projectId}}"
+          }
+        },
+        {
+          "name": "Delete ReStyle project",
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/restyle-projects/{{projectId}}" }
         }
       ]
     },
     {
       "name": "PayPal Sandbox",
       "item": [
+        {
+          "name": "PayPal webhook callback (provider use)",
+          "request": {
+            "auth": { "type": "noauth" }, "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"id\": \"WH-REPLACE_ME\",\n  \"event_type\": \"PAYMENT.CAPTURE.COMPLETED\",\n  \"resource\": {}\n}" },
+            "description": "PayPal normally calls this endpoint and supplies verification headers. A manual request is expected to fail signature verification.",
+            "url": "{{baseUrl}}/paypal/webhook"
+          }
+        },
         {
           "name": "Get PayPal client configuration",
           "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/paypal/config" }

@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   createMarketplaceItemSchema,
   marketplaceAvailabilitySchema,
+  marketplaceItemSchema,
   marketplaceItemIdSchema
 } from "./marketplaceValidation.ts";
 
@@ -34,6 +35,15 @@ test("requires the price that matches the listing type", () => {
     price: null,
     rentalPricePerDay: null
   }).error);
+});
+
+test("keeps and validates the item name when editing a marketplace listing", () => {
+  const editedListing = { ...validListing, name: "Updated linen blazer" };
+  const { error, value } = marketplaceItemSchema.validate(editedListing, { stripUnknown: true });
+
+  assert.equal(error, undefined);
+  assert.equal(value.name, "Updated linen blazer");
+  assert.ok(marketplaceItemSchema.validate({ ...validListing, name: "A" }).error);
 });
 
 test("rejects invalid marketplace IDs and availability values", () => {

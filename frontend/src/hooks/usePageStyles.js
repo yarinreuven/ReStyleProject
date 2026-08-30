@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 
 export default function usePageStyles(fileName) {
-  useEffect(() => {
+  useLayoutEffect(() => {
     const link = document.createElement("link");
     link.rel = "stylesheet";
     link.href = `/styles/${fileName}`;

@@ -87,7 +87,7 @@ export default function Marketplace() {
     const filtered = marketplaceItems.filter((item) => {
       const searchableValues = [item.title, item.category, item.brand, item.style];
       const matchesSearch = !normalizedSearch || searchableValues.some((value) =>
-        value.toLowerCase().includes(normalizedSearch)
+        String(value || "").toLowerCase().includes(normalizedSearch)
       );
       const matchesType = listingType === "ALL" || item.listingType === listingType;
       const matchesCategory = category === "All" || item.category === category;
@@ -249,7 +249,7 @@ export default function Marketplace() {
 
   async function deleteListing(item) {
     const confirmed = window.confirm(
-      `Remove “${item.title}” from Marketplace? The wardrobe item itself will not be deleted.`
+      `Remove “${item.title}” from Marketplace?`
     );
     if (!confirmed) return;
 

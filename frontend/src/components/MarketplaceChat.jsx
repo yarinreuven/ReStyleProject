@@ -62,6 +62,7 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
   usePageStyles("marketplace-chat.css");
   const navigate = useNavigate();
   const socketRef = useRef(null);
+  const conversationsRef = useRef([]);
   const activeIdRef = useRef(initialConversationId || null);
   const openRef = useRef(Boolean(initialConversationId));
   const toastTimerRef = useRef(null);
@@ -120,6 +121,10 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
   }, [open]);
 
   useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
+
+  useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 30000);
     return () => window.clearInterval(timer);
   }, []);
@@ -155,6 +160,9 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
     const onNewMessage = async ({ conversationId, message }) => {
       const isMine = String(message.senderId) === currentUserId;
       const isActive = openRef.current && activeIdRef.current === conversationId;
+      const isKnownConversation = conversationsRef.current.some(
+        (conversation) => conversation.id === conversationId
+      );
 
       setActiveConversation((current) =>
         current?.id === conversationId ? addMessageOnce(current, message) : current
@@ -174,7 +182,9 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
         if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
         toastTimerRef.current = window.setTimeout(() => setToast(null), 4500);
       }
-      await loadConversations();
+      // Existing conversations are updated from the socket payload above. Fetch the
+      // list only when another user starts a conversation this client has not seen.
+      if (!isKnownConversation) await loadConversations();
     };
     const onMessageDeleted = (deletedMessage) => {
       setActiveConversation((current) =>

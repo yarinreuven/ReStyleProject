@@ -37,7 +37,7 @@ export async function preparePersonalModelValidationParts(data: Buffer) {
 
   return [
     {
-      text: "PERSONAL MODEL PHOTO TO VALIDATE. This is not a wardrobe item. Check whether exactly one person is clearly visible, standing approximately front-facing, with an unobstructed face and the complete body visible from head through both feet. Ignore the background."
+      text: "PERSONAL MODEL PHOTO TO VALIDATE. This is not a wardrobe item. Accept one clear, approximately front-facing person visible from the head through both knees. Lower legs and feet may be outside the frame, and the arms may be in any natural position. A mirror selfie is acceptable when the face remains identifiable and the phone does not substantially hide it. Reject crops above the knees, strongly side-facing poses, groups, or a blurred or heavily obscured person. Ignore the background."
     },
     {
       inline_data: {
@@ -55,7 +55,7 @@ export async function resolvePersonalModelValidationParts(userId: string) {
       success: false as const,
       status: 422,
       code: "VIRTUAL_MODEL_PHOTO_MISSING",
-      message: "Upload a clear vertical full-body photo before creating your look."
+      message: "Upload a clear vertical photo showing one person from head to at least both knees before creating your look."
     };
   }
 
@@ -87,7 +87,7 @@ export async function validateAvatarImage(
     metadata = await sharp(data).metadata();
   } catch {
     return {
-      error: "The full-body image must be a genuine JPG, PNG or WEBP image",
+      error: "The model photo must be a genuine JPG, PNG or WEBP image",
       data,
       contentType
     };
@@ -134,7 +134,7 @@ export async function resolveTryOnAvatar(input: {
     const user = await User.findById(input.userId).select("virtualModelImage");
     if (!user) return { status: 404, error: "User account not found" };
     if (!user.virtualModelImage?.data || !user.virtualModelImage.contentType) {
-      return { status: 404, error: "Your saved full-body image was not found" };
+      return { status: 404, error: "Your saved digital model photo was not found" };
     }
     const validated = await validateAvatarImage(
       user.virtualModelImage.data,
@@ -153,7 +153,7 @@ export async function resolveTryOnAvatar(input: {
 
   if (input.source === "upload") {
     if (!input.file?.buffer || input.avatarId) {
-      return { status: 400, error: "Choose a full-body JPG, PNG or WEBP image" };
+      return { status: 400, error: "Choose a clear JPG, PNG or WEBP model photo" };
     }
     const validated = await validateAvatarImage(input.file.buffer, input.file.mimetype);
     return validated.error

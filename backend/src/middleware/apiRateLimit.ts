@@ -6,10 +6,20 @@ const commonOptions = {
   skip: (req: { method: string }) => req.method === "OPTIONS"
 };
 
+const separatelyRateLimitedAuthRoutes = new Set([
+  "/auth/register",
+  "/auth/login",
+  "/auth/google",
+  "/auth/forgot-password",
+  "/auth/reset-password"
+]);
+
 export const apiRateLimit = rateLimit({
   ...commonOptions,
   windowMs: 15 * 60 * 1000,
-  limit: 300,
+  limit: 1000,
+  skip: (req) =>
+    req.method === "OPTIONS" || separatelyRateLimitedAuthRoutes.has(req.path),
   message: {
     success: false,
     code: "API_RATE_LIMITED",

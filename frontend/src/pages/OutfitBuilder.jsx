@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import usePageStyles from "../hooks/usePageStyles";
@@ -94,7 +94,7 @@ export default function OutfitBuilder() {
     }
   }
 
-  async function loadQuotaStatus() {
+  const loadQuotaStatus = useCallback(async () => {
     if (!token) return;
     try {
       setIsQuotaLoading(true);
@@ -114,7 +114,7 @@ export default function OutfitBuilder() {
     } finally {
       setIsQuotaLoading(false);
     }
-  }
+  }, [logout, navigate, token]);
 
   useEffect(() => {
     setOutfit(null);
@@ -142,7 +142,7 @@ export default function OutfitBuilder() {
 
   useEffect(() => {
     loadQuotaStatus();
-  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [loadQuotaStatus]);
 
   useEffect(() => {
     if (!isPlansOpen) return undefined;
@@ -224,7 +224,7 @@ export default function OutfitBuilder() {
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setModelMessage("Your full-body image must be smaller than 5MB.");
+      setModelMessage("Your digital model photo must be smaller than 5MB.");
       event.target.value = "";
       return;
     }
@@ -236,7 +236,7 @@ export default function OutfitBuilder() {
       image.close();
       if (unsuitableDimensions) {
         setModelMessage(
-          "This photo is not suitable. Please upload a clear vertical photo showing your full body from head to feet."
+          "This photo is not suitable. Please upload a clear vertical photo showing one person from head to at least both knees."
         );
         event.target.value = "";
         return;
@@ -609,7 +609,7 @@ export default function OutfitBuilder() {
                     <strong>My Digital Model</strong>
                     {personalModelUrl
                       ? "Use my face and body"
-                      : "Upload a clear full-body photo"}
+                      : "Upload a clear head-to-knees photo"}
                   </span>
                 </button>
               </div>
@@ -638,8 +638,8 @@ export default function OutfitBuilder() {
               </small>
 
               <small className="model-photo-guidance">
-                For the best result: stand facing the camera with your full body
-                clearly visible and filling most of the photo.
+                For the best result: face the camera with your head and both
+                knees clearly visible. Your arms can rest naturally.
               </small>
 
               {modelMessage && <p className="model-message">{modelMessage}</p>}

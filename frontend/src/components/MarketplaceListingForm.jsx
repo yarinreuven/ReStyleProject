@@ -164,7 +164,7 @@ export default function MarketplaceListingForm({ token, listing = null, onClose,
       <section className="market-listing-modal" role="dialog" aria-modal="true" aria-labelledby="listingFormTitle">
         <header>
           <div>
-            <span>{isEditing ? "UPDATE YOUR LISTING" : "SHARE FROM YOUR WARDROBE"}</span>
+            <span>{isEditing ? "UPDATE YOUR LISTING" : "CREATE A MARKETPLACE LISTING"}</span>
             <h2 id="listingFormTitle">{isEditing ? "Edit listing" : "Add a listing"}</h2>
             <p>Your account will automatically be shown as the seller.</p>
           </div>

@@ -54,7 +54,8 @@ export async function createItem(req: AuthRequest, res: Response, next: NextFunc
 
 export async function getItems(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const items = await Item.find({ user: req.userId }).sort({ createdAt: -1 });
+    const items = await Item.find({ user: req.userId, listingType: null })
+      .sort({ createdAt: -1 });
     res.status(200).json({ success: true, items: items.map(serializeItem) });
   } catch (error) {
     next(error);
@@ -63,7 +64,11 @@ export async function getItems(req: AuthRequest, res: Response, next: NextFuncti
 
 export async function updateFavorite(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const item = await Item.findOne({ _id: req.params.id, user: req.userId });
+    const item = await Item.findOne({
+      _id: req.params.id,
+      user: req.userId,
+      listingType: null
+    });
     if (!item) {
       res.status(404).json({ success: false, message: "Item not found" });
       return;
@@ -88,7 +93,11 @@ export async function addWornDate(req: AuthRequest, res: Response, next: NextFun
       return;
     }
 
-    const item = await Item.findOne({ _id: req.params.id, user: req.userId });
+    const item = await Item.findOne({
+      _id: req.params.id,
+      user: req.userId,
+      listingType: null
+    });
     if (!item) {
       res.status(404).json({ success: false, message: "Item not found" });
       return;
@@ -121,7 +130,11 @@ export async function addWornDate(req: AuthRequest, res: Response, next: NextFun
 
 export async function removeWornDate(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const item = await Item.findOne({ _id: req.params.id, user: req.userId });
+    const item = await Item.findOne({
+      _id: req.params.id,
+      user: req.userId,
+      listingType: null
+    });
     if (!item) {
       res.status(404).json({ success: false, message: "Item not found" });
       return;
@@ -148,7 +161,11 @@ export async function removeWornDate(req: AuthRequest, res: Response, next: Next
 
 export async function updateItem(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const item = await Item.findOne({ _id: req.params.id, user: req.userId });
+    const item = await Item.findOne({
+      _id: req.params.id,
+      user: req.userId,
+      listingType: null
+    });
     if (!item) {
       res.status(404).json({ success: false, message: "Item not found" });
       return;
@@ -179,7 +196,11 @@ export async function updateItem(req: AuthRequest, res: Response, next: NextFunc
 
 export async function deleteItem(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const deletedItem = await Item.findOneAndDelete({ _id: req.params.id, user: req.userId });
+    const deletedItem = await Item.findOneAndDelete({
+      _id: req.params.id,
+      user: req.userId,
+      listingType: null
+    });
     if (!deletedItem) {
       res.status(404).json({ success: false, message: "Item not found" });
       return;

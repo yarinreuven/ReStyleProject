@@ -5,6 +5,7 @@ import type {
     Response
   } from "express";
   import multer from "multer";
+  import { WardrobeImageCheckUnavailableError } from "../services/wardrobeImageService.ts";
   
   export const errorHandler: ErrorRequestHandler = (
     error: Error,
@@ -26,6 +27,14 @@ import type {
       res.status(400).json({
         success: false,
         message: "Request body is invalid"
+      });
+      return;
+    }
+    if (error instanceof WardrobeImageCheckUnavailableError) {
+      res.status(503).json({
+        success: false,
+        code: "IMAGE_VERIFICATION_UNAVAILABLE",
+        message: error.message
       });
       return;
     }

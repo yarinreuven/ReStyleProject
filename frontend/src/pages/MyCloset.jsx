@@ -266,9 +266,25 @@ export default function MyCloset() {
   }
 
   function chooseImage(event) {
+    const file = event.target.files?.[0] || null;
+    const allowedTypes = ["image/jpeg", "image/png"];
+    const maximumSize = 10 * 1024 * 1024;
+
+    if (file && !allowedTypes.includes(file.type)) {
+      window.alert("Please choose a PNG or JPG image.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file && file.size > maximumSize) {
+      window.alert("The image must be no larger than 10MB.");
+      event.target.value = "";
+      return;
+    }
+
     setForm((currentForm) => ({
       ...currentForm,
-      image: event.target.files?.[0] || null
+      image: file
     }));
   }
 
@@ -981,16 +997,17 @@ export default function MyCloset() {
           }
         }}
       >
-        <div className="modal">
+        <div className="modal" role="dialog" aria-modal="true" aria-labelledby="closetItemModalTitle">
           <button
             type="button"
             className="close-btn"
             onClick={closeModal}
+            aria-label="Close item form"
           >
             <i className="fa-solid fa-xmark" />
           </button>
 
-          <h2>
+          <h2 id="closetItemModalTitle">
             {editingId ? "Edit Item" : "Add New Item"}{" "}
             <span>♡</span>
           </h2>
@@ -1003,7 +1020,7 @@ export default function MyCloset() {
             <label className="upload-area">
               <input
                 type="file"
-                accept="image/*"
+                accept="image/png,image/jpeg"
                 onChange={chooseImage}
               />
 

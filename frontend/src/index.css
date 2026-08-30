@@ -3,6 +3,19 @@ html, body, #root {
   margin: 0;
 }
 
+html {
+  scrollbar-gutter: stable;
+}
+
+.page-loader {
+  min-height: calc(100vh - 164px);
+  display: grid;
+  place-items: center;
+  color: #93465b;
+  background: #fffaf7;
+  font-weight: 700;
+}
+
 /* Shared account avatar: every page uses the signed-in user's uploaded image. */
 .profile-avatar {
   display: inline-flex;

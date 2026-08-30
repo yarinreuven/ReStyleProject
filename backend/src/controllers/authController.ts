@@ -586,7 +586,7 @@ export async function updateVirtualModelImage(
     if (!req.file) {
       res.status(400).json({
         success: false,
-        message: "Please choose a full-body image"
+        message: "Please choose a digital model photo"
       });
       return;
     }
@@ -597,7 +597,7 @@ export async function updateVirtualModelImage(
     } catch {
       res.status(400).json({
         success: false,
-        message: "This photo could not be read. Please choose a different clear full-body photo."
+        message: "This photo could not be read. Please choose a different clear model photo."
       });
       return;
     }

@@ -210,7 +210,11 @@ export async function createMarketplaceItem(req: AuthRequest, res: Response, nex
 
 export async function updateMarketplaceItem(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const item = await Item.findOne({ _id: req.params.id, user: req.userId });
+    const item = await Item.findOne({
+      _id: req.params.id,
+      user: req.userId,
+      listingType: { $in: ["sale", "rent"] }
+    });
     if (!item) {
       res.status(404).json({ success: false, message: "Item not found" });
       return;
@@ -292,14 +296,11 @@ export async function removeMarketplaceItem(req: AuthRequest, res: Response, nex
       res.status(404).json({ success: false, message: "Item not found" });
       return;
     }
-    item.listingType = null;
-    item.price = null;
-    item.rentalPricePerDay = null;
     item.availabilityStatus = "hidden";
     await item.save();
     res.json({
       success: true,
-      message: "Item removed from the marketplace. It is still in My Closet."
+      message: "Listing removed from the marketplace"
     });
   } catch (error) {
     next(error);

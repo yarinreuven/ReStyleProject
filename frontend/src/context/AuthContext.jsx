@@ -80,9 +80,11 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(() => {
     axios.post(`${AUTH_URL}/logout`, {}, { withCredentials: true }).catch(() => {});
+    const userId = user?.id || user?._id;
+    if (userId) sessionStorage.removeItem(`restyle:outfit-builder:${userId}`);
     clearAuthentication();
     setIsAuthLoading(false);
-  }, [clearAuthentication]);
+  }, [clearAuthentication, user]);
 
   const updateUser = useCallback((updates) => {
     setUser((currentUser) => ({ ...currentUser, ...updates }));

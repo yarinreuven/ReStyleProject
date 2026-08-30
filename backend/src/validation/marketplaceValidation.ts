@@ -4,6 +4,7 @@ import Joi from "joi";
 const categories = ["Tops", "Bottoms", "Dresses", "Jackets", "Shoes", "Bags", "Accessories"];
 
 export const marketplaceItemSchema = Joi.object({
+  name: Joi.string().trim().min(2).max(80).required(),
   listingType: Joi.string().valid("sale", "rent").required(),
   price: Joi.alternatives().conditional("listingType", {
     is: "sale",
@@ -31,9 +32,7 @@ export const marketplaceItemSchema = Joi.object({
     .default("active")
 });
 
-export const createMarketplaceItemSchema = marketplaceItemSchema.append({
-  name: Joi.string().trim().min(2).max(80).required()
-});
+export const createMarketplaceItemSchema = marketplaceItemSchema;
 
 export const marketplaceAvailabilitySchema = Joi.object({
   availabilityStatus: Joi.string().valid("active", "hidden").required()

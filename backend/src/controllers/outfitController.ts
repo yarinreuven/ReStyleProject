@@ -115,7 +115,7 @@ export async function generateOutfit(
         return;
       }
 
-      const items = await Item.find({ user: req.userId }).select(
+      const items = await Item.find({ user: req.userId, listingType: null }).select(
         "name category color season style favorite wearCount lastWornAt brand size condition description image"
       );
 
@@ -333,7 +333,7 @@ export async function generateOutfit(
         res.status(422).json({
           success: false,
           code: "VIRTUAL_MODEL_PHOTO_UNSUITABLE",
-          message: "Your digital model photo must show one front-facing person with the full body visible from head to both feet."
+          message: "Your digital model photo must show one approximately front-facing person clearly visible from head to at least both knees."
         });
         return;
       }
@@ -394,7 +394,8 @@ export async function generateOutfit(
 
       const verifiedItems = await Item.find({
         _id: { $in: [...candidateIds] },
-        user: req.userId
+        user: req.userId,
+        listingType: null
       }).select("name category color image");
       const verifiedItemsById = new Map(
         verifiedItems.map((item) => [item._id.toString(), item])

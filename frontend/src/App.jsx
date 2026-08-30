@@ -28,7 +28,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 
 function PageLoader() {
   return (
-    <div role="status" aria-live="polite">
+    <div className="page-loader" role="status" aria-live="polite">
       Loading page...
     </div>
   );

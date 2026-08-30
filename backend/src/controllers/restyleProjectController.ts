@@ -89,7 +89,11 @@ export async function createRestyleProject(req: AuthRequest, res: Response, next
     let sourceImage = undefined;
 
     if (req.body.sourceType === "closet") {
-      sourceItem = await Item.findOne({ _id: req.body.sourceItemId, user: req.userId });
+      sourceItem = await Item.findOne({
+        _id: req.body.sourceItemId,
+        user: req.userId,
+        listingType: null
+      });
       if (!sourceItem) {
         res.status(404).json({ success: false, message: "Closet item not found" });
         return;
