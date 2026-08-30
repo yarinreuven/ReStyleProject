@@ -169,6 +169,28 @@ export function isCompleteStylistSuggestion(
   );
 }
 
+export function parseGeminiStylistSuggestion(
+  outputText: string | undefined,
+  expectedAnalyzedItems: number
+):
+  | { success: true; suggestion: OutfitSuggestion }
+  | { success: false; reason: "missing" | "invalid-json" | "incomplete" } {
+  if (!outputText) return { success: false, reason: "missing" };
+
+  let suggestion: OutfitSuggestion;
+  try {
+    suggestion = JSON.parse(outputText) as OutfitSuggestion;
+  } catch {
+    return { success: false, reason: "invalid-json" };
+  }
+
+  if (!isCompleteStylistSuggestion(suggestion, expectedAnalyzedItems)) {
+    return { success: false, reason: "incomplete" };
+  }
+
+  return { success: true, suggestion };
+}
+
 export function geminiStylistFailureMessage(httpStatus: number) {
   if (httpStatus === 429) {
     return "The AI styling allowance is temporarily busy or exhausted. Please check your Gemini quota and try again later.";

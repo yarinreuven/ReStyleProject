@@ -31,11 +31,10 @@ import {
   GEMINI_STYLIST_MAX_ITEMS,
   GEMINI_STYLIST_MODEL,
   GEMINI_STYLIST_RESPONSE_SCHEMA,
-  isCompleteStylistSuggestion,
   isNoCostAiMockMode,
   isValidStylistSelection,
+  parseGeminiStylistSuggestion,
   requestGeminiStylist,
-  type OutfitSuggestion
 } from "../services/geminiStylistService.ts";
 import {
   isPersonalAvatarAcceptable,
@@ -316,34 +315,28 @@ router.post(
       }
 
       const outputText = aiData.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!outputText) {
-        res.status(502).json({
-          success: false,
-          message: "The wardrobe inspection returned no result. Please try again."
-        });
-        return;
-      }
-
-      let aiSuggestion: OutfitSuggestion;
-
-      try {
-        aiSuggestion = JSON.parse(outputText) as OutfitSuggestion;
-      } catch (parseError) {
-        console.error("Gemini wardrobe inspection returned invalid JSON");
-        res.status(502).json({
-          success: false,
-          message: "The wardrobe inspection returned an incomplete result. Please try again."
-        });
-        return;
-      }
-
-      if (!isCompleteStylistSuggestion(aiSuggestion, shortlistedItems.length)) {
+      const parsedSuggestion = parseGeminiStylistSuggestion(
+        outputText,
+        shortlistedItems.length
+      );
+      if ("reason" in parsedSuggestion) {
+        if (parsedSuggestion.reason === "missing") {
+          res.status(502).json({
+            success: false,
+            message: "The wardrobe inspection returned no result. Please try again."
+          });
+          return;
+        }
+        if (parsedSuggestion.reason === "invalid-json") {
+          console.error("Gemini wardrobe inspection returned invalid JSON");
+        }
         res.status(502).json({
           success: false,
           message: "The wardrobe inspection returned an incomplete result. Please try again."
         });
         return;
       }
+      const aiSuggestion = parsedSuggestion.suggestion;
 
       if (value.avatarSource === "personal" &&
         !isPersonalAvatarAcceptable(aiSuggestion.avatarValidation)) {

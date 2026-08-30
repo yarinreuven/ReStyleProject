@@ -11,6 +11,7 @@ import {
   isValidStylistSelection,
   isNoCostAiMockMode,
   isSafeStylistText,
+  parseGeminiStylistSuggestion,
   requestGeminiStylist
 } from "./geminiStylistService.ts";
 
@@ -80,6 +81,46 @@ test("accepts only complete and safe stylist suggestions", () => {
     ...suggestion,
     stylingTips: ["Buy a new bag"]
   }, 1), false);
+});
+
+test("parses only complete Gemini stylist responses", () => {
+  const completeSuggestion = {
+    title: "Work look",
+    explanation: "The pieces coordinate.",
+    analyzedItems: [{}],
+    selectedItems: [],
+    cohesion: {
+      colorsCoordinate: true,
+      formalityCoordinates: true,
+      silhouettesCoordinate: true,
+      occasionCoordinates: true,
+      reason: "The look is cohesive."
+    },
+    stylingTips: ["Wear the jacket open."],
+    avatarValidation: {
+      valid: true,
+      singlePerson: true,
+      fullBodyVisible: true,
+      frontFacing: true,
+      faceClear: true,
+      reason: "Preset avatar"
+    }
+  };
+
+  const missing = parseGeminiStylistSuggestion(undefined, 1);
+  const invalidJson = parseGeminiStylistSuggestion("not-json", 1);
+  const incomplete = parseGeminiStylistSuggestion(
+    JSON.stringify(completeSuggestion),
+    2
+  );
+
+  assert.equal("reason" in missing ? missing.reason : undefined, "missing");
+  assert.equal("reason" in invalidJson ? invalidJson.reason : undefined, "invalid-json");
+  assert.equal("reason" in incomplete ? incomplete.reason : undefined, "incomplete");
+  assert.equal(
+    parseGeminiStylistSuggestion(JSON.stringify(completeSuggestion), 1).success,
+    true
+  );
 });
 
 test("optimizes wardrobe images and preserves their internal item IDs", async () => {
