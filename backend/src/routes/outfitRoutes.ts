@@ -12,7 +12,6 @@ import {
 import Item from "../models/Item.ts";
 import OutfitSelection from "../models/OutfitSelection.ts";
 import TryOnResult from "../models/TryOnResult.ts";
-import User from "../models/User.ts";
 import {
   authenticateToken,
   type AuthRequest
@@ -65,8 +64,8 @@ import {
   type TryOnItemDescriptor
 } from "../services/tryOnValidationService.ts";
 import {
+  resolvePersonalModelValidationParts,
   resolveTryOnAvatar,
-  validateAvatarImage
 } from "../services/tryOnAvatarService.ts";
 import {
   buildTryOnRequestKey,
@@ -238,43 +237,16 @@ router.post(
 
       let personalModelPart: Array<Record<string, unknown>> = [];
       if (value.avatarSource === "personal") {
-        const user = await User.findById(req.userId).select("virtualModelImage");
-        if (!user?.virtualModelImage?.data || !user.virtualModelImage.contentType) {
-          res.status(422).json({
+        const personalModel = await resolvePersonalModelValidationParts(req.userId);
+        if (!personalModel.success) {
+          res.status(personalModel.status).json({
             success: false,
-            code: "VIRTUAL_MODEL_PHOTO_MISSING",
-            message: "Upload a clear vertical full-body photo before creating your look."
+            code: personalModel.code,
+            message: personalModel.message
           });
           return;
         }
-        const validated = await validateAvatarImage(
-          user.virtualModelImage.data,
-          user.virtualModelImage.contentType
-        );
-        if (validated.error) {
-          res.status(422).json({
-            success: false,
-            code: "VIRTUAL_MODEL_PHOTO_UNSUITABLE",
-            message: `${validated.error}. Replace your digital model photo before creating a look.`
-          });
-          return;
-        }
-        const inspectionModelImage = await sharp(user.virtualModelImage.data)
-          .rotate()
-          .resize({ width: 768, height: 1024, fit: "inside", withoutEnlargement: true })
-          .jpeg({ quality: 72, mozjpeg: true })
-          .toBuffer();
-        personalModelPart = [
-          {
-            text: "PERSONAL MODEL PHOTO TO VALIDATE. This is not a wardrobe item. Check whether exactly one person is clearly visible, standing approximately front-facing, with an unobstructed face and the complete body visible from head through both feet. Ignore the background."
-          },
-          {
-            inline_data: {
-              mime_type: "image/jpeg",
-              data: inspectionModelImage.toString("base64")
-            }
-          }
-        ];
+        personalModelPart = personalModel.parts;
       }
 
       const prompt = [

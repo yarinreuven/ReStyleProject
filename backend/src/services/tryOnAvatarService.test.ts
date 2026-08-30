@@ -1,10 +1,29 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import sharp from "sharp";
 
 import {
+  preparePersonalModelValidationParts,
   resolveTryOnAvatar,
   validateAvatarImage
 } from "./tryOnAvatarService.ts";
+
+test("prepares a personal model photo as JPEG for Gemini validation", async () => {
+  const source = await sharp({
+    create: {
+      width: 30,
+      height: 50,
+      channels: 3,
+      background: "white"
+    }
+  }).png().toBuffer();
+
+  const parts = await preparePersonalModelValidationParts(source);
+
+  assert.match(parts[0].text ?? "", /PERSONAL MODEL PHOTO TO VALIDATE/);
+  assert.equal(parts[1].inline_data?.mime_type, "image/jpeg");
+  assert.ok(Buffer.from(parts[1].inline_data?.data ?? "", "base64").length > 0);
+});
 
 test("rejects bytes that are not a genuine avatar image", async () => {
   const result = await validateAvatarImage(

@@ -28,6 +28,56 @@ interface UploadedAvatarFile {
   mimetype: string;
 }
 
+export async function preparePersonalModelValidationParts(data: Buffer) {
+  const inspectionModelImage = await sharp(data)
+    .rotate()
+    .resize({ width: 768, height: 1024, fit: "inside", withoutEnlargement: true })
+    .jpeg({ quality: 72, mozjpeg: true })
+    .toBuffer();
+
+  return [
+    {
+      text: "PERSONAL MODEL PHOTO TO VALIDATE. This is not a wardrobe item. Check whether exactly one person is clearly visible, standing approximately front-facing, with an unobstructed face and the complete body visible from head through both feet. Ignore the background."
+    },
+    {
+      inline_data: {
+        mime_type: "image/jpeg",
+        data: inspectionModelImage.toString("base64")
+      }
+    }
+  ];
+}
+
+export async function resolvePersonalModelValidationParts(userId: string) {
+  const user = await User.findById(userId).select("virtualModelImage");
+  if (!user?.virtualModelImage?.data || !user.virtualModelImage.contentType) {
+    return {
+      success: false as const,
+      status: 422,
+      code: "VIRTUAL_MODEL_PHOTO_MISSING",
+      message: "Upload a clear vertical full-body photo before creating your look."
+    };
+  }
+
+  const validated = await validateAvatarImage(
+    user.virtualModelImage.data,
+    user.virtualModelImage.contentType
+  );
+  if (validated.error) {
+    return {
+      success: false as const,
+      status: 422,
+      code: "VIRTUAL_MODEL_PHOTO_UNSUITABLE",
+      message: `${validated.error}. Replace your digital model photo before creating a look.`
+    };
+  }
+
+  return {
+    success: true as const,
+    parts: await preparePersonalModelValidationParts(user.virtualModelImage.data)
+  };
+}
+
 export async function validateAvatarImage(
   data: Buffer,
   contentType: string
