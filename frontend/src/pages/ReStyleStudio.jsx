@@ -10,6 +10,7 @@ import {
   isAutomaticallyEligibleForRestyle,
   LESS_WORN_DAYS
 } from "../utils/wardrobeInsights";
+import { getTrustedTutorialUrl } from "../utils/trustedTutorialUrl.js";
 import { API_BASE_URL } from "../config/api";
 
 const studioSteps = [
@@ -114,6 +115,9 @@ export default function ReStyleStudio() {
   const [checkoutPlan, setCheckoutPlan] = useState("");
   const [purchaseMessage, setPurchaseMessage] = useState("");
   const { user, token, logout } = useAuth();
+  const verifiedVideoUrl = getTrustedTutorialUrl(guide?.verifiedVideo?.url);
+  const videoSearchUrl = getTrustedTutorialUrl(guide?.videoSearch?.url) ||
+    (guide ? `https://www.youtube.com/results?search_query=${encodeURIComponent(`${guide.idea.title} upcycling tutorial`)}` : "");
 
   useEffect(() => {
     if (!token) return;
@@ -1138,13 +1142,13 @@ export default function ReStyleStudio() {
               <section className="warnings"><h3><i className="fa-solid fa-triangle-exclamation" /> Safety notes</h3><ul>{guide.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul></section>
               <section className="video-status">
                 <h3><i className="fa-solid fa-circle-play" /> Video tutorial</h3>
-                {guide.verifiedVideo ? (
-                  <a href={guide.verifiedVideo.url} target="_blank" rel="noreferrer">{guide.verifiedVideo.title} · {guide.verifiedVideo.source}</a>
+                {verifiedVideoUrl ? (
+                  <a href={verifiedVideoUrl} target="_blank" rel="noreferrer">{guide.verifiedVideo.title} · {guide.verifiedVideo.source}</a>
                 ) : (
                   <>
                     <p>Open current YouTube results for this exact technique. The link is a search, not an AI-guessed video.</p>
                     <a
-                      href={guide.videoSearch?.url || `https://www.youtube.com/results?search_query=${encodeURIComponent(`${guide.idea.title} upcycling tutorial`)}`}
+                      href={videoSearchUrl}
                       target="_blank"
                       rel="noreferrer"
                     >
