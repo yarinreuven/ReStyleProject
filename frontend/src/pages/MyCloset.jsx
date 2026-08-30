@@ -330,13 +330,15 @@ export default function MyCloset() {
 
     try {
       setIsSaving(true);
+      let savedItem = null;
 
       if (editingId) {
-        await axios.put(
+        const { data } = await axios.put(
           `${API_URL}/${editingId}`,
           body,
           requestConfig
         );
+        savedItem = data.item;
       } else {
         await axios.post(
           API_URL,
@@ -346,7 +348,11 @@ export default function MyCloset() {
       }
 
       closeModal();
-      await loadItems();
+      if (editingId && savedItem && !(form.image instanceof File)) {
+        updateItemFromResponse(savedItem);
+      } else {
+        await loadItems();
+      }
     } catch (error) {
       if (error.response?.status === 401) {
         logout();
@@ -379,7 +385,7 @@ export default function MyCloset() {
 
   async function toggleFavorite(item) {
     try {
-      await axios.put(
+      const { data } = await axios.put(
         `${API_URL}/${item._id}/favorite`,
         {
           favorite: !item.favorite
@@ -387,7 +393,7 @@ export default function MyCloset() {
         requestConfig
       );
 
-      await loadItems();
+      updateItemFromResponse(data.item);
     } catch (error) {
       if (error.response?.status === 401) {
         logout();
@@ -507,7 +513,9 @@ export default function MyCloset() {
         requestConfig
       );
 
-      await loadItems();
+      setItems((currentItems) => currentItems.filter(
+        (currentItem) => currentItem._id !== item._id
+      ));
     } catch (error) {
       if (error.response?.status === 401) {
         logout();
