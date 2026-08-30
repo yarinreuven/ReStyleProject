@@ -157,6 +157,19 @@ export function isCompleteStylistSuggestion(
   );
 }
 
+export function geminiStylistFailureMessage(httpStatus: number) {
+  if (httpStatus === 429) {
+    return "The AI styling allowance is temporarily busy or exhausted. Please check your Gemini quota and try again later.";
+  }
+  if (httpStatus === 401 || httpStatus === 403) {
+    return "Gemini access was rejected. Check that the Gemini API is enabled and that this API key is allowed to use it.";
+  }
+  if (httpStatus === 400 || httpStatus === 413) {
+    return "The wardrobe image request was too large or was rejected by Gemini. Try with fewer or smaller wardrobe images.";
+  }
+  return "The wardrobe images could not be inspected right now. Please try again shortly.";
+}
+
 export async function buildGeminiWardrobeImageParts(items: Array<{
   id: string;
   item: {

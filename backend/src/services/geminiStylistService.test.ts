@@ -4,12 +4,20 @@ import sharp from "sharp";
 
 import {
   buildGeminiWardrobeImageParts,
+  geminiStylistFailureMessage,
   GEMINI_STYLIST_RESPONSE_SCHEMA,
   isCompleteStylistSuggestion,
   isNoCostAiMockMode,
   isSafeStylistText,
   requestGeminiStylist
 } from "./geminiStylistService.ts";
+
+test("maps Gemini provider failures to safe user-facing messages", () => {
+  assert.match(geminiStylistFailureMessage(429), /allowance/);
+  assert.match(geminiStylistFailureMessage(401), /access was rejected/);
+  assert.match(geminiStylistFailureMessage(413), /too large/);
+  assert.match(geminiStylistFailureMessage(500), /could not be inspected/);
+});
 
 test("accepts only complete and safe stylist suggestions", () => {
   const suggestion = {

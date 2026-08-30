@@ -27,6 +27,7 @@ import {
 } from "../services/geminiTryOnService.ts";
 import {
   buildGeminiWardrobeImageParts,
+  geminiStylistFailureMessage,
   GEMINI_STYLIST_MAX_ITEMS,
   GEMINI_STYLIST_MODEL,
   GEMINI_STYLIST_RESPONSE_SCHEMA,
@@ -345,17 +346,10 @@ router.post(
       }
 
       if (!aiResponse.ok) {
-        const message = aiResponse.status === 429
-          ? "The AI styling allowance is temporarily busy or exhausted. Please check your Gemini quota and try again later."
-          : aiResponse.status === 401 || aiResponse.status === 403
-            ? "Gemini access was rejected. Check that the Gemini API is enabled and that this API key is allowed to use it."
-            : aiResponse.status === 400 || aiResponse.status === 413
-              ? "The wardrobe image request was too large or was rejected by Gemini. Try with fewer or smaller wardrobe images."
-              : "The wardrobe images could not be inspected right now. Please try again shortly.";
         res.status(503).json({
           success: false,
           code: "GEMINI_STYLIST_REQUEST_FAILED",
-          message
+          message: geminiStylistFailureMessage(aiResponse.status)
         });
         return;
       }
