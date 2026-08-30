@@ -1,7 +1,6 @@
 import express from "express";
 import { randomUUID } from "node:crypto";
 import mongoose from "mongoose";
-import sharp, { type Metadata } from "sharp";
 
 import { getTryOnStatus } from "../controllers/outfitController.ts";
 import {
@@ -22,7 +21,6 @@ import { validateTryOnRequest } from "../middleware/validateTryOnRequest.ts";
 import { validate, validateParams } from "../middleware/validate.ts";
 import {
   createGeminiTryOnImage,
-  inferRequiredGarmentType,
   validateGeminiTryOnImage,
   GeminiTryOnServiceError
 } from "../services/geminiTryOnService.ts";
@@ -56,11 +54,13 @@ import {
 } from "../services/outfitSelectionService.ts";
 import {
   existingTryOnAction,
-  orderTryOnItems,
   qualityValidationError,
   type AvatarSource,
 } from "../services/tryOnValidationService.ts";
-import { resolveTryOnSelection } from "../services/tryOnSelectionService.ts";
+import {
+  prepareTryOnGarmentInputs,
+  resolveTryOnSelection
+} from "../services/tryOnSelectionService.ts";
 import {
   resolvePersonalModelValidationParts,
   resolveTryOnAvatar,
@@ -566,53 +566,15 @@ router.post(
       }
       const { selection, selectionItems, items } = resolvedSelection;
 
-      const itemsById = new Map(items.map((item) => [item._id.toString(), item]));
-      const orderedSelectionItems = orderTryOnItems(selectionItems);
-      const tryOnInputs = [];
-      for (const entry of orderedSelectionItems) {
-        const item = itemsById.get(entry.itemId)!;
-        if (!item.image?.data || !item.image.contentType ||
-          !["image/jpeg", "image/png", "image/webp"].includes(item.image.contentType)) {
-          res.status(404).json({
-            success: false,
-            message: `The selected item "${item.name}" no longer has a valid image`
-          });
-          return;
-        }
-        let metadata: Metadata;
-        try {
-          metadata = await sharp(item.image.data).metadata();
-        } catch {
-          res.status(404).json({
-            success: false,
-            message: `The selected item "${item.name}" has a damaged image`
-          });
-          return;
-        }
-        const expectedFormat = item.image.contentType === "image/jpeg"
-          ? "jpeg"
-          : item.image.contentType.replace("image/", "");
-        if (metadata.format !== expectedFormat || !metadata.width || !metadata.height) {
-          res.status(404).json({
-            success: false,
-            message: `The selected item "${item.name}" has an invalid image format`
-          });
-          return;
-        }
-        tryOnInputs.push({
-          itemId: entry.itemId,
-          name: item.name,
-          detectedCategory: entry.detectedCategory,
-          visualDescription: entry.visualDescription,
-          requiredGarmentType: inferRequiredGarmentType(
-            item.name,
-            entry.detectedCategory,
-            entry.visualDescription
-          ),
-          data: item.image.data,
-          contentType: item.image.contentType
+      const preparedGarments = await prepareTryOnGarmentInputs(selectionItems, items);
+      if (!preparedGarments.success) {
+        res.status(preparedGarments.status).json({
+          success: false,
+          message: preparedGarments.message
         });
+        return;
       }
+      const { orderedSelectionItems, tryOnInputs, responseItems } = preparedGarments;
 
       const avatarSource = req.body.avatarSource as AvatarSource;
       const avatar = await resolveTryOnAvatar({
@@ -632,11 +594,6 @@ router.post(
         avatarSource,
         avatarIdentity: `garment-lock-v3:${avatar.identity}`
       });
-      const responseItems = orderedSelectionItems.map((entry) => ({
-        itemId: entry.itemId,
-        detectedCategory: entry.detectedCategory,
-        name: itemsById.get(entry.itemId)!.name
-      }));
       if (isNoCostAiMockMode()) {
         const quota = await getTryOnQuotaStatus(req.userId);
         if (!quota) throw new Error("TRY_ON_QUOTA_STATUS_NOT_FOUND");
