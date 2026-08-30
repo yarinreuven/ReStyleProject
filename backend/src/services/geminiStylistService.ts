@@ -19,6 +19,11 @@ export const GEMINI_STYLIST_IMAGE_EDGE = 640;
 export const GEMINI_STYLIST_JPEG_QUALITY = 65;
 const GEMINI_STYLIST_MAX_REQUEST_BYTES = 18 * 1024 * 1024;
 
+export function isNoCostAiMockMode() {
+  return process.env.NODE_ENV !== "production" &&
+    process.env.RESTYLE_AI_MOCK_MODE === "1";
+}
+
 export const GEMINI_STYLIST_RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {

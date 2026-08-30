@@ -21,6 +21,13 @@ export function isTryOnQuotaBypassEnabled(nodeEnv: string | undefined, flag: str
   return nodeEnv !== "production" && flag === "1";
 }
 
+export function isLocalTryOnQuotaBypass() {
+  return isTryOnQuotaBypassEnabled(
+    process.env.NODE_ENV,
+    process.env.RESTYLE_DISABLE_TRYON_QUOTA
+  );
+}
+
 interface Reservation {
   token: string;
   type: ReservationType;

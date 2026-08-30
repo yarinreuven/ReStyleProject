@@ -3,9 +3,26 @@ import test from "node:test";
 
 import {
   GEMINI_STYLIST_RESPONSE_SCHEMA,
+  isNoCostAiMockMode,
   isSafeStylistText,
   requestGeminiStylist
 } from "./geminiStylistService.ts";
+
+test("never enables stylist mock mode in production", () => {
+  const previousEnv = process.env.NODE_ENV;
+  const previousFlag = process.env.RESTYLE_AI_MOCK_MODE;
+  process.env.NODE_ENV = "production";
+  process.env.RESTYLE_AI_MOCK_MODE = "1";
+
+  try {
+    assert.equal(isNoCostAiMockMode(), false);
+  } finally {
+    if (previousEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousEnv;
+    if (previousFlag === undefined) delete process.env.RESTYLE_AI_MOCK_MODE;
+    else process.env.RESTYLE_AI_MOCK_MODE = previousFlag;
+  }
+});
 
 test("keeps the stylist response schema constrained to detected categories", () => {
   const selectedCategory = GEMINI_STYLIST_RESPONSE_SCHEMA

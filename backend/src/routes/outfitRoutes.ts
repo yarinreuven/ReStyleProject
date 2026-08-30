@@ -32,6 +32,7 @@ import {
   GEMINI_STYLIST_MAX_ITEMS,
   GEMINI_STYLIST_MODEL,
   GEMINI_STYLIST_RESPONSE_SCHEMA,
+  isNoCostAiMockMode,
   isSafeStylistText,
   requestGeminiStylist,
   type OutfitSuggestion
@@ -70,7 +71,7 @@ import {
   buildTryOnRequestKey,
   finalizeTryOnQuota,
   getTryOnQuotaStatus,
-  isTryOnQuotaBypassEnabled,
+  isLocalTryOnQuotaBypass,
   refundTryOnReservation,
   reserveTryOnQuota,
   TRY_ON_LIMIT_CODE,
@@ -99,17 +100,6 @@ const tryOnRateLimit = createUserRateLimit({
   message: "You are creating virtual try-ons too quickly. Please wait a few minutes and try again."
 });
 router.use(authenticateToken);
-
-function isNoCostAiMockMode() {
-  return process.env.NODE_ENV !== "production" && process.env.RESTYLE_AI_MOCK_MODE === "1";
-}
-
-function isLocalTryOnQuotaBypass() {
-  return isTryOnQuotaBypassEnabled(
-    process.env.NODE_ENV,
-    process.env.RESTYLE_DISABLE_TRYON_QUOTA
-  );
-}
 
 router.post(
   "/generate",
