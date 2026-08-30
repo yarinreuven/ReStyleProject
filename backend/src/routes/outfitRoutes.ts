@@ -39,9 +39,8 @@ import {
 } from "../services/geminiStylistService.ts";
 import {
   isPersonalAvatarAcceptable,
-  normalizeAnalyzedWardrobeItem,
+  normalizeCompleteWardrobeAnalysis,
   normalizeGeminiCategory,
-  type AnalyzedWardrobeItem
 } from "../services/geminiStylistValidationService.ts";
 import {
   createBalancedWardrobeShortlist,
@@ -394,24 +393,11 @@ router.post(
         return;
       }
 
-      const analyzedIds = new Set<string>();
-      const analysisById = new Map<string, AnalyzedWardrobeItem>();
-      let invalidAnalysis = false;
-
-      const normalizedAnalyses: AnalyzedWardrobeItem[] = [];
-      for (const rawAnalysis of aiSuggestion.analyzedItems) {
-        const analysis = normalizeAnalyzedWardrobeItem(rawAnalysis, candidateIds);
-        if (!analysis || analyzedIds.has(analysis.itemId)) {
-          invalidAnalysis = true;
-          break;
-        }
-        analyzedIds.add(analysis.itemId);
-        analysisById.set(analysis.itemId, analysis);
-        normalizedAnalyses.push(analysis);
-      }
-
-      if (invalidAnalysis || analyzedIds.size !== shortlistedItems.length ||
-        shortlistedItems.some(({ id }) => !analyzedIds.has(id))) {
+      const normalizedAnalysis = normalizeCompleteWardrobeAnalysis(
+        aiSuggestion.analyzedItems,
+        candidateIds
+      );
+      if (!normalizedAnalysis) {
         res.status(502).json({
           success: false,
           message: "The wardrobe image inspection was incomplete. Please try again."
@@ -419,7 +405,8 @@ router.post(
         return;
       }
 
-      aiSuggestion.analyzedItems = normalizedAnalyses;
+      aiSuggestion.analyzedItems = normalizedAnalysis.analyses;
+      const analysisById = normalizedAnalysis.byId;
 
       const normalizedSelections = aiSuggestion.selectedItems.map((selection) => {
         const detectedCategory = normalizeGeminiCategory(selection?.detectedCategory);

@@ -3,7 +3,8 @@ import test from "node:test";
 
 import {
   isPersonalAvatarAcceptable,
-  normalizeAnalyzedWardrobeItem
+  normalizeAnalyzedWardrobeItem,
+  normalizeCompleteWardrobeAnalysis
 } from "./geminiStylistValidationService.ts";
 import { outfitCohesionValidationError } from "./outfitSelectionService.ts";
 
@@ -62,6 +63,34 @@ test("normalizes plural categories", () => {
   }, candidateIds);
 
   assert.equal(result?.detectedCategory, "Dress");
+});
+
+test("requires one normalized analysis for every candidate ID", () => {
+  const secondId = "507f1f77bcf86cd799439012";
+  const ids = new Set([itemId, secondId]);
+  const validAnalysis = (id: string) => ({
+    itemId: id,
+    isValid: true,
+    detectedCategory: "Top",
+    eventSuitable: true,
+    styleSuitable: true,
+    weatherSuitable: true
+  });
+
+  const complete = normalizeCompleteWardrobeAnalysis([
+    validAnalysis(itemId),
+    validAnalysis(secondId)
+  ], ids);
+  assert.equal(complete?.analyses.length, 2);
+  assert.equal(complete?.byId.get(secondId)?.detectedCategory, "Top");
+
+  assert.equal(normalizeCompleteWardrobeAnalysis([
+    validAnalysis(itemId)
+  ], ids), null);
+  assert.equal(normalizeCompleteWardrobeAnalysis([
+    validAnalysis(itemId),
+    validAnalysis(itemId)
+  ], ids), null);
 });
 
 test("does not reject a full-body avatar only because the face is small in frame", () => {

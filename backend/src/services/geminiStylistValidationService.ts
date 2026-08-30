@@ -102,3 +102,25 @@ export function normalizeAnalyzedWardrobeItem(
       : ""
   };
 }
+
+export function normalizeCompleteWardrobeAnalysis(
+  values: unknown[],
+  candidateIds: Set<string>
+) {
+  const analyses: AnalyzedWardrobeItem[] = [];
+  const byId = new Map<string, AnalyzedWardrobeItem>();
+
+  for (const value of values) {
+    const analysis = normalizeAnalyzedWardrobeItem(value, candidateIds);
+    if (!analysis || byId.has(analysis.itemId)) return null;
+    analyses.push(analysis);
+    byId.set(analysis.itemId, analysis);
+  }
+
+  if (byId.size !== candidateIds.size ||
+    [...candidateIds].some((id) => !byId.has(id))) {
+    return null;
+  }
+
+  return { analyses, byId };
+}
