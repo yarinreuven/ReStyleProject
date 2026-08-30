@@ -221,6 +221,7 @@ Run the frontend checks and production build:
 ```bash
 cd frontend
 npm run lint
+npm test
 npm run build
 ```
 

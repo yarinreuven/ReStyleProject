@@ -35,6 +35,7 @@ Do not put backend secrets, private API keys, email credentials, or PayPal secre
 ```bash
 npm run dev      # Start the Vite development server
 npm run lint     # Run Oxlint
+npm test         # Run frontend unit tests
 npm run build    # Create a production build
 npm run preview  # Preview the production build locally
 ```
