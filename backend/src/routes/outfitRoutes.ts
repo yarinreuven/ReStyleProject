@@ -104,6 +104,7 @@ router.use(authenticateToken);
 router.post(
   "/generate",
   generateRateLimit,
+  validate(outfitRequestSchema),
   async (req: AuthRequest, res, next) => {
     try {
       if (!req.userId || !mongoose.isValidObjectId(req.userId)) {
@@ -114,18 +115,7 @@ router.post(
         return;
       }
 
-      const { error, value } = outfitRequestSchema.validate(req.body, {
-        abortEarly: false,
-        stripUnknown: true
-      });
-
-      if (error) {
-        res.status(400).json({
-          success: false,
-          message: error.details[0].message
-        });
-        return;
-      }
+      const value = req.body;
 
       const apiKey = process.env.GEMINI_API_KEY;
 
