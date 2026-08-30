@@ -2,6 +2,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { API_BASE_URL } from "../config/api";
+import { isAuthLifecycleRequest } from "../utils/authRequest.js";
 
 const AUTH_URL = `${API_BASE_URL}/auth`;
 const AuthContext = createContext(null);
@@ -48,12 +49,8 @@ export function AuthProvider({ children }) {
       (response) => response,
       async (error) => {
         const request = error.config;
-        const isAuthLifecycleRequest = request?.url?.includes("/api/auth/refresh") ||
-          request?.url?.includes("/api/auth/login") ||
-          request?.url?.includes("/api/auth/register") ||
-          request?.url?.includes("/api/auth/google") ||
-          request?.url?.includes("/api/auth/logout");
-        if (error.response?.status !== 401 || request?._restyleRetried || isAuthLifecycleRequest) {
+        const isLifecycleRequest = isAuthLifecycleRequest(request?.url, AUTH_URL);
+        if (error.response?.status !== 401 || request?._restyleRetried || isLifecycleRequest) {
           return Promise.reject(error);
         }
         request._restyleRetried = true;
