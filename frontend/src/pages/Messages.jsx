@@ -5,6 +5,10 @@ import ProfileAvatar from "../components/ProfileAvatar";
 import usePageStyles from "../hooks/usePageStyles";
 import { useAuth } from "../context/AuthContext";
 import { API_BASE_URL } from "../config/api";
+import {
+  markConversationReadInList,
+  moveConversationToTop
+} from "../utils/messageConversationState.js";
 
 const API_URL = `${API_BASE_URL}/messages`;
 
@@ -63,6 +67,17 @@ export default function Messages() {
     }
   }, [logout, requestConfig]);
 
+  const markRead = useCallback(async (selectedId) => {
+    try {
+      await axios.post(`${API_URL}/conversations/${selectedId}/read`, {}, requestConfig);
+      setConversations((current) =>
+        markConversationReadInList(current, selectedId)
+      );
+    } catch (error) {
+      if (error.response?.status === 401) logout();
+    }
+  }, [logout, requestConfig]);
+
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
@@ -80,6 +95,8 @@ export default function Messages() {
         const { data } = await axios.get(`${API_URL}/conversations/${selectedId}`, requestConfig);
         if (!cancelled) {
           setActiveConversation(data.conversation);
+          await markRead(selectedId);
+          if (cancelled) return;
           setStatus("ready");
           if (!conversationId) navigate(`/messages/${selectedId}`, { replace: true });
         }
@@ -96,7 +113,7 @@ export default function Messages() {
     }
     loadPage();
     return () => { cancelled = true; };
-  }, [conversationId, loadConversations, logout, navigate, requestConfig, token]);
+  }, [conversationId, loadConversations, logout, markRead, navigate, requestConfig, token]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -115,8 +132,11 @@ export default function Messages() {
         requestConfig
       );
       setActiveConversation(data.conversation);
+      setConversations((current) => moveConversationToTop(current, {
+        ...data.conversation,
+        unreadCount: 0
+      }));
       setDraft("");
-      await loadConversations();
     } catch (error) {
       if (error.response?.status === 401) {
         logout();
