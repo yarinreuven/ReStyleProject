@@ -1,12 +1,35 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import sharp from "sharp";
 
 import {
+  buildGeminiWardrobeImageParts,
   GEMINI_STYLIST_RESPONSE_SCHEMA,
   isNoCostAiMockMode,
   isSafeStylistText,
   requestGeminiStylist
 } from "./geminiStylistService.ts";
+
+test("optimizes wardrobe images and preserves their internal item IDs", async () => {
+  const sourceImage = await sharp({
+    create: {
+      width: 20,
+      height: 30,
+      channels: 3,
+      background: "white"
+    }
+  }).png().toBuffer();
+
+  const parts = await buildGeminiWardrobeImageParts([{
+    id: "item-123",
+    item: { category: "Tops", image: { data: sourceImage } }
+  }]);
+
+  assert.match(parts[0].text ?? "", /item-123/);
+  assert.match(parts[0].text ?? "", /Tops/);
+  assert.equal(parts[1].inline_data?.mime_type, "image/jpeg");
+  assert.ok(Buffer.from(parts[1].inline_data?.data ?? "", "base64").length > 0);
+});
 
 test("never enables stylist mock mode in production", () => {
   const previousEnv = process.env.NODE_ENV;

@@ -27,8 +27,7 @@ import {
   GeminiTryOnServiceError
 } from "../services/geminiTryOnService.ts";
 import {
-  GEMINI_STYLIST_IMAGE_EDGE,
-  GEMINI_STYLIST_JPEG_QUALITY,
+  buildGeminiWardrobeImageParts,
   GEMINI_STYLIST_MAX_ITEMS,
   GEMINI_STYLIST_MODEL,
   GEMINI_STYLIST_RESPONSE_SCHEMA,
@@ -320,30 +319,7 @@ router.post(
         JSON.stringify({ request: value, wardrobe })
       ].join("\n");
 
-      const imageParts = (await Promise.all(shortlistedItems.map(async ({ item, id }) => {
-        const inspectionImage = await sharp(item.image.data)
-          .rotate()
-          .resize({
-            width: GEMINI_STYLIST_IMAGE_EDGE,
-            height: GEMINI_STYLIST_IMAGE_EDGE,
-            fit: "inside",
-            withoutEnlargement: true
-          })
-          .jpeg({ quality: GEMINI_STYLIST_JPEG_QUALITY, mozjpeg: true })
-          .toBuffer();
-
-        return [
-          {
-            text: `The next image belongs only to internal itemId ${id}. Its claimed category ${item.category} is supporting metadata, not visual truth.`
-          },
-          {
-            inline_data: {
-              mime_type: "image/jpeg",
-              data: inspectionImage.toString("base64")
-            }
-          }
-        ];
-      }))).flat();
+      const imageParts = await buildGeminiWardrobeImageParts(shortlistedItems);
 
       let geminiResult: Awaited<ReturnType<typeof requestGeminiStylist>>;
 

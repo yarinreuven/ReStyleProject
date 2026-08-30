@@ -1,3 +1,11 @@
+import sharp from "sharp";
+
+import type { AnalyzedWardrobeItem } from "./geminiStylistValidationService.ts";
+import {
+  DETECTED_CATEGORIES,
+  type SelectedOutfitItem
+} from "./outfitSelectionService.ts";
+
 interface GeminiResponse {
   candidates?: Array<{
     content?: {
@@ -125,6 +133,43 @@ export function isSafeStylistText(value: unknown) {
     !/(?:https?:\/\/|www\.|\bbuy\b|\bpurchase\b|\bshop\b)/i.test(value);
 }
 
+export async function buildGeminiWardrobeImageParts(items: Array<{
+  id: string;
+  item: {
+    category: string;
+    image?: { data?: Buffer };
+  };
+}>) {
+  return (await Promise.all(items.map(async ({ item, id }) => {
+    if (!item.image?.data) {
+      throw new Error("GEMINI_STYLIST_IMAGE_MISSING");
+    }
+
+    const inspectionImage = await sharp(item.image.data)
+      .rotate()
+      .resize({
+        width: GEMINI_STYLIST_IMAGE_EDGE,
+        height: GEMINI_STYLIST_IMAGE_EDGE,
+        fit: "inside",
+        withoutEnlargement: true
+      })
+      .jpeg({ quality: GEMINI_STYLIST_JPEG_QUALITY, mozjpeg: true })
+      .toBuffer();
+
+    return [
+      {
+        text: `The next image belongs only to internal itemId ${id}. Its claimed category ${item.category} is supporting metadata, not visual truth.`
+      },
+      {
+        inline_data: {
+          mime_type: "image/jpeg",
+          data: inspectionImage.toString("base64")
+        }
+      }
+    ];
+  }))).flat();
+}
+
 export async function requestGeminiStylist(
   apiKey: string,
   requestBody: object
@@ -150,8 +195,3 @@ export async function requestGeminiStylist(
 
   return { response, data, model: GEMINI_STYLIST_MODEL };
 }
-import type { AnalyzedWardrobeItem } from "./geminiStylistValidationService.ts";
-import {
-  DETECTED_CATEGORIES,
-  type SelectedOutfitItem
-} from "./outfitSelectionService.ts";
