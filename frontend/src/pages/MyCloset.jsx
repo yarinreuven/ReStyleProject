@@ -8,6 +8,7 @@ import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import ProfileAvatar from "../components/ProfileAvatar";
 import usePageStyles from "../hooks/usePageStyles";
+import useDialogFocus from "../hooks/useDialogFocus";
 import { useAuth } from "../context/AuthContext";
 import { isLessWorn, isRecentlyAdded } from "../utils/wardrobeInsights";
 import { API_BASE_URL } from "../config/api";
@@ -131,6 +132,12 @@ export default function MyCloset() {
   );
   const [isSavingWear, setIsSavingWear] = useState(false);
   const accountMenuRef = useRef(null);
+  const itemDialogRef = useDialogFocus(modalOpen, closeModal, !isSaving);
+  const wearDialogRef = useDialogFocus(
+    Boolean(wearItem),
+    () => setWearItem(null),
+    !isSavingWear
+  );
 
   const requestConfig = useMemo(
     () => ({
@@ -919,18 +926,19 @@ export default function MyCloset() {
       </main>
 
       {wearItem && (
-        <div className="wear-modal-overlay">
-          <section className="wear-modal">
+        <div className="wear-modal-overlay" role="presentation">
+          <section ref={wearDialogRef} className="wear-modal" role="dialog" aria-modal="true" aria-labelledby="wearModalTitle">
             <button
               type="button"
               className="close-btn"
               onClick={() => setWearItem(null)}
+              aria-label="Close wear diary"
             >
               <i className="fa-solid fa-xmark" />
             </button>
 
             <span className="wear-modal-kicker">WEAR DIARY</span>
-            <h2>{wearItem.name}</h2>
+            <h2 id="wearModalTitle">{wearItem.name}</h2>
             <p>Add the date you wore this piece.</p>
 
             <div className="wear-date-form">
@@ -997,7 +1005,7 @@ export default function MyCloset() {
           }
         }}
       >
-        <div className="modal" role="dialog" aria-modal="true" aria-labelledby="closetItemModalTitle">
+        <div ref={itemDialogRef} className="modal" role="dialog" aria-modal="true" aria-labelledby="closetItemModalTitle">
           <button
             type="button"
             className="close-btn"

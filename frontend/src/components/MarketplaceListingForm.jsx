@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { API_BASE_URL } from "../config/api";
+import useDialogFocus from "../hooks/useDialogFocus";
 
 const API_URL = `${API_BASE_URL}/marketplace`;
 const MAX_IMAGES = 4;
@@ -58,6 +59,7 @@ export default function MarketplaceListingForm({ token, listing = null, onClose,
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const dialogRef = useDialogFocus(true, onClose, !isSubmitting);
   const previews = useMemo(
     () => images.map((file) => ({ file, url: URL.createObjectURL(file) })),
     [images]
@@ -161,7 +163,7 @@ export default function MarketplaceListingForm({ token, listing = null, onClose,
     <div className="market-listing-overlay" role="presentation" onMouseDown={(event) => {
       if (event.target === event.currentTarget && !isSubmitting) onClose();
     }}>
-      <section className="market-listing-modal" role="dialog" aria-modal="true" aria-labelledby="listingFormTitle">
+      <section ref={dialogRef} className="market-listing-modal" role="dialog" aria-modal="true" aria-labelledby="listingFormTitle">
         <header>
           <div>
             <span>{isEditing ? "UPDATE YOUR LISTING" : "CREATE A MARKETPLACE LISTING"}</span>
