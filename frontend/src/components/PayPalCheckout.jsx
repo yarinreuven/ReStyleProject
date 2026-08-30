@@ -25,7 +25,12 @@ function loadPayPalSdk(clientId, currency) {
 
 export default function PayPalCheckout({ token, plan, product, onSuccess }) {
   const containerRef = useRef(null);
+  const onSuccessRef = useRef(onSuccess);
   const [message, setMessage] = useState("Loading secure PayPal checkout...");
+
+  useEffect(() => {
+    onSuccessRef.current = onSuccess;
+  }, [onSuccess]);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,7 +57,7 @@ export default function PayPalCheckout({ token, plan, product, onSuccess }) {
             const { data } = await axios.post(`${PAYPAL_API_URL}/orders/${orderID}/capture`, {}, {
               headers: { Authorization: `Bearer ${token}` }
             });
-            onSuccess(data);
+            onSuccessRef.current(data);
           },
           onCancel: () => setMessage("The payment was cancelled. No credits were added."),
           onError: (error) => {
@@ -72,7 +77,7 @@ export default function PayPalCheckout({ token, plan, product, onSuccess }) {
       cancelled = true;
       buttons?.close?.();
     };
-  }, [onSuccess, plan, product, token]);
+  }, [plan, product, token]);
 
   return <div className="paypal-checkout"><div ref={containerRef} />{message && <p role="status">{message}</p>}</div>;
 }

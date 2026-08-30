@@ -125,9 +125,11 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
   }, [conversations]);
 
   useEffect(() => {
+    if (!open) return undefined;
+    setNow(Date.now());
     const timer = window.setInterval(() => setNow(Date.now()), 30000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [open]);
 
   useEffect(() => {
     let cancelled = false;
