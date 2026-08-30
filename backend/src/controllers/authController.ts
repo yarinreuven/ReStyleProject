@@ -15,6 +15,7 @@ import {
   revokeAllRefreshSessions,
   revokeRefreshSession
 } from "../services/authTokenService.ts";
+import { getFrontendUrl } from "../services/frontendConfigService.ts";
 
 const googleClient = new OAuth2Client();
 
@@ -867,7 +868,7 @@ export async function forgotPassword(
     user.passwordResetExpiresAt = new Date(Date.now() + 60 * 60 * 1000);
     await user.save();
 
-    const frontendUrl = process.env.FRONTEND_URL?.trim() || "http://localhost:5173";
+    const frontendUrl = getFrontendUrl();
     const resetUrl = `${frontendUrl}/reset-password?token=${resetToken}`;
 
     try {

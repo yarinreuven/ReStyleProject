@@ -2,6 +2,9 @@ import type { Server as HttpServer } from "http";
 import jwt from "jsonwebtoken";
 import { Server } from "socket.io";
 import Conversation from "../models/Conversation.ts";
+import { getAllowedOrigins } from "./frontendConfigService.ts";
+
+export { getAllowedOrigins } from "./frontendConfigService.ts";
 
 interface SocketTokenPayload {
   userId: string;
@@ -9,19 +12,6 @@ interface SocketTokenPayload {
 }
 
 let io: Server | null = null;
-const developmentOrigins = [
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
-  "http://localhost:5175",
-  "http://127.0.0.1:5175"
-];
-
-export function getAllowedOrigins() {
-  return [...new Set([
-    ...developmentOrigins,
-    ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : [])
-  ])];
-}
 
 export function initializeSocketServer(httpServer: HttpServer) {
   io = new Server(httpServer, {
