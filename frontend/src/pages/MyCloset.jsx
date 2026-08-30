@@ -468,6 +468,11 @@ export default function MyCloset() {
 
       updateItemFromResponse(data.item);
     } catch (error) {
+      if (error.response?.status === 401) {
+        logout();
+        return;
+      }
+
       window.alert(
         error.response?.data?.message ||
           "Could not update today's wear status."
@@ -491,6 +496,11 @@ export default function MyCloset() {
       updateItemFromResponse(data.item);
       setWearItem((current) => ({ ...current, ...data.item }));
     } catch (error) {
+      if (error.response?.status === 401) {
+        logout();
+        return;
+      }
+
       window.alert(
         error.response?.data?.message ||
           "Could not remove this wear date."
