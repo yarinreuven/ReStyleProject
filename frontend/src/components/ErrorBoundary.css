@@ -1,0 +1,79 @@
+.app-error-boundary {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(216, 87, 122, 0.14), transparent 30%),
+    linear-gradient(135deg, #fff, #fff7f8, #fbf0ee);
+  color: #34262a;
+}
+
+.app-error-card {
+  width: min(620px, 100%);
+  padding: clamp(32px, 7vw, 64px);
+  border: 1px solid rgba(201, 130, 142, 0.28);
+  border-radius: 32px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 24px 70px rgba(86, 49, 58, 0.14);
+  text-align: center;
+}
+
+.app-error-eyebrow {
+  color: #b94f70;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.app-error-card h1 {
+  margin: 16px 0;
+  font-family: Georgia, serif;
+  font-size: clamp(2rem, 6vw, 3.5rem);
+  line-height: 1.05;
+}
+
+.app-error-card p {
+  max-width: 480px;
+  margin: 0 auto;
+  color: #76666b;
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.app-error-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 28px;
+  flex-wrap: wrap;
+}
+
+.app-error-actions button,
+.app-error-actions a {
+  min-width: 140px;
+  padding: 13px 22px;
+  border: 1px solid #c9828e;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.app-error-actions button {
+  background: #bd5574;
+  color: #fff;
+}
+
+.app-error-actions a {
+  background: #fff;
+  color: #a63f60;
+}
+
+.app-error-actions button:focus-visible,
+.app-error-actions a:focus-visible {
+  outline: 3px solid rgba(216, 87, 122, 0.3);
+  outline-offset: 3px;
+}
