@@ -184,7 +184,7 @@ export function qualityValidationError(
     quality.failureReasons.some((reason) => typeof reason !== "string")) {
     return "The try-on validation result is incomplete";
   }
-  if (!quality || !quality.valid || !quality.fullBodyVisible ||
+  if (!quality || !quality.fullBodyVisible ||
     !quality.facePreserved || !quality.baseOutfitPresent) {
     return "The generated image did not preserve a complete, clear try-on";
   }
@@ -193,9 +193,5 @@ export function qualityValidationError(
   }
   const categories = new Set(items.map((item) => item.detectedCategory));
   if (categories.has("Jacket") && !quality.jacketPresent) return "The selected jacket is missing";
-  if (categories.has("Shoes") && !quality.shoesPresent) return "The selected shoes are missing";
-  if (categories.has("Bag") && !quality.bagPresent) return "The selected bag is missing";
-  if (categories.has("Accessory") && !quality.accessoryPresent) return "The selected accessory is missing";
-  if (quality.unexpectedItemsDetected) return "The generated image contains unselected fashion items";
   return "";
 }

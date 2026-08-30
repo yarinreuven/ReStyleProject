@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { API_BASE_URL } from "../config/api";
+import useAuthorizationConfig from "../hooks/useAuthorizationConfig";
 
 const PROFILE_IMAGE_URL =
   `${API_BASE_URL}/auth/profile-image`;
 
 export default function ProfileAvatar({ token, user, size = "normal" }) {
   const [imageUrl, setImageUrl] = useState("");
+  const requestConfig = useAuthorizationConfig(token);
 
   useEffect(() => {
     if (!token || !user?.hasProfileImage) {
@@ -19,9 +21,7 @@ export default function ProfileAvatar({ token, user, size = "normal" }) {
 
     axios
       .get(`${PROFILE_IMAGE_URL}?user=${encodeURIComponent(user.id)}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
+        ...requestConfig,
         responseType: "blob",
         params: {
           updated: user.profileImageUpdatedAt || "current"
@@ -44,7 +44,7 @@ export default function ProfileAvatar({ token, user, size = "normal" }) {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [token, user?.id, user?.hasProfileImage, user?.profileImageUpdatedAt]);
+  }, [requestConfig, token, user?.id, user?.hasProfileImage, user?.profileImageUpdatedAt]);
 
   if (imageUrl) {
     return (

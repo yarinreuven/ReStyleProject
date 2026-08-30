@@ -23,13 +23,18 @@ import {
 } from "../validation/itemValidation.ts";
 
 const router = Router();
+const supportedWardrobeImageTypes = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp"
+]);
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, callback) => {
-    if (file.mimetype.startsWith("image/")) callback(null, true);
-    else callback(new Error("Only image files are allowed"));
+    if (supportedWardrobeImageTypes.has(file.mimetype)) callback(null, true);
+    else callback(new Error("Please choose a JPG, PNG or WEBP image"));
   }
 });
 

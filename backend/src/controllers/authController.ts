@@ -254,7 +254,7 @@ export async function changePassword(
   next: NextFunction
 ) {
   try {
-    const user = await User.findById(req.userId).select("password");
+    const user = await User.findById(req.userId).select("+password");
 
     if (!user) {
       res.status(404).json({ success: false, message: "User not found" });
@@ -683,7 +683,7 @@ export async function login(
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email }).select("+password");
 
     if (!user) {
       res.status(401).json({
@@ -904,7 +904,7 @@ export async function resetPassword(
     const user = await User.findOne({
       passwordResetTokenHash: resetTokenHash,
       passwordResetExpiresAt: { $gt: new Date() }
-    }).select("+passwordResetTokenHash +passwordResetExpiresAt password");
+    }).select("+passwordResetTokenHash +passwordResetExpiresAt +password");
 
     if (!user) {
       res.status(400).json({

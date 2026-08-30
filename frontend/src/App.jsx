@@ -1,10 +1,28 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useLayoutEffect, useMemo } from "react";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
-import MarketplaceChat from "./components/MarketplaceChat";
 import ProtectedRoute from "./components/ProtectedRoute";
 import SiteFooter from "./components/SiteFooter";
 import { useAuth } from "./context/AuthContext";
+import closetStyle from "./styles/closet.css?url";
+import forgotPasswordStyle from "./styles/forgot-password.css?url";
+import homeStyle from "./styles/home.css?url";
+import infoPagesStyle from "./styles/info-pages.css?url";
+import loginStyle from "./styles/login.css?url";
+import marketplaceChatStyle from "./styles/marketplace-chat.css?url";
+import marketplaceFavoritesStyle from "./styles/marketplace-favorites.css?url";
+import marketplaceItemStyle from "./styles/marketplace-item.css?url";
+import marketplaceSellerStyle from "./styles/marketplace-seller.css?url";
+import marketplaceStyle from "./styles/marketplace.css?url";
+import messagesStyle from "./styles/messages.css?url";
+import outfitBuilderStyle from "./styles/outfit-builder.css?url";
+import profileStyle from "./styles/profile.css?url";
+import registerStyle from "./styles/register.css?url";
+import restyleStudioStyle from "./styles/restyle-studio.css?url";
+import savedLooksStyle from "./styles/saved-looks.css?url";
+import settingsFieldsStyle from "./styles/settings-fields.css?url";
+import settingsStyle from "./styles/settings.css?url";
 
+const MarketplaceChat = lazy(() => import("./components/MarketplaceChat"));
 const Home = lazy(() => import("./pages/Home"));
 const Login = lazy(() => import("./pages/Login"));
 const Register = lazy(() => import("./pages/Register"));
@@ -25,6 +43,71 @@ const About = lazy(() => import("./pages/About"));
 const Contact = lazy(() => import("./pages/Contact"));
 const Terms = lazy(() => import("./pages/Terms"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const chatHiddenPaths = new Set([
+  "/login",
+  "/register",
+  "/forgot-password",
+  "/reset-password",
+  "/about",
+  "/contact",
+  "/terms"
+]);
+
+const publicStyles = new Map([
+  ["/", [homeStyle]],
+  ["/login", [loginStyle]],
+  ["/register", [registerStyle]],
+  ["/forgot-password", [forgotPasswordStyle]],
+  ["/reset-password", [forgotPasswordStyle]],
+  ["/about", [infoPagesStyle]],
+  ["/contact", [infoPagesStyle]],
+  ["/terms", [infoPagesStyle]]
+]);
+
+function stylesForPath(pathname, showChat) {
+  let styles = publicStyles.get(pathname);
+  if (!styles) {
+    if (pathname === "/closet") styles = [closetStyle];
+    else if (pathname === "/profile") styles = [profileStyle];
+    else if (pathname === "/settings") styles = [settingsStyle, settingsFieldsStyle];
+    else if (pathname === "/outfit-builder") styles = [outfitBuilderStyle];
+    else if (pathname === "/saved-looks") styles = [savedLooksStyle];
+    else if (pathname === "/restyle-studio") styles = [restyleStudioStyle];
+    else if (pathname === "/marketplace/favorites") styles = [marketplaceStyle, marketplaceFavoritesStyle];
+    else if (pathname.startsWith("/marketplace/items/")) styles = [marketplaceStyle, marketplaceItemStyle];
+    else if (pathname.startsWith("/marketplace/sellers/")) styles = [marketplaceStyle, marketplaceSellerStyle];
+    else if (pathname === "/marketplace") styles = [marketplaceStyle];
+    else if (pathname.startsWith("/messages")) styles = [messagesStyle];
+    else styles = [infoPagesStyle];
+  }
+  return showChat ? [...styles, marketplaceChatStyle] : styles;
+}
+
+function RouteStyles() {
+  const location = useLocation();
+  const { isAuthenticated, isAuthLoading } = useAuth();
+  const showChat = !isAuthLoading && isAuthenticated &&
+    !chatHiddenPaths.has(location.pathname) &&
+    !location.pathname.startsWith("/messages");
+  const styles = useMemo(
+    () => stylesForPath(location.pathname, showChat),
+    [location.pathname, showChat]
+  );
+
+  useLayoutEffect(() => {
+    const links = styles.map((href) => {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = href;
+      link.dataset.routeStyle = "true";
+      document.head.appendChild(link);
+      return link;
+    });
+    return () => links.forEach((link) => link.remove());
+  }, [styles]);
+
+  return null;
+}
 
 function PageLoader() {
   return (
@@ -37,22 +120,29 @@ function PageLoader() {
 function RealtimeChatLayer() {
   const location = useLocation();
   const { user, token, isAuthenticated, isAuthLoading } = useAuth();
-  const publicPaths = ["/login", "/register", "/forgot-password", "/reset-password", "/about", "/contact", "/terms"];
 
-  if (isAuthLoading || !isAuthenticated || publicPaths.includes(location.pathname)) return null;
+  if (
+    isAuthLoading ||
+    !isAuthenticated ||
+    chatHiddenPaths.has(location.pathname) ||
+    location.pathname.startsWith("/messages")
+  ) return null;
 
   return (
-    <MarketplaceChat
-      token={token}
-      user={user}
-      initialConversationId={new URLSearchParams(location.search).get("chat")}
-    />
+    <Suspense fallback={null}>
+      <MarketplaceChat
+        token={token}
+        user={user}
+        initialConversationId={new URLSearchParams(location.search).get("chat")}
+      />
+    </Suspense>
   );
 }
 
 function App() {
   return (
     <BrowserRouter>
+      <RouteStyles />
       <RealtimeChatLayer />
       <Suspense fallback={<PageLoader />}>
         <Routes>

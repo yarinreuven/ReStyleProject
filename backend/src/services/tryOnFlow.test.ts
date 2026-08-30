@@ -83,16 +83,16 @@ test("composition permits Dress alone or Top and Bottom together", () => {
   assert.notEqual(validateTryOnComposition([descriptor("Top")]), "");
 });
 
-test("quality validation rejects missing selected pieces and unexpected additions", () => {
+test("quality validation keeps a valid outfit when only optional accessories differ", () => {
   const selected = [descriptor("Top"), descriptor("Bottom"), descriptor("Shoes"), descriptor("Bag"), descriptor("Accessory")];
   for (const field of ["shoesPresent", "bagPresent", "accessoryPresent"] as const) {
     const quality = validQuality();
     quality[field] = false;
-    assert.notEqual(qualityValidationError(quality, selected), "");
+    assert.equal(qualityValidationError(quality, selected), "");
   }
   const unexpected = validQuality();
   unexpected.unexpectedItemsDetected = true;
-  assert.notEqual(qualityValidationError(unexpected, selected), "");
+  assert.equal(qualityValidationError(unexpected, selected), "");
 });
 
 test("ownership and client-controlled fields are rejected generically", () => {

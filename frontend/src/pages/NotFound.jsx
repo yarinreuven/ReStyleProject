@@ -1,10 +1,7 @@
 import { Link } from "react-router-dom";
 import InformationHeader from "../components/InformationHeader";
-import usePageStyles from "../hooks/usePageStyles";
 
 export default function NotFound() {
-  usePageStyles("info-pages.css");
-
   return (
     <main className="info-page">
       <InformationHeader />

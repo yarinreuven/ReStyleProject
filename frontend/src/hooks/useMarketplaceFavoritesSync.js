@@ -7,6 +7,10 @@ import {
   fetchMarketplaceFavorites
 } from "../store/marketplaceFavoritesSlice.js";
 
+/**
+ * Synchronizes the authenticated user's marketplace favorites with Redux.
+ * Reuses already-loaded state and refreshes it when the active user changes.
+ */
 export default function useMarketplaceFavoritesSync() {
   const dispatch = useDispatch();
   const { user, token } = useAuth();

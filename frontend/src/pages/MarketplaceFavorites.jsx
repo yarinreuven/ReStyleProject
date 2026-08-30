@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
@@ -6,7 +6,7 @@ import MarketplaceItemCard from "../components/MarketplaceItemCard";
 import ProfileAvatar from "../components/ProfileAvatar";
 import { useAuth } from "../context/AuthContext";
 import useMarketplaceFavoritesSync from "../hooks/useMarketplaceFavoritesSync";
-import usePageStyles from "../hooks/usePageStyles";
+import useClickOutside from "../hooks/useClickOutside";
 import {
   fetchMarketplaceFavorites,
   selectMarketplaceFavoriteItems,
@@ -39,8 +39,6 @@ function normalizeSavedItem(item, index) {
 }
 
 export default function MarketplaceFavorites() {
-  usePageStyles("marketplace.css");
-  usePageStyles("marketplace-favorites.css?v=2");
   useMarketplaceFavoritesSync();
 
   const dispatch = useDispatch();
@@ -72,19 +70,7 @@ export default function MarketplaceFavorites() {
     navigate(`/marketplace/sellers/${sellerId}`);
   }, [navigate]);
 
-  useEffect(() => {
-    function closeAccountMenu(event) {
-      if (
-        accountMenuRef.current &&
-        !accountMenuRef.current.contains(event.target)
-      ) {
-        setAccountMenuOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", closeAccountMenu);
-    return () => document.removeEventListener("mousedown", closeAccountMenu);
-  }, []);
+  useClickOutside(accountMenuRef, () => setAccountMenuOpen(false), accountMenuOpen);
 
   function retryLoading() {
     if (token && userId) {

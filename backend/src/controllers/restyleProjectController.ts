@@ -50,6 +50,32 @@ function imageToDataUrl(image?: { data?: Buffer; contentType?: string } | null) 
   return `data:${image.contentType};base64,${image.data.toString("base64")}`;
 }
 
+function getProjectGuide(project: any, ideaId: string) {
+  const generatedIdea = project.generatedIdeas.find(
+    (idea: any) => idea.ideaId === ideaId
+  );
+  if (!generatedIdea) return null;
+  const storedGuideEntry = generatedIdea.generatedGuide;
+  const storedGuide = storedGuideEntry && typeof storedGuideEntry.toObject === "function"
+    ? storedGuideEntry.toObject()
+    : storedGuideEntry;
+  return getVerifiedRestyleGuide(ideaId) || (storedGuide ? {
+    idea: {
+      id: generatedIdea.ideaId,
+      title: generatedIdea.title,
+      description: generatedIdea.description,
+      difficulty: generatedIdea.difficulty,
+      timeMinutes: generatedIdea.timeMinutes,
+      sewingRequired: generatedIdea.sewingRequired,
+      requiredTools: generatedIdea.requiredTools,
+      materials: generatedIdea.materials,
+      icon: generatedIdea.icon
+    },
+    ...storedGuide,
+    ideaId
+  } : null);
+}
+
 function serializeProject(project: any) {
   const sourceItem = project.sourceItem && typeof project.sourceItem === "object"
     ? project.sourceItem
@@ -67,6 +93,9 @@ function serializeProject(project: any) {
       : imageToDataUrl(project.sourceImage),
     details: project.details,
     selectedIdeaId: project.selectedIdeaId,
+    selectedGuide: project.selectedIdeaId
+      ? getProjectGuide(project, project.selectedIdeaId)
+      : null,
     generatedIdeas: project.generatedIdeas || [],
     ideaCatalogVersion: project.ideaCatalogVersion || 0,
     completedStepIds: project.completedStepIds,
@@ -167,11 +196,12 @@ export async function getRestyleProject(req: AuthRequest, res: Response, next: N
 export async function updateRestyleProject(req: AuthRequest, res: Response, next: NextFunction) {
   try {
     const updates = { ...req.body };
-    const existingProject = updates.details
+    const existingProject = updates.details || updates.completedStepIds
       ? await RestyleProject.findOne({ _id: req.params.projectId, owner: req.userId }).populate("sourceItem", "category")
       : null;
     const sourceItem = existingProject?.sourceItem as any;
     if (
+      updates.details &&
       existingProject?.sourceType === "closet" &&
       sourceItem?.category &&
       !detailsMatchClosetCategory(sourceItem.category, updates.details.garmentType)
@@ -180,6 +210,7 @@ export async function updateRestyleProject(req: AuthRequest, res: Response, next
       return;
     }
     if (
+      updates.details &&
       existingProject?.sourceType === "upload" &&
       existingProject.detectedGarmentType &&
       !detectedTypeMatchesSelection(existingProject.detectedGarmentType, updates.details.garmentType)
@@ -205,6 +236,21 @@ export async function updateRestyleProject(req: AuthRequest, res: Response, next
       updates.progress = 0;
       updates.status = "saved";
       updates.completedAt = null;
+    }
+    if (updates.completedStepIds && !updates.details) {
+      const guide = existingProject?.selectedIdeaId
+        ? getProjectGuide(existingProject, existingProject.selectedIdeaId)
+        : null;
+      if (!guide) {
+        res.status(400).json({ success: false, message: "Select a ReStyle guide before saving progress" });
+        return;
+      }
+      const validStepIds = new Set(guide.steps.map((step: { id: string }) => step.id));
+      updates.completedStepIds = [...new Set(updates.completedStepIds)]
+        .filter((stepId) => validStepIds.has(stepId));
+      updates.progress = Math.min(100, Math.round((updates.completedStepIds.length / guide.steps.length) * 100));
+      updates.status = updates.progress === 100 ? "completed" : "in_progress";
+      updates.completedAt = updates.progress === 100 ? new Date() : null;
     }
     const project = await RestyleProject.findOneAndUpdate(
       { _id: req.params.projectId, owner: req.userId },
@@ -337,27 +383,19 @@ export async function selectRestyleIdea(req: AuthRequest, res: Response, next: N
       res.status(404).json({ success: false, message: "ReStyle project not found" });
       return;
     }
-    const generatedIdea = project.generatedIdeas.find((idea) => idea.ideaId === ideaId);
-    const storedGuideEntry = (generatedIdea as any)?.generatedGuide;
-    const storedGuide = storedGuideEntry && typeof storedGuideEntry.toObject === "function"
-      ? storedGuideEntry.toObject()
-      : storedGuideEntry;
-    const guide = getVerifiedRestyleGuide(ideaId) || (storedGuide ? {
-      idea: {
-        id: generatedIdea.ideaId, title: generatedIdea.title, description: generatedIdea.description,
-        difficulty: generatedIdea.difficulty, timeMinutes: generatedIdea.timeMinutes,
-        sewingRequired: generatedIdea.sewingRequired, requiredTools: generatedIdea.requiredTools,
-        materials: generatedIdea.materials, icon: generatedIdea.icon
-      },
-      ...storedGuide,
-      ideaId
-    } : null);
-    if (!generatedIdea || !guide) {
+    const guide = getProjectGuide(project, ideaId);
+    if (!guide) {
       res.status(404).json({ success: false, message: "This guide is not available for the project" });
       return;
     }
 
+    const isDifferentIdea = project.selectedIdeaId !== ideaId;
     project.selectedIdeaId = ideaId;
+    if (isDifferentIdea) {
+      project.completedStepIds = [];
+      project.progress = 0;
+      project.completedAt = null;
+    }
     project.status = "in_progress";
     await project.save();
 

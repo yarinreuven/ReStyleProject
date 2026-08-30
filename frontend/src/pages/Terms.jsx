@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import usePageStyles from "../hooks/usePageStyles";
 import InformationHeader from "../components/InformationHeader";
 
 const sections = [
@@ -9,7 +8,6 @@ const sections = [
 ];
 
 export default function Terms() {
-  usePageStyles("info-pages.css");
   return (
     <main className="info-page">
       <InformationHeader />

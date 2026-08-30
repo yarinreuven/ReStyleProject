@@ -3,6 +3,7 @@ import type { NextFunction, Request, Response } from "express";
 import type { AuthRequest } from "../middleware/auth.ts";
 import PayPalPurchase from "../models/PayPalPurchase.ts";
 import User from "../models/User.ts";
+import logger from "../services/logger.ts";
 import { sendPaymentReceiptEmail } from "../services/emailService.ts";
 import {
   capturePayPalOrder,
@@ -56,7 +57,7 @@ async function sendReceiptOnce(orderId: string) {
       { _id: purchase._id },
       { $unset: { receiptEmailClaimedAt: 1 } }
     );
-    console.error("Could not send PayPal receipt email:", (error as Error).message);
+    logger.error({ err: error }, "Could not send PayPal receipt email");
   }
 }
 

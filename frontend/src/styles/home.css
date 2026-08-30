@@ -338,3 +338,139 @@ body{
     color:var(--pink);
     font-weight:bold;
 }
+
+@media(max-width:1050px){
+    .navbar{
+        padding:0 32px;
+    }
+
+    .hero{
+        padding:55px 40px;
+        gap:36px;
+    }
+
+    .hero-text h1{
+        font-size:clamp(56px,7vw,72px);
+    }
+
+    .hero-image img{
+        height:430px;
+    }
+
+    .features{
+        grid-template-columns:repeat(2,minmax(0,1fr));
+        padding:0 40px 55px;
+    }
+}
+
+@media(max-width:760px){
+    .navbar{
+        height:auto;
+        min-height:72px;
+        padding:12px 20px;
+    }
+
+    .logo{
+        margin-right:20px;
+        font-size:29px;
+    }
+
+    .guest-nav{
+        gap:10px;
+    }
+
+    .guest-nav a{
+        font-size:15px;
+    }
+
+    .register-btn{
+        padding:10px 15px;
+    }
+
+    .user-btn{
+        padding:6px 10px;
+    }
+
+    .user-btn>span{
+        display:none;
+    }
+
+    .dropdown{
+        max-width:calc(100vw - 32px);
+    }
+
+    .hero{
+        flex-direction:column;
+        align-items:stretch;
+        padding:42px 24px;
+    }
+
+    .hero-text,
+    .hero-image{
+        width:100%;
+    }
+
+    .hero-text{
+        text-align:center;
+    }
+
+    .hero-text h1{
+        font-size:clamp(50px,15vw,68px);
+    }
+
+    .hero-text h3{
+        font-size:clamp(22px,6vw,28px);
+    }
+
+    .hero-buttons{
+        justify-content:center;
+        flex-wrap:wrap;
+    }
+
+    .hero-image img{
+        height:clamp(280px,70vw,420px);
+    }
+
+    .features{
+        padding:0 24px 42px;
+    }
+}
+
+@media(max-width:480px){
+    .navbar{
+        padding:10px 14px;
+    }
+
+    .logo{
+        font-size:26px;
+    }
+
+    .hero{
+        padding:34px 16px;
+        gap:30px;
+    }
+
+    .hero-text p{
+        font-size:16px;
+        line-height:1.65;
+    }
+
+    .hero-buttons{
+        flex-direction:column;
+    }
+
+    .primary-btn,
+    .secondary-btn{
+        width:100%;
+        text-align:center;
+    }
+
+    .features{
+        grid-template-columns:1fr;
+        padding:0 16px 34px;
+    }
+
+    .feature-card{
+        padding:28px 24px;
+    }
+}

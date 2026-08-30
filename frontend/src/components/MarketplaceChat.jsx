@@ -1,8 +1,8 @@
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { io } from "socket.io-client";
 import { useNavigate } from "react-router-dom";
-import usePageStyles from "../hooks/usePageStyles";
+import useAuthorizationConfig from "../hooks/useAuthorizationConfig";
 import { API_BASE_URL, SOCKET_BASE_URL } from "../config/api";
 
 const API_URL = `${API_BASE_URL}/messages`;
@@ -59,7 +59,6 @@ function ChatAvatar({ user }) {
 }
 
 export default function MarketplaceChat({ token, user, initialConversationId }) {
-  usePageStyles("marketplace-chat.css");
   const navigate = useNavigate();
   const socketRef = useRef(null);
   const conversationsRef = useRef([]);
@@ -80,9 +79,7 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
   const [toast, setToast] = useState(null);
   const [now, setNow] = useState(Date.now());
   const currentUserId = String(user?.id || user?._id || "");
-  const requestConfig = useMemo(() => ({
-    headers: { Authorization: `Bearer ${token}` }
-  }), [token]);
+  const requestConfig = useAuthorizationConfig(token);
 
   const loadConversations = useCallback(async () => {
     const { data } = await axios.get(`${API_URL}/conversations`, requestConfig);
@@ -156,7 +153,9 @@ export default function MarketplaceChat({ token, user, initialConversationId }) 
 
     const onConnect = () => {
       setError("");
-      loadConversations().catch(() => {});
+      loadConversations().catch((requestError) => {
+        setError(requestError.response?.data?.message || "Could not refresh messages.");
+      });
       if (activeIdRef.current) socket.emit("conversation:join", activeIdRef.current);
     };
     const onNewMessage = async ({ conversationId, message }) => {

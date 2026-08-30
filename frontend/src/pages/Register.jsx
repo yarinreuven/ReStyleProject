@@ -3,7 +3,6 @@ import axios from "axios";
 import { Link, useNavigate } from "react-router-dom";
 import HangerBrand from "../components/HangerBrand";
 import { useAuth } from "../context/AuthContext";
-import usePageStyles from "../hooks/usePageStyles";
 import GoogleSignInButton from "../components/GoogleSignInButton";
 import { API_BASE_URL } from "../config/api";
 
@@ -17,8 +16,6 @@ const initialValues = {
 };
 
 export default function Register() {
-  usePageStyles("register.css");
-
   const navigate = useNavigate();
   const { login } = useAuth();
 

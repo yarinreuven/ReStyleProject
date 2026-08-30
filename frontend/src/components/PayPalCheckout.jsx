@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { API_BASE_URL } from "../config/api";
+import useAuthorizationConfig from "../hooks/useAuthorizationConfig";
 
 const PAYPAL_API_URL = `${API_BASE_URL}/paypal`;
 
@@ -26,6 +27,7 @@ function loadPayPalSdk(clientId, currency) {
 export default function PayPalCheckout({ token, plan, product, onSuccess }) {
   const containerRef = useRef(null);
   const onSuccessRef = useRef(onSuccess);
+  const requestConfig = useAuthorizationConfig(token);
   const [message, setMessage] = useState("Loading secure PayPal checkout...");
 
   useEffect(() => {
@@ -38,25 +40,27 @@ export default function PayPalCheckout({ token, plan, product, onSuccess }) {
 
     async function renderButtons() {
       try {
-        const { data: config } = await axios.get(`${PAYPAL_API_URL}/config`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const { data: config } = await axios.get(`${PAYPAL_API_URL}/config`, requestConfig);
         const paypal = await loadPayPalSdk(config.clientId, config.currency);
         if (cancelled || !containerRef.current) return;
         setMessage("");
         buttons = paypal.Buttons({
           style: { layout: "vertical", shape: "pill", label: "paypal" },
           createOrder: async () => {
-            const { data } = await axios.post(`${PAYPAL_API_URL}/orders`, { plan, product }, {
-              headers: { Authorization: `Bearer ${token}` }
-            });
+            const { data } = await axios.post(
+              `${PAYPAL_API_URL}/orders`,
+              { plan, product },
+              requestConfig
+            );
             return data.id;
           },
           onApprove: async ({ orderID }) => {
             setMessage("Confirming your Sandbox payment...");
-            const { data } = await axios.post(`${PAYPAL_API_URL}/orders/${orderID}/capture`, {}, {
-              headers: { Authorization: `Bearer ${token}` }
-            });
+            const { data } = await axios.post(
+              `${PAYPAL_API_URL}/orders/${orderID}/capture`,
+              {},
+              requestConfig
+            );
             onSuccessRef.current(data);
           },
           onCancel: () => setMessage("The payment was cancelled. No credits were added."),
@@ -77,7 +81,7 @@ export default function PayPalCheckout({ token, plan, product, onSuccess }) {
       cancelled = true;
       buttons?.close?.();
     };
-  }, [plan, product, token]);
+  }, [plan, product, requestConfig]);
 
   return <div className="paypal-checkout"><div ref={containerRef} />{message && <p role="status">{message}</p>}</div>;
 }

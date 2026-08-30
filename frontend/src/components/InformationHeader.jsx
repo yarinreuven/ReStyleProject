@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import useClickOutside from "../hooks/useClickOutside";
 import ProfileAvatar from "./ProfileAvatar";
 
 const destinations = [
@@ -18,13 +19,7 @@ export default function InformationHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
   const { user, token, logout, isAuthenticated } = useAuth();
 
-  useEffect(() => {
-    function closeMenu(event) {
-      if (menuRef.current && !menuRef.current.contains(event.target)) setMenuOpen(false);
-    }
-    document.addEventListener("mousedown", closeMenu);
-    return () => document.removeEventListener("mousedown", closeMenu);
-  }, []);
+  useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
 
   function go(path) {
     setMenuOpen(false);

@@ -2,12 +2,10 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import axios from "axios";
 import HangerBrand from "../components/HangerBrand";
-import usePageStyles from "../hooks/usePageStyles";
 import { API_BASE_URL } from "../config/api";
 import { validateForgotPasswordEmail } from "../utils/passwordResetValidation.js";
 
 export default function ForgotPassword() {
-  usePageStyles("forgot-password.css");
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");

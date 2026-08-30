@@ -1,16 +1,38 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
+import { io } from "socket.io-client";
 import { useNavigate, useParams } from "react-router-dom";
 import ProfileAvatar from "../components/ProfileAvatar";
-import usePageStyles from "../hooks/usePageStyles";
+import useAuthorizationConfig from "../hooks/useAuthorizationConfig";
 import { useAuth } from "../context/AuthContext";
-import { API_BASE_URL } from "../config/api";
+import { API_BASE_URL, SOCKET_BASE_URL } from "../config/api";
 import {
   markConversationReadInList,
   moveConversationToTop
 } from "../utils/messageConversationState.js";
 
 const API_URL = `${API_BASE_URL}/messages`;
+
+function addMessageOnce(conversation, message) {
+  if (!conversation || conversation.messages.some(
+    (existing) => String(existing.id) === String(message.id)
+  )) return conversation;
+  return {
+    ...conversation,
+    messages: [...conversation.messages, message],
+    lastMessageAt: message.sentAt
+  };
+}
+
+function removeDeletedMessage(conversation, deletedMessage) {
+  if (!conversation) return conversation;
+  return {
+    ...conversation,
+    messages: conversation.messages.filter(
+      (message) => String(message.id) !== String(deletedMessage.messageId)
+    )
+  };
+}
 
 function formatTime(value) {
   if (!value) return "";
@@ -29,10 +51,11 @@ function ChatAvatar({ user, className = "" }) {
 }
 
 export default function Messages() {
-  usePageStyles("messages.css");
   const navigate = useNavigate();
   const { conversationId } = useParams();
   const messagesEndRef = useRef(null);
+  const activeIdRef = useRef(conversationId || null);
+  const conversationsRef = useRef([]);
   const [conversations, setConversations] = useState([]);
   const [activeConversation, setActiveConversation] = useState(null);
   const [draft, setDraft] = useState("");
@@ -41,9 +64,7 @@ export default function Messages() {
   const [sending, setSending] = useState(false);
   const { user, token, logout: logoutUser } = useAuth();
   const currentUserId = String(user?.id || user?._id || "");
-  const requestConfig = useMemo(() => ({
-    headers: { Authorization: `Bearer ${token}` }
-  }), [token]);
+  const requestConfig = useAuthorizationConfig(token);
 
   const logout = useCallback(() => {
     logoutUser();
@@ -77,6 +98,14 @@ export default function Messages() {
       if (error.response?.status === 401) logout();
     }
   }, [logout, requestConfig]);
+
+  useEffect(() => {
+    activeIdRef.current = activeConversation?.id || conversationId || null;
+  }, [activeConversation?.id, conversationId]);
+
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
 
   useEffect(() => {
     if (!token) return;
@@ -114,6 +143,74 @@ export default function Messages() {
     loadPage();
     return () => { cancelled = true; };
   }, [conversationId, loadConversations, logout, markRead, navigate, requestConfig, token]);
+
+  useEffect(() => {
+    if (!token) return undefined;
+    const socket = io(SOCKET_BASE_URL, {
+      auth: { token },
+      transports: ["websocket"]
+    });
+
+    const onConnect = () => {
+      setErrorMessage("");
+      if (activeIdRef.current) socket.emit("conversation:join", activeIdRef.current);
+    };
+    const onNewMessage = async ({ conversationId: updatedId, message }) => {
+      const selected = String(activeIdRef.current || "") === String(updatedId);
+      const isMine = String(message.senderId) === currentUserId;
+      const known = conversationsRef.current.some(
+        (conversation) => String(conversation.id) === String(updatedId)
+      );
+
+      setActiveConversation((current) =>
+        String(current?.id || "") === String(updatedId)
+          ? addMessageOnce(current, message)
+          : current
+      );
+      setConversations((current) => {
+        const existing = current.find(
+          (conversation) => String(conversation.id) === String(updatedId)
+        );
+        if (!existing) return current;
+        if (existing.messages.some(
+          (currentMessage) => String(currentMessage.id) === String(message.id)
+        )) return current;
+        const updated = addMessageOnce(existing, message);
+        return moveConversationToTop(current, {
+          ...updated,
+          unreadCount: selected || isMine ? 0 : (existing.unreadCount || 0) + 1
+        });
+      });
+
+      if (!known) await loadConversations();
+      if (selected) await markRead(updatedId);
+    };
+    const onMessageDeleted = (deletedMessage) => {
+      setActiveConversation((current) =>
+        current?.id === deletedMessage.conversationId
+          ? removeDeletedMessage(current, deletedMessage)
+          : current
+      );
+      setConversations((current) => current.map((conversation) =>
+        conversation.id === deletedMessage.conversationId
+          ? removeDeletedMessage(conversation, deletedMessage)
+          : conversation
+      ));
+    };
+
+    socket.on("connect", onConnect);
+    socket.on("message:new", onNewMessage);
+    socket.on("message:deleted", onMessageDeleted);
+    socket.on("connect_error", () => {
+      setErrorMessage("Real-time connection was interrupted. Reconnecting...");
+    });
+    return () => {
+      socket.off("connect", onConnect);
+      socket.off("message:new", onNewMessage);
+      socket.off("message:deleted", onMessageDeleted);
+      socket.disconnect();
+    };
+  }, [currentUserId, loadConversations, markRead, token]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

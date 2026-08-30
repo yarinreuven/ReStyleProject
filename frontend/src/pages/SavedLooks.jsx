@@ -2,15 +2,15 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import usePageStyles from "../hooks/usePageStyles";
+import useAuthorizationConfig from "../hooks/useAuthorizationConfig";
 import { API_BASE_URL } from "../config/api";
 
 const SAVED_LOOKS_API_URL = `${API_BASE_URL}/outfits/saved`;
 
 export default function SavedLooks() {
-  usePageStyles("saved-looks.css");
   const navigate = useNavigate();
   const { token, logout } = useAuth();
+  const requestConfig = useAuthorizationConfig(token);
   const [looks, setLooks] = useState([]);
   const [status, setStatus] = useState("loading");
   const [message, setMessage] = useState("");
@@ -22,9 +22,7 @@ export default function SavedLooks() {
 
     async function loadSavedLooks() {
       try {
-        const { data } = await axios.get(SAVED_LOOKS_API_URL, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const { data } = await axios.get(SAVED_LOOKS_API_URL, requestConfig);
         if (!active) return;
         setLooks(Array.isArray(data.savedLooks) ? data.savedLooks : []);
         setStatus("ready");
@@ -42,7 +40,7 @@ export default function SavedLooks() {
 
     loadSavedLooks();
     return () => { active = false; };
-  }, [logout, navigate, token]);
+  }, [logout, navigate, requestConfig]);
 
   async function deleteSavedLook() {
     if (!pendingDeleteLook) return;
@@ -50,9 +48,7 @@ export default function SavedLooks() {
     try {
       setDeletingLookId(look.id);
       setMessage("");
-      await axios.delete(`${SAVED_LOOKS_API_URL}/${look.id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await axios.delete(`${SAVED_LOOKS_API_URL}/${look.id}`, requestConfig);
       setLooks((currentLooks) => currentLooks.filter((savedLook) => savedLook.id !== look.id));
       setPendingDeleteLook(null);
     } catch (error) {

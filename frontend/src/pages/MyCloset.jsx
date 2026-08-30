@@ -7,10 +7,12 @@ import {
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import ProfileAvatar from "../components/ProfileAvatar";
-import usePageStyles from "../hooks/usePageStyles";
 import useDialogFocus from "../hooks/useDialogFocus";
+import useClickOutside from "../hooks/useClickOutside";
+import useAuthorizationConfig from "../hooks/useAuthorizationConfig";
 import { useAuth } from "../context/AuthContext";
 import { isLessWorn, isRecentlyAdded } from "../utils/wardrobeInsights";
+import { optimizeWardrobeUpload } from "../utils/imageUpload.js";
 import { API_BASE_URL } from "../config/api";
 
 const API_URL = `${API_BASE_URL}/items`;
@@ -111,7 +113,6 @@ const blankItem = {
 };
 
 export default function MyCloset() {
-  usePageStyles("closet.css");
 
   const navigate = useNavigate();
   const { user, token, logout: logoutUser } = useAuth();
@@ -122,8 +123,11 @@ export default function MyCloset() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(blankItem);
+  const [formError, setFormError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isPreparingImage, setIsPreparingImage] = useState(false);
+  const [savingStage, setSavingStage] = useState("");
   const [pageError, setPageError] = useState("");
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [wearItem, setWearItem] = useState(null);
@@ -131,23 +135,35 @@ export default function MyCloset() {
     new Date().toISOString().slice(0, 10)
   );
   const [isSavingWear, setIsSavingWear] = useState(false);
+  const [wearError, setWearError] = useState("");
+  const [itemPendingDelete, setItemPendingDelete] = useState(null);
+  const [isDeletingItem, setIsDeletingItem] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const accountMenuRef = useRef(null);
   const currentDateKey = todayKey();
-  const itemDialogRef = useDialogFocus(modalOpen, closeModal, !isSaving);
+  const itemDialogRef = useDialogFocus(
+    modalOpen,
+    closeModal,
+    !isSaving && !isPreparingImage
+  );
   const wearDialogRef = useDialogFocus(
     Boolean(wearItem),
-    () => setWearItem(null),
+    () => {
+      setWearItem(null);
+      setWearError("");
+    },
     !isSavingWear
   );
-
-  const requestConfig = useMemo(
-    () => ({
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    }),
-    [token]
+  const deleteDialogRef = useDialogFocus(
+    Boolean(itemPendingDelete),
+    () => {
+      setItemPendingDelete(null);
+      setDeleteError("");
+    },
+    !isDeletingItem
   );
+
+  const requestConfig = useAuthorizationConfig(token);
 
   useEffect(() => {
     if (!user || !token) {
@@ -185,22 +201,7 @@ export default function MyCloset() {
     getItems();
   }, [logoutUser, navigate, requestConfig, token, user]);
 
-  useEffect(() => {
-    function closeAccountMenu(event) {
-      if (
-        accountMenuRef.current &&
-        !accountMenuRef.current.contains(event.target)
-      ) {
-        setAccountMenuOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", closeAccountMenu);
-
-    return () => {
-      document.removeEventListener("mousedown", closeAccountMenu);
-    };
-  }, []);
+  useClickOutside(accountMenuRef, () => setAccountMenuOpen(false), accountMenuOpen);
 
   async function loadItems() {
     try {
@@ -256,17 +257,21 @@ export default function MyCloset() {
   function openNewItem() {
     setEditingId(null);
     setForm(blankItem);
+    setFormError("");
     setModalOpen(true);
   }
 
   function closeModal() {
+    if (isPreparingImage) return;
     setEditingId(null);
     setForm(blankItem);
+    setFormError("");
     setModalOpen(false);
   }
 
   function change(event) {
     const { name, value } = event.target;
+    setFormError("");
 
     setForm((currentForm) => ({
       ...currentForm,
@@ -274,43 +279,53 @@ export default function MyCloset() {
     }));
   }
 
-  function chooseImage(event) {
+  async function chooseImage(event) {
     const file = event.target.files?.[0] || null;
-    const allowedTypes = ["image/jpeg", "image/png"];
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
     const maximumSize = 10 * 1024 * 1024;
 
     if (file && !allowedTypes.includes(file.type)) {
-      window.alert("Please choose a PNG or JPG image.");
+      setFormError("Please choose a JPG, PNG or WEBP image.");
       event.target.value = "";
       return;
     }
 
     if (file && file.size > maximumSize) {
-      window.alert("The image must be no larger than 10MB.");
+      setFormError("The image must be no larger than 10MB.");
       event.target.value = "";
       return;
     }
 
-    setForm((currentForm) => ({
-      ...currentForm,
-      image: file
-    }));
+    if (!file) return;
+
+    try {
+      setIsPreparingImage(true);
+      setFormError("");
+      const optimizedFile = await optimizeWardrobeUpload(file);
+      setForm((currentForm) => ({ ...currentForm, image: optimizedFile }));
+    } catch {
+      setFormError("This image could not be prepared. Please choose a different image.");
+      event.target.value = "";
+    } finally {
+      setIsPreparingImage(false);
+    }
   }
 
   async function saveItem(event) {
     event.preventDefault();
 
+    if (isPreparingImage) {
+      setFormError("Please wait while the image is being prepared.");
+      return;
+    }
+
     if (!form.name.trim() || !form.color.trim()) {
-      window.alert(
-        "Please fill in item name and color."
-      );
+      setFormError("Please fill in item name and color.");
       return;
     }
 
     if (!editingId && !(form.image instanceof File)) {
-      window.alert(
-        "Please upload an image to add the item."
-      );
+      setFormError("Please upload an image to add the item.");
       return;
     }
 
@@ -332,26 +347,41 @@ export default function MyCloset() {
 
     try {
       setIsSaving(true);
+      setSavingStage(form.image instanceof File ? "uploading" : "saving");
+      setFormError("");
       let savedItem = null;
+      const saveRequestConfig = form.image instanceof File
+        ? {
+            ...requestConfig,
+            onUploadProgress: ({ loaded, total }) => {
+              if (total && loaded >= total) setSavingStage("verifying");
+            }
+          }
+        : requestConfig;
 
       if (editingId) {
         const { data } = await axios.put(
           `${API_URL}/${editingId}`,
           body,
-          requestConfig
+          saveRequestConfig
         );
         savedItem = data.item;
       } else {
-        await axios.post(
+        const { data } = await axios.post(
           API_URL,
           body,
-          requestConfig
+          saveRequestConfig
         );
+        savedItem = data.item;
       }
 
       closeModal();
-      if (editingId && savedItem && !(form.image instanceof File)) {
-        updateItemFromResponse(savedItem);
+      if (savedItem) {
+        if (editingId) {
+          updateItemFromResponse(savedItem);
+        } else {
+          setItems((currentItems) => [savedItem, ...currentItems]);
+        }
       } else {
         await loadItems();
       }
@@ -361,17 +391,18 @@ export default function MyCloset() {
         return;
       }
 
-      window.alert(
-        error.response?.data?.message ||
-          "Could not save item."
+      setFormError(
+        error.response?.data?.message || "Could not save item."
       );
     } finally {
       setIsSaving(false);
+      setSavingStage("");
     }
   }
 
   function editItem(item) {
     setEditingId(item._id);
+    setFormError("");
 
     setForm({
       name: item.name || "",
@@ -387,6 +418,7 @@ export default function MyCloset() {
 
   async function toggleFavorite(item) {
     try {
+      setPageError("");
       const { data } = await axios.put(
         `${API_URL}/${item._id}/favorite`,
         {
@@ -402,7 +434,7 @@ export default function MyCloset() {
         return;
       }
 
-      window.alert(
+      setPageError(
         error.response?.data?.message ||
           "Could not update favorite."
       );
@@ -426,6 +458,7 @@ export default function MyCloset() {
   async function addWearDate() {
     try {
       setIsSavingWear(true);
+      setWearError("");
       const { data } = await axios.put(
         `${API_URL}/${wearItem._id}/worn`,
         { date: wearDate },
@@ -440,7 +473,7 @@ export default function MyCloset() {
         return;
       }
 
-      window.alert(
+      setWearError(
         error.response?.data?.message ||
           "Could not update wear history."
       );
@@ -454,6 +487,7 @@ export default function MyCloset() {
 
     try {
       setIsSavingWear(true);
+      setPageError("");
 
       const { data } = hasWearDate(item, date)
         ? await axios.delete(`${API_URL}/${item._id}/worn`, {
@@ -473,7 +507,7 @@ export default function MyCloset() {
         return;
       }
 
-      window.alert(
+      setPageError(
         error.response?.data?.message ||
           "Could not update today's wear status."
       );
@@ -485,6 +519,7 @@ export default function MyCloset() {
   async function removeWearDate(date) {
     try {
       setIsSavingWear(true);
+      setWearError("");
       const { data } = await axios.delete(
         `${API_URL}/${wearItem._id}/worn`,
         {
@@ -501,7 +536,7 @@ export default function MyCloset() {
         return;
       }
 
-      window.alert(
+      setWearError(
         error.response?.data?.message ||
           "Could not remove this wear date."
       );
@@ -510,34 +545,32 @@ export default function MyCloset() {
     }
   }
 
-  async function deleteItem(item) {
-    const shouldDelete = window.confirm(
-      "Are you sure you want to delete this item?"
-    );
-
-    if (!shouldDelete) {
-      return;
-    }
-
+  async function deleteItem() {
+    if (!itemPendingDelete || isDeletingItem) return;
     try {
+      setIsDeletingItem(true);
+      setDeleteError("");
       await axios.delete(
-        `${API_URL}/${item._id}`,
+        `${API_URL}/${itemPendingDelete._id}`,
         requestConfig
       );
 
       setItems((currentItems) => currentItems.filter(
-        (currentItem) => currentItem._id !== item._id
+        (currentItem) => currentItem._id !== itemPendingDelete._id
       ));
+      setItemPendingDelete(null);
     } catch (error) {
       if (error.response?.status === 401) {
         logout();
         return;
       }
 
-      window.alert(
+      setDeleteError(
         error.response?.data?.message ||
           "Could not delete item."
       );
+    } finally {
+      setIsDeletingItem(false);
     }
   }
 
@@ -749,7 +782,7 @@ export default function MyCloset() {
             </div>
 
             {pageError && (
-              <p className="error-message">
+              <p className="error-message" role="alert">
                 {pageError}
               </p>
             )}
@@ -897,6 +930,7 @@ export default function MyCloset() {
                             type="button"
                             className="past-date-btn"
                             onClick={() => {
+                              setWearError("");
                               setWearItem(item);
                               setWearDate(currentDateKey);
                             }}
@@ -929,9 +963,10 @@ export default function MyCloset() {
                         <button
                           type="button"
                           className="delete-btn"
-                          onClick={() =>
-                            deleteItem(item)
-                          }
+                          onClick={() => {
+                            setDeleteError("");
+                            setItemPendingDelete(item);
+                          }}
                         >
                           <i className="fa-regular fa-trash-can" />
                           Delete
@@ -954,7 +989,10 @@ export default function MyCloset() {
             <button
               type="button"
               className="close-btn"
-              onClick={() => setWearItem(null)}
+              onClick={() => {
+                setWearItem(null);
+                setWearError("");
+              }}
               aria-label="Close wear diary"
             >
               <i className="fa-solid fa-xmark" />
@@ -979,6 +1017,10 @@ export default function MyCloset() {
                 Add date
               </button>
             </div>
+
+            {wearError && (
+              <p className="error-message" role="alert">{wearError}</p>
+            )}
 
             <div className="wear-history-list">
               {(wearItem.wornDates || []).length === 0 ? (
@@ -1018,6 +1060,57 @@ export default function MyCloset() {
         </div>
       )}
 
+      {itemPendingDelete && (
+        <div
+          className="closet-delete-overlay"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !isDeletingItem) {
+              setItemPendingDelete(null);
+              setDeleteError("");
+            }
+          }}
+        >
+          <section
+            ref={deleteDialogRef}
+            className="closet-delete-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="closetDeleteTitle"
+            aria-describedby="closetDeleteDescription"
+          >
+            <span className="closet-delete-icon" aria-hidden="true">
+              <i className="fa-regular fa-trash-can" />
+            </span>
+            <h2 id="closetDeleteTitle">Delete this wardrobe item?</h2>
+            <p id="closetDeleteDescription">
+              “{itemPendingDelete.name}” will be permanently removed from your closet.
+            </p>
+            {deleteError && <p className="error-message" role="alert">{deleteError}</p>}
+            <div className="closet-delete-actions">
+              <button
+                type="button"
+                disabled={isDeletingItem}
+                onClick={() => {
+                  setItemPendingDelete(null);
+                  setDeleteError("");
+                }}
+              >
+                Keep item
+              </button>
+              <button
+                type="button"
+                className="confirm"
+                disabled={isDeletingItem}
+                onClick={deleteItem}
+              >
+                {isDeletingItem ? "Deleting..." : "Delete item"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
       <div
         className={
           `modal-overlay${modalOpen ? " show" : ""}`
@@ -1033,6 +1126,7 @@ export default function MyCloset() {
             type="button"
             className="close-btn"
             onClick={closeModal}
+            disabled={isPreparingImage || isSaving}
             aria-label="Close item form"
           >
             <i className="fa-solid fa-xmark" />
@@ -1051,18 +1145,22 @@ export default function MyCloset() {
             <label className="upload-area">
               <input
                 type="file"
-                accept="image/png,image/jpeg"
+                accept="image/jpeg,image/png,image/webp"
                 onChange={chooseImage}
+                disabled={isPreparingImage || isSaving}
+                aria-describedby={formError ? "closetItemFormError" : undefined}
               />
 
               <i className="fa-solid fa-cloud-arrow-up" />
               <strong>
-                {editingId ? "Change Image" : "Upload Image"}
+                {isPreparingImage
+                  ? "Preparing image..."
+                  : editingId ? "Change Image" : "Upload Image"}
               </strong>
               <small>
                 {editingId
                   ? "Optional — your current image will stay"
-                  : "Required — PNG or JPG up to 10MB"}
+                  : "Required — JPG, PNG or WEBP up to 10MB"}
               </small>
             </label>
 
@@ -1077,6 +1175,8 @@ export default function MyCloset() {
               placeholder="Example: White Shirt"
               value={form.name}
               onChange={change}
+              aria-invalid={Boolean(formError && !form.name.trim())}
+              aria-describedby={formError ? "closetItemFormError" : undefined}
             />
 
             <label htmlFor="itemCategory">
@@ -1107,6 +1207,8 @@ export default function MyCloset() {
               placeholder="Example: White"
               value={form.color}
               onChange={change}
+              aria-invalid={Boolean(formError && !form.color.trim())}
+              aria-describedby={formError ? "closetItemFormError" : undefined}
             />
 
             <div className="form-row">
@@ -1155,14 +1257,24 @@ export default function MyCloset() {
               </div>
             </div>
 
+            {formError && (
+              <p id="closetItemFormError" className="error-message" role="alert">
+                {formError}
+              </p>
+            )}
+
             <button
               type="submit"
               className="save-btn"
-              disabled={isSaving}
+              disabled={isSaving || isPreparingImage}
             >
               <i className="fa-solid fa-bag-shopping" />
               {isSaving
-                ? "Saving..."
+                ? savingStage === "uploading"
+                  ? "Uploading..."
+                  : savingStage === "verifying"
+                    ? "Verifying image..."
+                    : "Saving..."
                 : editingId
                   ? "Update Item"
                   : "Save Item"}

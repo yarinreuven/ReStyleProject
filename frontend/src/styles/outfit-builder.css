@@ -907,6 +907,35 @@ textarea {
   text-align: center;
 }
 
+.try-on-quota-status {
+  width: fit-content;
+  max-width: calc(100% - 32px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin: 10px auto 18px;
+  padding: 10px 16px;
+  border: 1px solid rgba(184, 82, 112, 0.2);
+  border-radius: 999px;
+  color: #7e4356;
+  background: rgba(255, 250, 251, 0.9);
+  box-shadow: 0 8px 24px rgba(126, 67, 86, 0.08);
+  font-size: 13px;
+}
+
+.try-on-quota-status i { color: #bd5c78; }
+.try-on-quota-status span { color: #886f77; }
+.try-on-quota-status button {
+  padding: 6px 11px;
+  border: 0;
+  border-radius: 999px;
+  color: #fff;
+  background: #b55370;
+  cursor: pointer;
+  font-weight: 700;
+}
+
 .try-on-actions p,
 .try-on-quota-result p {
   margin: 0;

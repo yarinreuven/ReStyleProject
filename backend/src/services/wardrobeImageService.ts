@@ -1,3 +1,6 @@
+import sharp from "sharp";
+import logger from "./logger.ts";
+
 export const clothingCategories = [
   "Tops",
   "Bottoms",
@@ -14,7 +17,40 @@ interface GeminiImageCheckResponse {
 }
 
 const TRANSIENT_GEMINI_STATUSES = new Set([429, 500, 502, 503, 504]);
-const IMAGE_CHECK_ATTEMPTS = 3;
+const IMAGE_CHECK_ATTEMPTS = 1;
+const IMAGE_CHECK_TIMEOUT_MS = 12 * 1000;
+export const GEMINI_WARDROBE_IMAGE_MODEL = "gemini-3.1-flash-lite";
+
+export async function optimizeWardrobeImage(
+  file: Express.Multer.File
+): Promise<Express.Multer.File> {
+  let buffer: Buffer;
+  try {
+    buffer = await sharp(file.buffer)
+      .rotate()
+      .resize({ width: 1600, height: 1600, fit: "inside", withoutEnlargement: true })
+      .jpeg({ quality: 82, mozjpeg: true })
+      .toBuffer();
+  } catch {
+    throw new InvalidWardrobeImageError();
+  }
+
+  return {
+    ...file,
+    buffer,
+    size: buffer.length,
+    mimetype: "image/jpeg"
+  };
+}
+
+export class InvalidWardrobeImageError extends Error {
+  readonly status = 400;
+
+  constructor() {
+    super("The uploaded file is not a valid JPG, PNG or WEBP image.");
+    this.name = "InvalidWardrobeImageError";
+  }
+}
 
 export class WardrobeImageCheckUnavailableError extends Error {
   readonly status = 503;
@@ -42,6 +78,14 @@ export async function checkWardrobeImage(
 
   if (!apiKey) throw new Error("GEMINI_API_KEY is missing");
 
+  // The full optimized image is kept for wardrobe and try-on quality. Gemini
+  // only needs a smaller preview to classify the garment, which reduces the
+  // request payload and shortens validation time on slower connections.
+  const validationBuffer = await sharp(file.buffer)
+    .resize({ width: 512, height: 512, fit: "inside", withoutEnlargement: true })
+    .jpeg({ quality: 65 })
+    .toBuffer();
+
   const requestBody = JSON.stringify({
     contents: [{
       role: "user",
@@ -52,8 +96,8 @@ export async function checkWardrobeImage(
         },
         {
           inline_data: {
-            mime_type: file.mimetype,
-            data: file.buffer.toString("base64")
+            mime_type: "image/jpeg",
+            data: validationBuffer.toString("base64")
           }
         }
       ]
@@ -75,7 +119,7 @@ export async function checkWardrobeImage(
   for (let attempt = 1; attempt <= IMAGE_CHECK_ATTEMPTS; attempt += 1) {
     try {
       const response = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent",
+        `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_WARDROBE_IMAGE_MODEL}:generateContent`,
         {
       method: "POST",
       headers: {
@@ -83,7 +127,7 @@ export async function checkWardrobeImage(
         "Content-Type": "application/json"
       },
           body: requestBody,
-          signal: AbortSignal.timeout(45 * 1000)
+          signal: AbortSignal.timeout(IMAGE_CHECK_TIMEOUT_MS)
         }
       );
       const data = await response.json() as GeminiImageCheckResponse;
@@ -92,7 +136,7 @@ export async function checkWardrobeImage(
         if (!outputText) throw new WardrobeImageCheckUnavailableError();
         return JSON.parse(outputText) as ImageCheckResult;
       }
-      console.error("Gemini image check error:", data.error?.message);
+      logger.error({ providerMessage: data.error?.message }, "Gemini image check failed");
       if (!TRANSIENT_GEMINI_STATUSES.has(response.status)) {
         throw new WardrobeImageCheckUnavailableError();
       }

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import ProfileAvatar from "../components/ProfileAvatar";
-import usePageStyles from "../hooks/usePageStyles";
+import useAuthorizationConfig from "../hooks/useAuthorizationConfig";
 import { useAuth } from "../context/AuthContext";
 import { API_BASE_URL } from "../config/api";
 
@@ -15,11 +15,10 @@ const sections = [
 ];
 
 export default function Settings() {
-  usePageStyles("settings.css");
-  usePageStyles("settings-fields.css");
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, token, logout, updateUser } = useAuth();
+  const requestConfig = useAuthorizationConfig(token);
   const [activeSection, setActiveSection] = useState(() => searchParams.get("section") === "delete" ? "delete" : "profile");
   const [profileForm, setProfileForm] = useState({ firstName: "", lastName: "", email: "", gender: "unspecified" });
   const [emailCode, setEmailCode] = useState("");
@@ -56,9 +55,7 @@ export default function Settings() {
     setRequestError("");
     setEmailMessage("");
     setEmailRequestError("");
-    axios.get(`${AUTH_URL}/blocked-users`, {
-      headers: { Authorization: `Bearer ${token}` }
-    }).then(({ data }) => {
+    axios.get(`${AUTH_URL}/blocked-users`, requestConfig).then(({ data }) => {
       if (active) setBlockedUsers(data.blockedUsers);
     }).catch((error) => {
       if (!active) return;
@@ -68,7 +65,7 @@ export default function Settings() {
       if (active) setIsLoadingBlocked(false);
     });
     return () => { active = false; };
-  }, [activeSection, logout, token]);
+  }, [activeSection, logout, requestConfig, token]);
 
   function selectSection(sectionId) {
     setActiveSection(sectionId);
@@ -105,7 +102,7 @@ export default function Settings() {
       const { data } = await axios.put(
         `${AUTH_URL}/me`,
         { firstName, lastName, gender: profileForm.gender },
-        { headers: { Authorization: `Bearer ${token}` } }
+        requestConfig
       );
       updateUser(data.user);
       setMessage("Your personal information was updated.");
@@ -132,9 +129,11 @@ export default function Settings() {
       setIsSaving(true);
       setEmailMessage("");
       setEmailRequestError("");
-      const { data } = await axios.post(`${AUTH_URL}/email-change/request`, { email }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const { data } = await axios.post(
+        `${AUTH_URL}/email-change/request`,
+        { email },
+        requestConfig
+      );
       setEmailVerificationPending(true);
       setEmailCode("");
       setEmailMessage(data.message);
@@ -156,9 +155,11 @@ export default function Settings() {
       setIsSaving(true);
       setEmailMessage("");
       setEmailRequestError("");
-      const { data } = await axios.post(`${AUTH_URL}/email-change/confirm`, { code: emailCode }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const { data } = await axios.post(
+        `${AUTH_URL}/email-change/confirm`,
+        { code: emailCode },
+        requestConfig
+      );
       updateUser(data.user);
       setEmailVerificationPending(false);
       setEmailCode("");
@@ -184,7 +185,7 @@ export default function Settings() {
       setMessage("");
       setRequestError("");
       await axios.put(`${AUTH_URL}/password`, passwordForm, {
-        headers: { Authorization: `Bearer ${token}` },
+        ...requestConfig,
         withCredentials: true
       });
       setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
@@ -201,9 +202,7 @@ export default function Settings() {
   async function unblock(blockedUser) {
     try {
       setRequestError("");
-      await axios.delete(`${AUTH_URL}/blocked-users/${blockedUser.id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await axios.delete(`${AUTH_URL}/blocked-users/${blockedUser.id}`, requestConfig);
       setBlockedUsers((current) => current.filter((entry) => entry.id !== blockedUser.id));
       setMessage(`${blockedUser.firstName} ${blockedUser.lastName} was unblocked.`);
     } catch (error) {
@@ -216,7 +215,7 @@ export default function Settings() {
       setIsDeletingAccount(true);
       setRequestError("");
       await axios.delete(`${AUTH_URL}/me`, {
-        headers: { Authorization: `Bearer ${token}` },
+        ...requestConfig,
         data: { confirmation: "DELETE" },
         withCredentials: true
       });

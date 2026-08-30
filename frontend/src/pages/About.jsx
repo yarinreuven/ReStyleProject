@@ -1,9 +1,6 @@
-import usePageStyles from "../hooks/usePageStyles";
 import InformationHeader from "../components/InformationHeader";
 
 export default function About() {
-  usePageStyles("info-pages.css");
-
   return (
     <main className="info-page">
       <InformationHeader />

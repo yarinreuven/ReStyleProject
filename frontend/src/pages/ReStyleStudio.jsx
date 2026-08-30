@@ -5,7 +5,9 @@ import { useNavigate } from "react-router-dom";
 import ProfileAvatar from "../components/ProfileAvatar";
 import PayPalCheckout from "../components/PayPalCheckout";
 import { useAuth } from "../context/AuthContext";
-import usePageStyles from "../hooks/usePageStyles";
+import useDialogFocus from "../hooks/useDialogFocus";
+import useClickOutside from "../hooks/useClickOutside";
+import useAuthorizationConfig from "../hooks/useAuthorizationConfig";
 import {
   isAutomaticallyEligibleForRestyle,
   LESS_WORN_DAYS
@@ -71,7 +73,6 @@ const blankGarmentDetails = {
 };
 
 export default function ReStyleStudio() {
-  usePageStyles("restyle-studio.css");
 
   const navigate = useNavigate();
   const menuRef = useRef(null);
@@ -80,6 +81,7 @@ export default function ReStyleStudio() {
   const detailsRef = useRef(null);
   const ideasRef = useRef(null);
   const guideRef = useRef(null);
+  const guideSaveInFlightRef = useRef(false);
   const fileInputRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeStudioStep, setActiveStudioStep] = useState(1);
@@ -114,17 +116,34 @@ export default function ReStyleStudio() {
   const [plansOpen, setPlansOpen] = useState(false);
   const [checkoutPlan, setCheckoutPlan] = useState("");
   const [purchaseMessage, setPurchaseMessage] = useState("");
+  const projectsDialogRef = useDialogFocus(
+    projectsOpen && !projectPendingDelete,
+    () => setProjectsOpen(false)
+  );
+  const deleteDialogRef = useDialogFocus(
+    Boolean(projectPendingDelete),
+    () => setProjectPendingDelete(null),
+    !projectDeleting
+  );
+  const plansDialogRef = useDialogFocus(
+    plansOpen,
+    () => {
+      setPlansOpen(false);
+      setCheckoutPlan("");
+    }
+  );
   const { user, token, logout } = useAuth();
+  const requestConfig = useAuthorizationConfig(token);
   const verifiedVideoUrl = getTrustedTutorialUrl(guide?.verifiedVideo?.url);
   const videoSearchUrl = getTrustedTutorialUrl(guide?.videoSearch?.url) ||
     (guide ? `https://www.youtube.com/results?search_query=${encodeURIComponent(`${guide.idea.title} upcycling tutorial`)}` : "");
 
   useEffect(() => {
     if (!token) return;
-    axios.get(`${RESTYLE_PROJECTS_API_URL}/quota`, {
-      headers: { Authorization: `Bearer ${token}` }
-    }).then(({ data }) => setStudioQuota(data)).catch(() => setStudioQuota(null));
-  }, [token]);
+    axios.get(`${RESTYLE_PROJECTS_API_URL}/quota`, requestConfig)
+      .then(({ data }) => setStudioQuota(data))
+      .catch(() => setStudioQuota(null));
+  }, [requestConfig, token]);
 
   useEffect(() => {
     if (!token) return;
@@ -134,9 +153,7 @@ export default function ReStyleStudio() {
       try {
         setClosetStatus("loading");
         setClosetError("");
-        const { data } = await axios.get(ITEMS_API_URL, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const { data } = await axios.get(ITEMS_API_URL, requestConfig);
         if (!cancelled) {
           setClosetItems((data.items || []).filter(isAutomaticallyEligibleForRestyle));
           setClosetStatus("ready");
@@ -155,7 +172,7 @@ export default function ReStyleStudio() {
 
     loadClosetItems();
     return () => { cancelled = true; };
-  }, [logout, navigate, token]);
+  }, [logout, navigate, requestConfig, token]);
 
   useEffect(() => {
     if (!token) return;
@@ -165,9 +182,7 @@ export default function ReStyleStudio() {
       try {
         setProjectsStatus("loading");
         setProjectsError("");
-        const { data } = await axios.get(RESTYLE_PROJECTS_API_URL, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const { data } = await axios.get(RESTYLE_PROJECTS_API_URL, requestConfig);
         if (!cancelled) {
           setSavedProjects(data.projects || []);
           setProjectsStatus("ready");
@@ -186,29 +201,9 @@ export default function ReStyleStudio() {
 
     loadSavedProjects();
     return () => { cancelled = true; };
-  }, [logout, navigate, token]);
+  }, [logout, navigate, requestConfig, token]);
 
-  useEffect(() => {
-    function closeMenu(event) {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setMenuOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", closeMenu);
-    return () => document.removeEventListener("mousedown", closeMenu);
-  }, []);
-
-  useEffect(() => {
-    if (!projectsOpen && !projectPendingDelete) return;
-    function closeProjects(event) {
-      if (event.key !== "Escape") return;
-      if (projectPendingDelete && !projectDeleting) setProjectPendingDelete(null);
-      else if (!projectPendingDelete) setProjectsOpen(false);
-    }
-    document.addEventListener("keydown", closeProjects);
-    return () => document.removeEventListener("keydown", closeProjects);
-  }, [projectDeleting, projectPendingDelete, projectsOpen]);
+  useClickOutside(menuRef, () => setMenuOpen(false), menuOpen);
 
   function logOut() {
     logout();
@@ -390,7 +385,7 @@ export default function ReStyleStudio() {
         response = await axios.patch(
           `${RESTYLE_PROJECTS_API_URL}/${projectId}`,
           { details: garmentDetails },
-          { headers: { Authorization: `Bearer ${token}` } }
+          requestConfig
         );
       } else {
         const body = new FormData();
@@ -400,9 +395,7 @@ export default function ReStyleStudio() {
         body.append("details", JSON.stringify(garmentDetails));
         if (selectedGarment.source === "closet") body.append("sourceItemId", selectedGarment.id);
         if (selectedGarment.source === "upload") body.append("sourceImage", selectedGarment.file);
-        response = await axios.post(RESTYLE_PROJECTS_API_URL, body, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        response = await axios.post(RESTYLE_PROJECTS_API_URL, body, requestConfig);
       }
       setProjectId(response.data.project.id);
       setSavedProjects((current) => [
@@ -434,7 +427,7 @@ export default function ReStyleStudio() {
       const { data } = await axios.post(
         `${RESTYLE_PROJECTS_API_URL}/${projectId}/ideas`,
         {},
-        { headers: { Authorization: `Bearer ${token}` } }
+        requestConfig
       );
       setIdeas(data.ideas || []);
       if (data.quota) setStudioQuota(data.quota);
@@ -468,11 +461,16 @@ export default function ReStyleStudio() {
       const { data } = await axios.post(
         `${RESTYLE_PROJECTS_API_URL}/${projectId}/ideas/${ideaId}/select`,
         {},
-        { headers: { Authorization: `Bearer ${token}` } }
+        requestConfig
       );
       setGuide(data.guide);
-      setCompletedStepIds(data.completedStepIds || []);
-      setGuideProgress(data.progress || 0);
+      const validStepIds = new Set((data.guide?.steps || []).map((step) => step.id));
+      const completedForGuide = [...new Set(data.completedStepIds || [])]
+        .filter((stepId) => validStepIds.has(stepId));
+      setCompletedStepIds(completedForGuide);
+      setGuideProgress(data.guide?.steps?.length
+        ? Math.round((completedForGuide.length / data.guide.steps.length) * 100)
+        : 0);
       setGuideStatus("ready");
       setSavedProjects((current) => current.map((project) => project.id === projectId
         ? { ...project, selectedIdeaId: ideaId, status: "in_progress" }
@@ -496,9 +494,10 @@ export default function ReStyleStudio() {
   async function continueSavedProject(savedProject) {
     try {
       setProjectsError("");
-      const { data } = await axios.get(`${RESTYLE_PROJECTS_API_URL}/${savedProject.id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const { data } = await axios.get(
+        `${RESTYLE_PROJECTS_API_URL}/${savedProject.id}`,
+        requestConfig
+      );
       const project = data.project;
       setSelectedGarment({
         source: project.sourceType,
@@ -524,14 +523,17 @@ export default function ReStyleStudio() {
       setGuideStatus("idle");
 
       if (project.selectedIdeaId) {
-        const guideResponse = await axios.post(
-          `${RESTYLE_PROJECTS_API_URL}/${project.id}/ideas/${project.selectedIdeaId}/select`,
-          {},
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        setGuide(guideResponse.data.guide);
-        setCompletedStepIds(guideResponse.data.completedStepIds || []);
-        setGuideProgress(guideResponse.data.progress || 0);
+        if (!project.selectedGuide) {
+          throw new Error("The saved guide is unavailable for this project.");
+        }
+        const validStepIds = new Set((project.selectedGuide.steps || []).map((step) => step.id));
+        const completedForGuide = [...new Set(project.completedStepIds || [])]
+          .filter((stepId) => validStepIds.has(stepId));
+        setCompletedStepIds(completedForGuide);
+        setGuideProgress(project.selectedGuide.steps?.length
+          ? Math.round((completedForGuide.length / project.selectedGuide.steps.length) * 100)
+          : 0);
+        setGuide(project.selectedGuide);
         setGuideStatus("ready");
         setProjectsOpen(false);
         moveToStudioStep(4);
@@ -553,9 +555,10 @@ export default function ReStyleStudio() {
     try {
       setProjectDeleting(true);
       setProjectsError("");
-      await axios.delete(`${RESTYLE_PROJECTS_API_URL}/${savedProject.id}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await axios.delete(
+        `${RESTYLE_PROJECTS_API_URL}/${savedProject.id}`,
+        requestConfig
+      );
       setSavedProjects((current) => current.filter((project) => project.id !== savedProject.id));
       if (projectId === savedProject.id) removeSelection();
       setProjectPendingDelete(null);
@@ -568,12 +571,15 @@ export default function ReStyleStudio() {
   }
 
   async function toggleGuideStep(stepId) {
-    if (!guide || guideStatus === "saving") return;
+    if (!guide || guideStatus === "saving" || guideSaveInFlightRef.current) return;
+    guideSaveInFlightRef.current = true;
     setGuideError("");
-    const nextCompleted = completedStepIds.includes(stepId)
-      ? completedStepIds.filter((id) => id !== stepId)
-      : [...completedStepIds, stepId];
-    const progress = Math.round((nextCompleted.length / guide.steps.length) * 100);
+    const validStepIds = new Set(guide.steps.map((step) => step.id));
+    const completedSet = new Set(completedStepIds.filter((id) => validStepIds.has(id)));
+    if (completedSet.has(stepId)) completedSet.delete(stepId);
+    else completedSet.add(stepId);
+    const nextCompleted = [...completedSet];
+    const progress = Math.min(100, Math.round((nextCompleted.length / guide.steps.length) * 100));
     const previousCompleted = completedStepIds;
     const previousProgress = guideProgress;
     setCompletedStepIds(nextCompleted);
@@ -587,7 +593,7 @@ export default function ReStyleStudio() {
           progress,
           status: progress === 100 ? "completed" : "in_progress"
         },
-        { headers: { Authorization: `Bearer ${token}` } }
+        requestConfig
       );
       setSavedProjects((current) => current.map((project) => project.id === projectId
         ? { ...project, completedStepIds: nextCompleted, progress, status: progress === 100 ? "completed" : "in_progress" }
@@ -598,6 +604,8 @@ export default function ReStyleStudio() {
       setGuideProgress(previousProgress);
       setGuideStatus("ready");
       setGuideError(error.response?.data?.message || "Could not save your progress.");
+    } finally {
+      guideSaveInFlightRef.current = false;
     }
   }
 
@@ -692,7 +700,7 @@ export default function ReStyleStudio() {
 
       {projectsOpen && (
         <div className="restyle-projects-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setProjectsOpen(false); }}>
-          <section className="restyle-projects-dialog" role="dialog" aria-modal="true" aria-labelledby="savedRestyleProjectsTitle">
+          <section ref={projectsDialogRef} className="restyle-projects-dialog" role="dialog" aria-modal="true" aria-labelledby="savedRestyleProjectsTitle">
             <button type="button" className="restyle-projects-close" aria-label="Close saved projects" onClick={() => setProjectsOpen(false)}><i className="fa-solid fa-xmark" /></button>
             <div className="restyle-saved-projects-heading">
               <div><span>MY RESTYLE PROJECTS</span><h2 id="savedRestyleProjectsTitle">Continue where you left off</h2></div>
@@ -723,7 +731,7 @@ export default function ReStyleStudio() {
 
       {projectPendingDelete && (
         <div className="restyle-delete-overlay" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !projectDeleting) setProjectPendingDelete(null); }}>
-          <section className="restyle-delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="restyleDeleteTitle" aria-describedby="restyleDeleteDescription">
+          <section ref={deleteDialogRef} className="restyle-delete-dialog" role="alertdialog" aria-modal="true" aria-labelledby="restyleDeleteTitle" aria-describedby="restyleDeleteDescription">
             <span className="restyle-delete-icon"><i className="fa-regular fa-trash-can" /></span>
             <small>DELETE PROJECT</small>
             <h2 id="restyleDeleteTitle">Delete this ReStyle project?</h2>
@@ -1164,7 +1172,7 @@ export default function ReStyleStudio() {
 
       {plansOpen && (
         <div className="restyle-plan-overlay" role="presentation">
-          <section className="restyle-plan-dialog" role="dialog" aria-modal="true" aria-labelledby="restyle-plan-title">
+          <section ref={plansDialogRef} className="restyle-plan-dialog" role="dialog" aria-modal="true" aria-labelledby="restyle-plan-title">
             <button type="button" className="restyle-plan-close" aria-label="Close plans" onClick={() => { setPlansOpen(false); setCheckoutPlan(""); }}>×</button>
             <h2 id="restyle-plan-title">Your free Studio generations are complete</h2>
             <p>{checkoutPlan ? "Complete your purchase with PayPal Sandbox. No real money will be charged." : "Choose a ReStyle Studio credit package. These credits are only for Studio generations."}</p>

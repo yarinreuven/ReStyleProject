@@ -6,7 +6,8 @@ import MarketplaceItemCard from "../components/MarketplaceItemCard";
 import MarketplaceFavoriteButton from "../components/MarketplaceFavoriteButton";
 import MarketplaceSellerAvatar from "../components/MarketplaceSellerAvatar";
 import ProfileAvatar from "../components/ProfileAvatar";
-import usePageStyles from "../hooks/usePageStyles";
+import useClickOutside from "../hooks/useClickOutside";
+import useAuthorizationConfig from "../hooks/useAuthorizationConfig";
 import { useAuth } from "../context/AuthContext";
 import useMarketplaceFavoritesSync from "../hooks/useMarketplaceFavoritesSync";
 import { selectMarketplaceFavoritesError } from "../store/marketplaceFavoritesSlice.js";
@@ -42,8 +43,6 @@ function normalizeMarketplaceItem(item, index) {
 }
 
 export default function MarketplaceItemDetails() {
-  usePageStyles("marketplace.css");
-  usePageStyles("marketplace-item.css");
   const navigate = useNavigate();
   const { itemId } = useParams();
   const accountMenuRef = useRef(null);
@@ -58,6 +57,7 @@ export default function MarketplaceItemDetails() {
   const [message, setMessage] = useState("");
   const [contacting, setContacting] = useState(false);
   const { user, token, logout: logoutUser } = useAuth();
+  const requestConfig = useAuthorizationConfig(token);
   const favoritesError = useSelector(selectMarketplaceFavoritesError);
   useMarketplaceFavoritesSync();
 
@@ -79,9 +79,7 @@ export default function MarketplaceItemDetails() {
     setStatus("loading");
     setActiveImage(0);
 
-    axios.get(`${API_URL}/${itemId}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    }).then(({ data }) => {
+    axios.get(`${API_URL}/${itemId}`, requestConfig).then(({ data }) => {
       if (!cancelled) {
         setItem(data.item);
         setStatus("ready");
@@ -97,16 +95,14 @@ export default function MarketplaceItemDetails() {
     });
 
     return () => { cancelled = true; };
-  }, [itemId, logoutUser, navigate, token]);
+  }, [itemId, logoutUser, navigate, requestConfig, token]);
 
   useEffect(() => {
     if (!token || !item?.seller?.id) return;
     let cancelled = false;
-    const headers = { Authorization: `Bearer ${token}` };
-
     Promise.allSettled([
-      axios.get(API_URL, { headers }),
-      axios.get(`${API_URL}/sellers/${item.seller.id}`, { headers })
+      axios.get(API_URL, requestConfig),
+      axios.get(`${API_URL}/sellers/${item.seller.id}`, requestConfig)
     ]).then(([feedResult, sellerResult]) => {
       if (cancelled) return;
       if (
@@ -131,7 +127,7 @@ export default function MarketplaceItemDetails() {
     });
 
     return () => { cancelled = true; };
-  }, [item, itemId, logoutUser, navigate, token]);
+  }, [item, itemId, logoutUser, navigate, requestConfig, token]);
 
   useEffect(() => {
     if (!lightboxOpen) return undefined;
@@ -142,13 +138,7 @@ export default function MarketplaceItemDetails() {
     return () => document.removeEventListener("keydown", closeOnEscape);
   }, [lightboxOpen]);
 
-  useEffect(() => {
-    function closeMenu(event) {
-      if (accountMenuRef.current && !accountMenuRef.current.contains(event.target)) setAccountMenuOpen(false);
-    }
-    document.addEventListener("mousedown", closeMenu);
-    return () => document.removeEventListener("mousedown", closeMenu);
-  }, []);
+  useClickOutside(accountMenuRef, () => setAccountMenuOpen(false), accountMenuOpen);
 
   function logout() {
     logoutUser();
@@ -162,7 +152,7 @@ export default function MarketplaceItemDetails() {
       const { data } = await axios.post(
         `${API_BASE_URL}/messages/conversations`,
         { itemId },
-        { headers: { Authorization: `Bearer ${token}` } }
+        requestConfig
       );
       navigate(`/marketplace?chat=${data.conversation.id}`);
     } catch (error) {

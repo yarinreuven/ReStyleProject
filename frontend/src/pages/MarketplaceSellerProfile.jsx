@@ -4,7 +4,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import MarketplaceItemCard from "../components/MarketplaceItemCard";
 import MarketplaceSellerAvatar from "../components/MarketplaceSellerAvatar";
 import ProfileAvatar from "../components/ProfileAvatar";
-import usePageStyles from "../hooks/usePageStyles";
+import useClickOutside from "../hooks/useClickOutside";
+import useAuthorizationConfig from "../hooks/useAuthorizationConfig";
 import { useAuth } from "../context/AuthContext";
 import { API_BASE_URL } from "../config/api";
 
@@ -32,8 +33,6 @@ function normalizeItem(item, index) {
 }
 
 export default function MarketplaceSellerProfile() {
-  usePageStyles("marketplace.css");
-  usePageStyles("marketplace-seller.css");
   const navigate = useNavigate();
   const { userId } = useParams();
   const accountMenuRef = useRef(null);
@@ -46,6 +45,7 @@ export default function MarketplaceSellerProfile() {
   const [blocking, setBlocking] = useState(false);
   const [contactError, setContactError] = useState("");
   const { user, token, logout } = useAuth();
+  const requestConfig = useAuthorizationConfig(token);
 
   const openItem = useCallback((itemId) => {
     navigate(`/marketplace/items/${itemId}`);
@@ -59,25 +59,14 @@ export default function MarketplaceSellerProfile() {
     if (!user || !token) navigate("/login", { replace: true });
   }, [navigate, token, user]);
 
-  useEffect(() => {
-    function closeAccountMenu(event) {
-      if (accountMenuRef.current && !accountMenuRef.current.contains(event.target)) {
-        setAccountMenuOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", closeAccountMenu);
-    return () => document.removeEventListener("mousedown", closeAccountMenu);
-  }, []);
+  useClickOutside(accountMenuRef, () => setAccountMenuOpen(false), accountMenuOpen);
 
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
     setStatus("loading");
 
-    axios.get(`${API_URL}/sellers/${userId}`, {
-      headers: { Authorization: `Bearer ${token}` }
-    }).then(({ data }) => {
+    axios.get(`${API_URL}/sellers/${userId}`, requestConfig).then(({ data }) => {
       if (!cancelled) {
         setSeller(data.seller);
         setItems((data.items || []).map(normalizeItem));
@@ -101,7 +90,7 @@ export default function MarketplaceSellerProfile() {
     });
 
     return () => { cancelled = true; };
-  }, [logout, navigate, token, userId]);
+  }, [logout, navigate, requestConfig, token, userId]);
 
   const visibleItems = useMemo(
     () => filter === "ALL" ? items : items.filter((item) => item.listingType === filter),
@@ -121,7 +110,7 @@ export default function MarketplaceSellerProfile() {
       const { data } = await axios.post(
         `${API_BASE_URL}/messages/conversations`,
         { sellerId: seller.id },
-        { headers: { Authorization: `Bearer ${token}` } }
+        requestConfig
       );
       navigate(`/marketplace?chat=${data.conversation.id}`);
     } catch (error) {
@@ -144,7 +133,7 @@ export default function MarketplaceSellerProfile() {
       await axios.post(
         `${API_BASE_URL}/auth/blocked-users/${seller.id}`,
         {},
-        { headers: { Authorization: `Bearer ${token}` } }
+        requestConfig
       );
       setSeller(null);
       setItems([]);

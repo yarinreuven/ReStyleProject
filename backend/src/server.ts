@@ -2,26 +2,27 @@ import mongoose from "mongoose";
 import { createServer } from "http";
 import app from "./app.ts";
 import { initializeSocketServer } from "./services/socketService.ts";
+import logger from "./services/logger.ts";
 
 const PORT = process.env.PORT || 3001;
 const MONGO_URI = process.env.MONGO_URI;
 
 if (!MONGO_URI) {
-  console.error("MONGO_URI is missing");
+  logger.fatal("MONGO_URI is missing");
   process.exit(1);
 }
 
 mongoose
   .connect(MONGO_URI)
   .then(() => {
-    console.log("MongoDB connected!");
+    logger.info("MongoDB connected");
     const httpServer = createServer(app);
     initializeSocketServer(httpServer);
     httpServer.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+      logger.info({ port: PORT }, "Server is listening");
     });
   })
   .catch((err) => {
-    console.error("MongoDB connection failed:", err);
+    logger.fatal({ err }, "MongoDB connection failed");
     process.exit(1);
   });

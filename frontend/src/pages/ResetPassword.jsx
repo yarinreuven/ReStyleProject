@@ -2,12 +2,10 @@ import { useState } from "react";
 import axios from "axios";
 import { Link, useSearchParams } from "react-router-dom";
 import HangerBrand from "../components/HangerBrand";
-import usePageStyles from "../hooks/usePageStyles";
 import { API_BASE_URL } from "../config/api";
 import { validateResetPassword } from "../utils/passwordResetValidation.js";
 
 export default function ResetPassword() {
-  usePageStyles("forgot-password.css");
   const [searchParams] = useSearchParams();
   const token = searchParams.get("token") || "";
   const [form, setForm] = useState({ newPassword: "", confirmPassword: "" });

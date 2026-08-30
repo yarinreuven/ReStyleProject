@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import mongoose from "mongoose";
 
 import type { AuthRequest } from "../middleware/auth.ts";
+import logger from "../services/logger.ts";
 import Item from "../models/Item.ts";
 import OutfitSelection from "../models/OutfitSelection.ts";
 import TryOnResult from "../models/TryOnResult.ts";
@@ -274,7 +275,7 @@ export async function generateOutfit(
           });
           return;
         }
-        console.error("Gemini wardrobe inspection request failed");
+        logger.error("Gemini wardrobe inspection request failed");
         res.status(503).json({
           success: false,
           message: "The wardrobe image inspection took too long or is temporarily unavailable. Please try again."
@@ -285,14 +286,14 @@ export async function generateOutfit(
       const { response: aiResponse, data: aiData, model: usedModel } = geminiResult;
 
       if (!aiResponse.ok) {
-        console.error("Gemini stylist request failed", {
+        logger.error({
           model: GEMINI_STYLIST_MODEL,
           httpStatus: aiResponse.status,
           providerCode: aiData.error?.code,
           providerStatus: aiData.error?.status
-        });
+        }, "Gemini stylist request failed");
       } else {
-        console.info(`Gemini stylist completed with ${usedModel}`);
+        logger.info({ model: usedModel }, "Gemini stylist completed");
       }
 
       if (!aiResponse.ok) {
@@ -318,7 +319,7 @@ export async function generateOutfit(
           return;
         }
         if (parsedSuggestion.reason === "invalid-json") {
-          console.error("Gemini wardrobe inspection returned invalid JSON");
+          logger.error("Gemini wardrobe inspection returned invalid JSON");
         }
         res.status(502).json({
           success: false,
@@ -412,7 +413,7 @@ export async function generateOutfit(
       );
 
       if (validationError || selectedIds.some((id) => !verifiedItemsById.has(id))) {
-        console.warn("Gemini outfit selection was rejected by server validation:", validationError);
+        logger.warn({ validationError }, "Gemini outfit selection was rejected by server validation");
         const requestMismatch = validationError ===
           "The selected outfit contains an item that does not match the request";
         res.status(422).json({
@@ -648,7 +649,7 @@ export async function createTryOn(
           avatar.contentType,
           tryOnInputs
         );
-        console.info(`Gemini try-on image completed with ${generated.model}`);
+        logger.info({ model: generated.model }, "Gemini try-on image completed");
         const quality = await validateGeminiTryOnImage(
           generated.data,
           generated.contentType,
@@ -702,13 +703,15 @@ export async function createTryOn(
         }));
         return;
       } catch (geminiError) {
+        const qualityRejected = geminiError instanceof Error &&
+          geminiError.message.startsWith("TRY_ON_QUALITY_REJECTED:");
         const failed = await TryOnResult.findOneAndUpdate(
           { requestKey, attemptId, status: "pending" },
           { $set: { status: "failed", failureCode: "GENERATION_FAILED" } },
           { returnDocument: "after" }
         );
         if (failed) await refundTryOnReservation(req.userId, reservationToken);
-        console.error("Gemini try-on request failed", geminiError instanceof GeminiTryOnServiceError
+        logger.error(geminiError instanceof GeminiTryOnServiceError
           ? {
               stage: geminiError.stage,
               code: geminiError.code,
@@ -719,11 +722,17 @@ export async function createTryOn(
               stage: "unknown",
               code: geminiError instanceof Error && geminiError.name === "TimeoutError"
                 ? "TIMEOUT"
-                : "UNEXPECTED_ERROR"
-            });
+                : qualityRejected
+                  ? "QUALITY_REJECTED"
+                  : "UNEXPECTED_ERROR",
+              reason: geminiError instanceof Error ? geminiError.message : "Unknown error"
+            }, "Gemini try-on request failed");
         res.status(502).json({
           success: false,
-          message: "The virtual try-on service could not create the fitted image right now. Please try again shortly."
+          code: qualityRejected ? "TRY_ON_QUALITY_REJECTED" : "TRY_ON_GENERATION_FAILED",
+          message: qualityRejected
+            ? "The generated image did not reliably match every selected wardrobe item, so it was not shown. This attempt was not charged—please try again."
+            : "The virtual try-on service could not create the fitted image right now. This attempt was not charged—please try again shortly."
         });
         return;
       }

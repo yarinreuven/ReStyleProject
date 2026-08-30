@@ -1,29 +1,16 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import usePageStyles from "../hooks/usePageStyles";
+import useClickOutside from "../hooks/useClickOutside";
 import ProfileAvatar from "../components/ProfileAvatar";
 import { useAuth } from "../context/AuthContext";
 
 export default function Home() {
-  usePageStyles("home.css");
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const userMenuRef = useRef(null);
   const { user, token, logout: logoutUser } = useAuth();
 
-  useEffect(() => {
-    function closeMenu(event) {
-      if (
-        userMenuRef.current &&
-        !userMenuRef.current.contains(event.target)
-      ) {
-        setMenuOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", closeMenu);
-    return () => document.removeEventListener("mousedown", closeMenu);
-  }, []);
+  useClickOutside(userMenuRef, () => setMenuOpen(false), menuOpen);
 
   function logout() {
     logoutUser();

@@ -1,6 +1,7 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import axios from "axios";
 import { API_BASE_URL } from "../config/api.js";
+import { authorizationConfig } from "../utils/apiConfig.js";
 
 const API_URL = `${API_BASE_URL}/marketplace-favorites`;
 
@@ -30,10 +31,6 @@ function getRequestErrorMessage(error) {
   }
 
   return error.message || "Something went wrong. Please try again.";
-}
-
-function authorizationConfig(token) {
-  return { headers: { Authorization: `Bearer ${token}` } };
 }
 
 export const fetchMarketplaceFavorites = createAsyncThunk(

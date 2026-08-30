@@ -9,6 +9,13 @@ const focusableSelector = [
   "[tabindex]:not([tabindex='-1'])"
 ].join(",");
 
+/**
+ * Traps keyboard focus inside an open dialog and restores focus when it closes.
+ * @param {boolean} isOpen Whether the dialog is currently visible.
+ * @param {() => void} onClose Escape-key close handler.
+ * @param {boolean} canClose Whether closing is currently allowed.
+ * @returns {import("react").RefObject<HTMLElement|null>} Ref for the dialog element.
+ */
 export default function useDialogFocus(isOpen, onClose, canClose = true) {
   const dialogRef = useRef(null);
   const previousFocusRef = useRef(null);

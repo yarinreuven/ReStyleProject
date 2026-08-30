@@ -5,7 +5,8 @@ import { useSelector } from "react-redux";
 import ProfileAvatar from "../components/ProfileAvatar";
 import MarketplaceItemCard from "../components/MarketplaceItemCard";
 import MarketplaceListingForm from "../components/MarketplaceListingForm";
-import usePageStyles from "../hooks/usePageStyles";
+import useClickOutside from "../hooks/useClickOutside";
+import useAuthorizationConfig from "../hooks/useAuthorizationConfig";
 import { useAuth } from "../context/AuthContext";
 import useMarketplaceFavoritesSync from "../hooks/useMarketplaceFavoritesSync";
 import { selectMarketplaceFavoritesError } from "../store/marketplaceFavoritesSlice.js";
@@ -42,7 +43,6 @@ function normalizeMarketplaceItem(item, index) {
 }
 
 export default function Marketplace() {
-  usePageStyles("marketplace.css");
   const navigate = useNavigate();
   const location = useLocation();
   const accountMenuRef = useRef(null);
@@ -70,9 +70,7 @@ export default function Marketplace() {
   const [maxPrice, setMaxPrice] = useState("");
   const [sortBy, setSortBy] = useState("newest");
 
-  const requestConfig = useMemo(() => ({
-    headers: { Authorization: `Bearer ${token}` }
-  }), [token]);
+  const requestConfig = useAuthorizationConfig(token);
 
   const filterOptions = useMemo(() => ({
     categories: [...new Set(marketplaceItems.map((item) => item.category))],
@@ -178,19 +176,7 @@ export default function Marketplace() {
     };
   }, [feedView, logout, refreshKey, requestConfig, token]);
 
-  useEffect(() => {
-    function closeAccountMenu(event) {
-      if (
-        accountMenuRef.current &&
-        !accountMenuRef.current.contains(event.target)
-      ) {
-        setAccountMenuOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", closeAccountMenu);
-    return () => document.removeEventListener("mousedown", closeAccountMenu);
-  }, []);
+  useClickOutside(accountMenuRef, () => setAccountMenuOpen(false), accountMenuOpen);
 
   function clearFilters() {
     setSearch("");

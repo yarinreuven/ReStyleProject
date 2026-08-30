@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import usePageStyles from "../hooks/usePageStyles";
+import useAuthorizationConfig from "../hooks/useAuthorizationConfig";
 import { useAuth } from "../context/AuthContext";
 import ProfileAvatar from "../components/ProfileAvatar";
 import PayPalCheckout from "../components/PayPalCheckout";
@@ -37,10 +37,10 @@ const styles = ["Casual", "Classic", "Elegant", "Sporty", "Streetwear"];
 const weatherOptions = ["Warm", "Mild", "Cold", "Rainy"];
 
 export default function OutfitBuilder() {
-  usePageStyles("outfit-builder.css");
 
   const navigate = useNavigate();
   const { user, token, logout } = useAuth();
+  const requestConfig = useAuthorizationConfig(token);
   const modelFileInputRef = useRef(null);
   const modalCloseButtonRef = useRef(null);
   const planModalRef = useRef(null);
@@ -78,16 +78,14 @@ export default function OutfitBuilder() {
   function persistBuilderState(
     nextOutfit,
     nextSelectionId,
-    nextModelChoice = modelChoice,
-    nextTryOnImage = ""
+    nextModelChoice = modelChoice
   ) {
     if (!sessionKey) return;
     try {
       sessionStorage.setItem(sessionKey, JSON.stringify({
         selectionId: nextSelectionId,
         outfit: nextOutfit,
-        modelChoice: nextModelChoice,
-        tryOnImage: nextTryOnImage
+        modelChoice: nextModelChoice
       }));
     } catch {
       // The current screen still works if browser storage is unavailable or full.
@@ -99,9 +97,7 @@ export default function OutfitBuilder() {
     try {
       setIsQuotaLoading(true);
       setQuotaError("");
-      const { data } = await axios.get(TRY_ON_STATUS_API_URL, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const { data } = await axios.get(TRY_ON_STATUS_API_URL, requestConfig);
       setQuota(data);
     } catch (error) {
       if (error.response?.status === 401) {
@@ -114,7 +110,7 @@ export default function OutfitBuilder() {
     } finally {
       setIsQuotaLoading(false);
     }
-  }, [logout, navigate, token]);
+  }, [logout, navigate, requestConfig, token]);
 
   useEffect(() => {
     setOutfit(null);
@@ -128,12 +124,18 @@ export default function OutfitBuilder() {
     if (!sessionKey) return;
     try {
       const saved = JSON.parse(sessionStorage.getItem(sessionKey));
-      if (saved?.selectionId && saved?.outfit?.items?.length && saved?.tryOnImage) {
+      if (saved?.selectionId && saved?.outfit?.items?.length) {
         setSelectionId(saved.selectionId);
         setOutfit(saved.outfit);
-        setTryOnImage(saved.tryOnImage);
         setModelChoice(saved.modelChoice === "personal" ? "personal" : "illustrated");
         setIsPreview(true);
+        if (Object.hasOwn(saved, "tryOnImage")) {
+          sessionStorage.setItem(sessionKey, JSON.stringify({
+            selectionId: saved.selectionId,
+            outfit: saved.outfit,
+            modelChoice: saved.modelChoice === "personal" ? "personal" : "illustrated"
+          }));
+        }
       }
     } catch {
       sessionStorage.removeItem(sessionKey);
@@ -179,7 +181,7 @@ export default function OutfitBuilder() {
 
     axios
       .get(VIRTUAL_MODEL_API_URL, {
-        headers: { Authorization: `Bearer ${token}` },
+        ...requestConfig,
         responseType: "blob"
       })
       .then(({ data }) => {
@@ -206,7 +208,7 @@ export default function OutfitBuilder() {
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [logout, navigate, token]);
+  }, [logout, navigate, requestConfig, token]);
 
   async function uploadVirtualModel(event) {
     const file = event.target.files?.[0];
@@ -254,9 +256,7 @@ export default function OutfitBuilder() {
       setIsSavingModel(true);
       setModelMessage("");
 
-      await axios.put(VIRTUAL_MODEL_API_URL, body, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await axios.put(VIRTUAL_MODEL_API_URL, body, requestConfig);
 
       if (personalModelUrl.startsWith("blob:")) {
         URL.revokeObjectURL(personalModelUrl);
@@ -285,7 +285,7 @@ export default function OutfitBuilder() {
     event.preventDefault();
 
     if (eventType === "Other" && !customEvent.trim()) {
-      window.alert("Please describe your event.");
+      setAiError("Please describe your event.");
       return;
     }
     if (!quota) {
@@ -310,11 +310,7 @@ export default function OutfitBuilder() {
           preferFavorites,
           avatarSource: modelChoice === "personal" ? "personal" : "preset"
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
+        requestConfig
       );
 
       const nextSelectionId = data.selectionId || data.outfit?.selectionId;
@@ -375,9 +371,7 @@ export default function OutfitBuilder() {
         body.append("avatarId", getPresetAvatarId(user));
       }
 
-      const { data } = await axios.post(TRY_ON_API_URL, body, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const { data } = await axios.post(TRY_ON_API_URL, body, requestConfig);
 
       setTryOnImage(data.tryOnImage);
       setTryOnItems(Array.isArray(data.items)
@@ -397,8 +391,7 @@ export default function OutfitBuilder() {
       persistBuilderState(
         requestedOutfit,
         requestedSelectionId,
-        modelChoice,
-        data.tryOnImage
+        modelChoice
       );
     } catch (error) {
       if (error.response?.status === 401) {
@@ -434,7 +427,7 @@ export default function OutfitBuilder() {
       const { data } = await axios.post(
         SAVED_LOOKS_API_URL,
         { selectionId },
-        { headers: { Authorization: `Bearer ${token}` } }
+        requestConfig
       );
       setSavedLookId(data.savedLookId);
       setSaveLookMessage("This look was saved to your account.");
@@ -491,6 +484,23 @@ export default function OutfitBuilder() {
         Re<span>Style</span>
       </div>
 
+      <aside className="try-on-quota-status" aria-live="polite">
+        {isQuotaLoading ? (
+          <span>Loading try-on allowance…</span>
+        ) : quota ? (
+          <>
+            <i className="fa-solid fa-wand-magic-sparkles" aria-hidden="true" />
+            <strong>{quota.freeTryOnsRemaining} of 3 free try-ons remaining</strong>
+            {quota.tryOnCredits > 0 && <span>{quota.tryOnCredits} purchased credits</span>}
+            {quota.freeTryOnsRemaining === 0 && quota.tryOnCredits === 0 && (
+              <button type="button" onClick={() => setIsPlansOpen(true)}>View plans</button>
+            )}
+          </>
+        ) : (
+          <button type="button" onClick={loadQuotaStatus}>Reload allowance</button>
+        )}
+      </aside>
+
       <section className={`stylist-window${isPreview ? " preview-mode" : ""}`}>
         {!isPreview ? (
           <form className="stylist-form" onSubmit={submit}>
@@ -514,7 +524,10 @@ export default function OutfitBuilder() {
                     type="button"
                     key={name}
                     className={eventType === name ? "selected" : ""}
-                    onClick={() => setEventType(name)}
+                    onClick={() => {
+                      setEventType(name);
+                      if (aiError === "Please describe your event.") setAiError("");
+                    }}
                   >
                     <i className={`fa-solid ${icon}`} />
                     <span>{name}</span>
@@ -526,8 +539,12 @@ export default function OutfitBuilder() {
                 <div className="other-event-field">
                   <textarea
                     value={customEvent}
-                    onChange={(event) => setCustomEvent(event.target.value)}
+                    onChange={(event) => {
+                      setCustomEvent(event.target.value);
+                      if (aiError === "Please describe your event.") setAiError("");
+                    }}
                     placeholder="Tell your stylist about the event..."
+                    aria-label="Describe your event"
                     maxLength={250}
                     autoFocus
                   />
@@ -645,7 +662,7 @@ export default function OutfitBuilder() {
               {modelMessage && <p className="model-message">{modelMessage}</p>}
             </div>
 
-            {aiError && <p className="ai-error">{aiError}</p>}
+            {aiError && <p className="ai-error" role="alert">{aiError}</p>}
 
             <button
               type="submit"
@@ -713,7 +730,19 @@ export default function OutfitBuilder() {
 
             {tryOnError && <p className="ai-error">{tryOnError}</p>}
 
-            {tryOnImage && quota && (
+            {!tryOnImage && tryOnError && (
+              <button
+                type="button"
+                className="try-on-button"
+                onClick={() => createVirtualTryOn(selectionId, outfit)}
+                disabled={isTryingOn || isQuotaLoading}
+              >
+                <i className="fa-solid fa-rotate-right" />
+                Try virtual look again
+              </button>
+            )}
+
+            {quota && (
               <div className="try-on-quota-result">
                 <p>{quota.freeTryOnsRemaining} of 3 free try-ons remaining</p>
                 {quota.tryOnCredits > 0 && (

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import ProfileAvatar from "../components/ProfileAvatar";
-import usePageStyles from "../hooks/usePageStyles";
+import useAuthorizationConfig from "../hooks/useAuthorizationConfig";
 import { useAuth } from "../context/AuthContext";
 import { API_BASE_URL } from "../config/api";
 
@@ -10,11 +10,10 @@ const PROFILE_IMAGE_URL =
   `${API_BASE_URL}/auth/profile-image`;
 
 export default function Profile() {
-  usePageStyles("profile.css");
-
   const navigate = useNavigate();
   const fileInputRef = useRef(null);
   const { user, token, logout, updateUser } = useAuth();
+  const requestConfig = useAuthorizationConfig(token);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -54,11 +53,7 @@ export default function Profile() {
       setError("");
       setMessage("");
 
-      await axios.put(PROFILE_IMAGE_URL, body, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
+      await axios.put(PROFILE_IMAGE_URL, body, requestConfig);
 
       updateUser({
         hasProfileImage: true,
@@ -91,11 +86,7 @@ export default function Profile() {
       setError("");
       setMessage("");
 
-      await axios.delete(PROFILE_IMAGE_URL, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
+      await axios.delete(PROFILE_IMAGE_URL, requestConfig);
 
       updateUser({
         hasProfileImage: false,

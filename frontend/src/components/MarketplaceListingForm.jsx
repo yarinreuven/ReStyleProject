@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { API_BASE_URL } from "../config/api";
 import useDialogFocus from "../hooks/useDialogFocus";
+import useAuthorizationConfig from "../hooks/useAuthorizationConfig";
 
 const API_URL = `${API_BASE_URL}/marketplace`;
 const MAX_IMAGES = 4;
@@ -43,6 +44,7 @@ function validate(form, images, hasExistingImages) {
 
 export default function MarketplaceListingForm({ token, listing = null, onClose, onPublished }) {
   const isEditing = Boolean(listing);
+  const requestConfig = useAuthorizationConfig(token);
   const imageInputRef = useRef(null);
   const [form, setForm] = useState(() => listing ? {
     name: listing.title || "",
@@ -134,12 +136,8 @@ export default function MarketplaceListingForm({ token, listing = null, onClose,
       images.forEach((image) => payload.append("images", image));
 
       const request = isEditing
-        ? axios.put(`${API_URL}/${listing.id}`, payload, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-        : axios.post(API_URL, payload, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        ? axios.put(`${API_URL}/${listing.id}`, payload, requestConfig)
+        : axios.post(API_URL, payload, requestConfig);
       const { data } = await request;
       onPublished(data.item);
     } catch (error) {

@@ -2,7 +2,10 @@ import type { NextFunction, Response } from "express";
 
 import type { AuthRequest } from "../middleware/auth.ts";
 import Item from "../models/Item.ts";
-import { validateWardrobeImage } from "../services/wardrobeImageService.ts";
+import {
+  optimizeWardrobeImage,
+  validateWardrobeImage
+} from "../services/wardrobeImageService.ts";
 
 function serializeItem(item: InstanceType<typeof Item>) {
   const itemObject = item.toObject();
@@ -29,7 +32,8 @@ export async function createItem(req: AuthRequest, res: Response, next: NextFunc
     }
 
     const { name, category, color, season, style, favorite } = req.body;
-    const imageValidation = await validateWardrobeImage(req.file, category);
+    const optimizedImage = await optimizeWardrobeImage(req.file);
+    const imageValidation = await validateWardrobeImage(optimizedImage, category);
     if (!imageValidation.valid) {
       res.status(400).json({ success: false, message: imageValidation.message });
       return;
@@ -43,10 +47,14 @@ export async function createItem(req: AuthRequest, res: Response, next: NextFunc
       season,
       style,
       favorite,
-      image: { data: req.file.buffer, contentType: req.file.mimetype }
+      image: { data: optimizedImage.buffer, contentType: optimizedImage.mimetype }
     });
 
-    res.status(201).json({ success: true, message: "Item added successfully", item });
+    res.status(201).json({
+      success: true,
+      message: "Item added successfully",
+      item: serializeItem(item)
+    });
   } catch (error) {
     next(error);
   }
@@ -179,16 +187,21 @@ export async function updateItem(req: AuthRequest, res: Response, next: NextFunc
     if (style !== undefined) item.style = style;
 
     if (req.file) {
-      const imageValidation = await validateWardrobeImage(req.file, category || item.category);
+      const optimizedImage = await optimizeWardrobeImage(req.file);
+      const imageValidation = await validateWardrobeImage(optimizedImage, category || item.category);
       if (!imageValidation.valid) {
         res.status(400).json({ success: false, message: imageValidation.message });
         return;
       }
-      item.image = { data: req.file.buffer, contentType: req.file.mimetype };
+      item.image = { data: optimizedImage.buffer, contentType: optimizedImage.mimetype };
     }
 
     await item.save();
-    res.status(200).json({ success: true, message: "Item updated successfully", item });
+    res.status(200).json({
+      success: true,
+      message: "Item updated successfully",
+      item: serializeItem(item)
+    });
   } catch (error) {
     next(error);
   }
