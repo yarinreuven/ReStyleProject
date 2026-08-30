@@ -1,4 +1,5 @@
 import Joi from "joi";
+import type { NextFunction, Request, Response } from "express";
 
 const categories = ["Tops", "Bottoms", "Dresses", "Jackets", "Shoes", "Bags", "Accessories"];
 const seasons = ["All Season", "Summer", "Winter", "Spring", "Fall"];
@@ -36,3 +37,14 @@ export const requiredWearDateSchema = wearDateSchema.fork("date", (schema) => sc
 export const itemIdParamsSchema = Joi.object({
   id: Joi.string().hex().length(24).required()
 });
+
+export function requireItemUpdate(req: Request, res: Response, next: NextFunction) {
+  if (!req.file && Object.keys(req.body).length === 0) {
+    res.status(400).json({
+      success: false,
+      message: "Provide at least one item field or a new image"
+    });
+    return;
+  }
+  next();
+}
