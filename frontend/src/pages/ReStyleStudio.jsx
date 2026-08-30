@@ -519,17 +519,6 @@ export default function ReStyleStudio() {
       setGuide(null);
       setGuideStatus("idle");
 
-      const ideasResponse = await axios.post(
-        `${RESTYLE_PROJECTS_API_URL}/${project.id}/ideas`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const refreshedIdeas = ideasResponse.data.ideas || [];
-      setIdeas(refreshedIdeas);
-      setIdeasStatus(refreshedIdeas.length > 0 ? "ready" : "empty");
-      setIdeasMessage(ideasResponse.data.message || "");
-      setResponsibleFallback(ideasResponse.data.fallback || null);
-
       if (project.selectedIdeaId) {
         const guideResponse = await axios.post(
           `${RESTYLE_PROJECTS_API_URL}/${project.id}/ideas/${project.selectedIdeaId}/select`,
