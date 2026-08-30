@@ -161,6 +161,8 @@ Development-only AI mock and integration-test flags are intentionally excluded f
 
 All routes are prefixed with `/api`. Protected resources require an access token. Refresh and logout use the secure refresh-token cookie.
 
+A ready-to-import Postman collection is available at [`postman/ReStyle.postman_collection.json`](postman/ReStyle.postman_collection.json). Set its collection variables, run the login request to store an access token, and replace example resource IDs with IDs returned by your local database.
+
 | Area | Method and endpoint | Purpose |
 | --- | --- | --- |
 | Authentication | `POST /auth/register` | Create an account, optionally with a profile image |

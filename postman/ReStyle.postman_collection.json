@@ -1,0 +1,264 @@
+{
+  "info": {
+    "_postman_id": "cdd7d947-83dc-4bdd-8420-85e45d53cf09",
+    "name": "ReStyle API",
+    "description": "Core ReStyle REST API requests for local development and course review. Set collection variables before running protected requests. Login automatically stores the returned access token.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{accessToken}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3001/api" },
+    { "key": "accessToken", "value": "" },
+    { "key": "itemId", "value": "507f1f77bcf86cd799439011" },
+    { "key": "selectionId", "value": "507f1f77bcf86cd799439012" },
+    { "key": "listingId", "value": "507f1f77bcf86cd799439013" },
+    { "key": "conversationId", "value": "507f1f77bcf86cd799439014" },
+    { "key": "projectId", "value": "507f1f77bcf86cd799439015" },
+    { "key": "orderId", "value": "REPLACEWITHPAYPALORDERID" }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "firstName", "value": "ReStyle", "type": "text" },
+                { "key": "lastName", "value": "User", "type": "text" },
+                { "key": "email", "value": "user@example.com", "type": "text" },
+                { "key": "password", "value": "ChangeMe123!", "type": "text" },
+                { "key": "confirmPassword", "value": "ChangeMe123!", "type": "text" },
+                { "key": "language", "value": "en", "type": "text" },
+                { "key": "gender", "value": "female", "type": "text" },
+                { "key": "termsAccepted", "value": "true", "type": "text" }
+              ]
+            },
+            "url": "{{baseUrl}}/auth/register"
+          }
+        },
+        {
+          "name": "Login and save access token",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "const body = pm.response.json();",
+                "if (body.token) pm.collectionVariables.set('accessToken', body.token);"
+              ]
+            }
+          }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"ChangeMe123!\"\n}"
+            },
+            "url": "{{baseUrl}}/auth/login"
+          }
+        },
+        {
+          "name": "Get current user",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/auth/me" }
+        },
+        {
+          "name": "Refresh access token",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "type": "text/javascript",
+              "exec": [
+                "const body = pm.response.json();",
+                "if (body.token) pm.collectionVariables.set('accessToken', body.token);"
+              ]
+            }
+          }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/auth/refresh"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Wardrobe",
+      "item": [
+        {
+          "name": "List wardrobe items",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/items" }
+        },
+        {
+          "name": "Create wardrobe item",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "White shirt", "type": "text" },
+                { "key": "category", "value": "Tops", "type": "text" },
+                { "key": "color", "value": "White", "type": "text" },
+                { "key": "season", "value": "All Season", "type": "text" },
+                { "key": "style", "value": "Classic", "type": "text" },
+                { "key": "favorite", "value": "false", "type": "text" },
+                { "key": "image", "type": "file", "src": "" }
+              ]
+            },
+            "url": "{{baseUrl}}/items"
+          }
+        },
+        {
+          "name": "Mark item as favorite",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"favorite\": true\n}" },
+            "url": "{{baseUrl}}/items/{{itemId}}/favorite"
+          }
+        },
+        {
+          "name": "Delete wardrobe item",
+          "request": { "method": "DELETE", "header": [], "url": "{{baseUrl}}/items/{{itemId}}" }
+        }
+      ]
+    },
+    {
+      "name": "Outfits",
+      "item": [
+        {
+          "name": "Generate outfit",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"Work\",\n  \"style\": \"Classic\",\n  \"weather\": \"Mild\",\n  \"preferFavorites\": false,\n  \"avatarSource\": \"preset\"\n}"
+            },
+            "url": "{{baseUrl}}/outfits/generate"
+          }
+        },
+        {
+          "name": "Get try-on quota status",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/outfits/try-on/status" }
+        },
+        {
+          "name": "Save generated outfit",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"selectionId\": \"{{selectionId}}\"\n}" },
+            "url": "{{baseUrl}}/outfits/saved"
+          }
+        },
+        {
+          "name": "List saved outfits",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/outfits/saved" }
+        }
+      ]
+    },
+    {
+      "name": "Marketplace",
+      "item": [
+        {
+          "name": "List marketplace items",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/marketplace" }
+        },
+        {
+          "name": "Get marketplace item",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/marketplace/{{listingId}}" }
+        },
+        {
+          "name": "Add marketplace favorite",
+          "request": { "method": "POST", "header": [], "url": "{{baseUrl}}/marketplace-favorites/{{listingId}}" }
+        },
+        {
+          "name": "Hide marketplace item",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"availabilityStatus\": \"hidden\"\n}" },
+            "url": "{{baseUrl}}/marketplace/{{listingId}}/availability"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Messages",
+      "item": [
+        {
+          "name": "List conversations",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/messages/conversations" }
+        },
+        {
+          "name": "Get conversation",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/messages/conversations/{{conversationId}}" }
+        },
+        {
+          "name": "Send message",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"text\": \"Is this item still available?\"\n}" },
+            "url": "{{baseUrl}}/messages/conversations/{{conversationId}}/messages"
+          }
+        }
+      ]
+    },
+    {
+      "name": "ReStyle Studio",
+      "item": [
+        {
+          "name": "Get ReStyle quota",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/restyle-projects/quota" }
+        },
+        {
+          "name": "List ReStyle projects",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/restyle-projects" }
+        },
+        {
+          "name": "Get ReStyle project",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/restyle-projects/{{projectId}}" }
+        },
+        {
+          "name": "Generate redesign ideas",
+          "request": { "method": "POST", "header": [], "url": "{{baseUrl}}/restyle-projects/{{projectId}}/ideas" }
+        }
+      ]
+    },
+    {
+      "name": "PayPal Sandbox",
+      "item": [
+        {
+          "name": "Get PayPal client configuration",
+          "request": { "method": "GET", "header": [], "url": "{{baseUrl}}/paypal/config" }
+        },
+        {
+          "name": "Create PayPal order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"plan\": \"mini\",\n  \"product\": \"tryon\"\n}" },
+            "url": "{{baseUrl}}/paypal/orders"
+          }
+        },
+        {
+          "name": "Capture PayPal order",
+          "request": { "method": "POST", "header": [], "url": "{{baseUrl}}/paypal/orders/{{orderId}}/capture" }
+        }
+      ]
+    }
+  ]
+}
