@@ -47,7 +47,6 @@ import {
   createBalancedWardrobeShortlist,
   hasCompleteAnalyzedOutfitBase,
   hasSupportedWardrobeImage,
-  isDetectedCategory,
   normalizeProjectCategory,
   outfitCohesionValidationError,
   selectNoCostOutfitItems,
@@ -59,11 +58,9 @@ import {
   existingTryOnAction,
   orderTryOnItems,
   qualityValidationError,
-  resourceOwnershipError,
-  validateTryOnComposition,
   type AvatarSource,
-  type TryOnItemDescriptor
 } from "../services/tryOnValidationService.ts";
+import { resolveTryOnSelection } from "../services/tryOnSelectionService.ts";
 import {
   resolvePersonalModelValidationParts,
   resolveTryOnAvatar,
@@ -556,52 +553,18 @@ router.post(
   validateTryOnRequest,
   async (req: AuthRequest, res, next) => {
     try {
-      const selection = await OutfitSelection.findById(req.body.selectionId);
-      if (!selection || selection.expiresAt <= new Date()) {
-        res.status(404).json({ success: false, message: "The saved outfit was not found or has expired" });
-        return;
-      }
-      if (selection.user.toString() !== req.userId) {
-        res.status(403).json({ success: false, message: "You cannot use this saved outfit" });
-        return;
-      }
-      const selectionItems: TryOnItemDescriptor[] = [];
-      for (const entry of selection.items) {
-        if (!isDetectedCategory(entry.detectedCategory)) {
-          res.status(400).json({ success: false, message: "The saved outfit contains an invalid category" });
-          return;
-        }
-        selectionItems.push({
-          itemId: entry.item.toString(),
-          detectedCategory: entry.detectedCategory,
-          visualDescription: entry.visualDescription
-        });
-      }
-      const compositionError = validateTryOnComposition(selectionItems);
-      if (compositionError) {
-        res.status(400).json({ success: false, message: compositionError });
-        return;
-      }
-
-      const itemIds = selectionItems.map((entry) => entry.itemId);
-      const items = await Item.find({ _id: { $in: itemIds } })
-        .select("name category image user");
-      const ownershipError = resourceOwnershipError({
-        userId: req.userId,
-        selectionOwnerId: selection.user.toString(),
-        selectedItemIds: itemIds,
-        items: items.map((item) => ({
-          itemId: item._id.toString(),
-          ownerId: item.user.toString()
-        }))
-      });
-      if (ownershipError) {
-        res.status(ownershipError.status).json({
+      const resolvedSelection = await resolveTryOnSelection(
+        req.userId,
+        req.body.selectionId
+      );
+      if (!resolvedSelection.success) {
+        res.status(resolvedSelection.status).json({
           success: false,
-          message: ownershipError.message
+          message: resolvedSelection.message
         });
         return;
       }
+      const { selection, selectionItems, items } = resolvedSelection;
 
       const itemsById = new Map(items.map((item) => [item._id.toString(), item]));
       const orderedSelectionItems = orderTryOnItems(selectionItems);
