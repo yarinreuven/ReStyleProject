@@ -76,9 +76,9 @@ import {
   TRY_ON_LIMIT_CODE,
   TRY_ON_LIMIT_MESSAGE,
   TRY_ON_RESERVATION_TTL_MS,
-  type QuotaStatus,
   type ReservationType
 } from "../services/tryOnQuotaService.ts";
+import { buildTryOnSuccessResponse } from "../services/tryOnResponseService.ts";
 import {
   outfitRequestSchema,
   savedLookParamsSchema,
@@ -110,27 +110,6 @@ function isLocalTryOnQuotaBypass() {
     process.env.RESTYLE_DISABLE_TRYON_QUOTA
   );
 }
-
-function tryOnSuccessResponse(input: {
-  selectionId: mongoose.Types.ObjectId;
-  imageData: Buffer;
-  contentType: string;
-  items: Array<{ itemId: string; detectedCategory: DetectedCategory; name: string }>;
-  quota: QuotaStatus;
-  cached: boolean;
-}) {
-  return {
-    success: true,
-    renderer: "gemini",
-    selectionId: input.selectionId,
-    tryOnImage: `data:${input.contentType};base64,${input.imageData.toString("base64")}`,
-    items: input.items,
-    validation: { valid: true },
-    ...input.quota,
-    cached: input.cached
-  };
-}
-
 
 router.post(
   "/generate",
@@ -856,7 +835,7 @@ router.post(
       if (isNoCostAiMockMode()) {
         const quota = await getTryOnQuotaStatus(req.userId);
         if (!quota) throw new Error("TRY_ON_QUOTA_STATUS_NOT_FOUND");
-        res.json(tryOnSuccessResponse({
+        res.json(buildTryOnSuccessResponse({
           selectionId: selection._id,
           imageData: avatar.data,
           contentType: avatar.contentType,
@@ -883,7 +862,7 @@ router.post(
           );
         }
         if (!quota) throw new Error("TRY_ON_QUOTA_STATUS_NOT_FOUND");
-        res.json(tryOnSuccessResponse({
+        res.json(buildTryOnSuccessResponse({
           selectionId: selection._id,
           imageData: existing.image.data,
           contentType: existing.image.contentType,
@@ -984,7 +963,7 @@ router.post(
             );
           }
           if (!quota) throw new Error("TRY_ON_QUOTA_STATUS_NOT_FOUND");
-          res.json(tryOnSuccessResponse({
+          res.json(buildTryOnSuccessResponse({
             selectionId: selection._id,
             imageData: raced.image.data,
             contentType: raced.image.contentType,
@@ -1052,7 +1031,7 @@ router.post(
           { _id: saved._id, quotaCommitted: false },
           { $set: { quotaCommitted: true } }
         );
-        res.json(tryOnSuccessResponse({
+        res.json(buildTryOnSuccessResponse({
           selectionId: selection._id,
           imageData: generated.data,
           contentType: generated.contentType,
