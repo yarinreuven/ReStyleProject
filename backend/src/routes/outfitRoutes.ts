@@ -48,6 +48,7 @@ import {
   isDetectedCategory,
   normalizeProjectCategory,
   outfitCohesionValidationError,
+  selectNoCostOutfitItems,
   selectedOutfitValidationError,
   type DetectedCategory,
   type SelectedOutfitItem,
@@ -166,33 +167,14 @@ router.post(
       }
 
       if (isNoCostAiMockMode()) {
-        const byCategory = new Map<string, typeof eligibleImageItems[number]>();
-        for (const item of eligibleImageItems) {
-          const detectedCategory = normalizeProjectCategory(item.category);
-          if (detectedCategory && !byCategory.has(detectedCategory)) {
-            byCategory.set(detectedCategory, item);
-          }
-        }
-        const baseCategories = byCategory.has("Dress")
-          ? ["Dress"]
-          : byCategory.has("Top") && byCategory.has("Bottom")
-            ? ["Top", "Bottom"]
-            : [];
-        if (baseCategories.length === 0) {
+        const mockItems = selectNoCostOutfitItems(eligibleImageItems);
+        if (mockItems.length === 0) {
           res.status(422).json({
             success: false,
             message: "Your wardrobe needs a dress, or both a top and a bottom, for the no-cost test."
           });
           return;
         }
-        const selectedCategories = [
-          ...baseCategories,
-          ...["Jacket", "Shoes", "Bag", "Accessory"].filter((category) => byCategory.has(category))
-        ];
-        const mockItems = selectedCategories.map((detectedCategory) => ({
-          item: byCategory.get(detectedCategory)!,
-          detectedCategory: detectedCategory as DetectedCategory
-        }));
         const savedSelection = await OutfitSelection.create({
           user: req.userId,
           title: "No-cost test look",

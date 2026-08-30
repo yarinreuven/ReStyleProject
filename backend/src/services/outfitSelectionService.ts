@@ -66,6 +66,37 @@ export function isDetectedCategory(value: unknown): value is DetectedCategory {
     (DETECTED_CATEGORIES as readonly string[]).includes(value);
 }
 
+export function selectNoCostOutfitItems<T extends { category: string }>(items: T[]) {
+  const byCategory = new Map<DetectedCategory, T>();
+
+  for (const item of items) {
+    const detectedCategory = normalizeProjectCategory(item.category);
+    if (detectedCategory && !byCategory.has(detectedCategory)) {
+      byCategory.set(detectedCategory, item);
+    }
+  }
+
+  const baseCategories: DetectedCategory[] = byCategory.has("Dress")
+    ? ["Dress"]
+    : byCategory.has("Top") && byCategory.has("Bottom")
+      ? ["Top", "Bottom"]
+      : [];
+  if (baseCategories.length === 0) return [];
+
+  const optionalCategories: DetectedCategory[] = [
+    "Jacket",
+    "Shoes",
+    "Bag",
+    "Accessory"
+  ];
+
+  return [...baseCategories, ...optionalCategories.filter((category) => byCategory.has(category))]
+    .map((detectedCategory) => ({
+      item: byCategory.get(detectedCategory)!,
+      detectedCategory
+    }));
+}
+
 function shortlistPriority(left: ShortlistCandidate, right: ShortlistCandidate) {
   if (left.favorite !== right.favorite) return left.favorite ? -1 : 1;
   if (left.wearCount !== right.wearCount) return left.wearCount - right.wearCount;
