@@ -45,6 +45,7 @@ import {
 } from "../services/geminiStylistValidationService.ts";
 import {
   createBalancedWardrobeShortlist,
+  hasSupportedWardrobeImage,
   isDetectedCategory,
   normalizeProjectCategory,
   outfitCohesionValidationError,
@@ -140,10 +141,7 @@ router.post(
         return;
       }
 
-      const supportedImageTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
-      const imageItems = items.filter((item) =>
-        item.image?.data?.length && item.image.contentType && supportedImageTypes.has(item.image.contentType)
-      );
+      const imageItems = items.filter(hasSupportedWardrobeImage);
 
       if (imageItems.length === 0) {
         res.status(422).json({
@@ -564,10 +562,7 @@ router.post(
         if (!analysis || !analysis.isValid || analysis.detectedCategory === "None") continue;
         verifiedCandidates.set(id, {
           ownerVerified: Boolean(item),
-          hasValidImage: Boolean(
-            item?.image?.data?.length && item.image.contentType &&
-            supportedImageTypes.has(item.image.contentType)
-          ),
+          hasValidImage: Boolean(item && hasSupportedWardrobeImage(item)),
           detectedCategory: analysis.detectedCategory,
           eventSuitable: analysis.eventSuitable,
           styleSuitable: analysis.styleSuitable,

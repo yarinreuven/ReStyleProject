@@ -1,7 +1,23 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { selectNoCostOutfitItems } from "./outfitSelectionService.ts";
+import {
+  hasSupportedWardrobeImage,
+  selectNoCostOutfitItems
+} from "./outfitSelectionService.ts";
+
+test("accepts only supported non-empty wardrobe images", () => {
+  assert.equal(hasSupportedWardrobeImage({
+    image: { data: Buffer.from("image"), contentType: "image/jpeg" }
+  }), true);
+  assert.equal(hasSupportedWardrobeImage({
+    image: { data: Buffer.from("image"), contentType: "image/gif" }
+  }), false);
+  assert.equal(hasSupportedWardrobeImage({
+    image: { data: Buffer.alloc(0), contentType: "image/png" }
+  }), false);
+  assert.equal(hasSupportedWardrobeImage({}), false);
+});
 
 test("builds a deterministic no-cost look from a dress and optional pieces", () => {
   const result = selectNoCostOutfitItems([

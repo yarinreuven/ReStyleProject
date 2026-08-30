@@ -10,6 +10,25 @@ export const DETECTED_CATEGORIES = [
 
 export type DetectedCategory = typeof DETECTED_CATEGORIES[number];
 
+const SUPPORTED_WARDROBE_IMAGE_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp"
+]);
+
+export function hasSupportedWardrobeImage(item: {
+  image?: {
+    data?: { length: number } | null;
+    contentType?: string | null;
+  } | null;
+}) {
+  return Boolean(
+    item.image?.data?.length &&
+    item.image.contentType &&
+    SUPPORTED_WARDROBE_IMAGE_TYPES.has(item.image.contentType)
+  );
+}
+
 export interface ShortlistCandidate {
   id: string;
   category: string;
