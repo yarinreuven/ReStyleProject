@@ -1,10 +1,7 @@
 import express from "express";
-import { createHash, randomUUID } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
+import { randomUUID } from "node:crypto";
 import mongoose from "mongoose";
 import multer from "multer";
-import path from "node:path";
 import sharp, { type Metadata } from "sharp";
 
 import { getTryOnStatus } from "../controllers/outfitController.ts";
@@ -58,15 +55,17 @@ import {
 import {
   hasForbiddenTryOnOverrides,
   existingTryOnAction,
-  isApprovedAvatarId,
   orderTryOnItems,
   qualityValidationError,
   resourceOwnershipError,
-  uploadedAvatarValidationError,
   validateTryOnComposition,
   type AvatarSource,
   type TryOnItemDescriptor
 } from "../services/tryOnValidationService.ts";
+import {
+  resolveTryOnAvatar,
+  validateAvatarImage
+} from "../services/tryOnAvatarService.ts";
 import {
   buildTryOnRequestKey,
   finalizeTryOnQuota,
@@ -99,17 +98,6 @@ const tryOnRateLimit = createUserRateLimit({
   code: "TRY_ON_RATE_LIMITED",
   message: "You are creating virtual try-ons too quickly. Please wait a few minutes and try again."
 });
-const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
-const APPROVED_AVATARS = {
-  "female-illustrated": path.join(
-    projectRoot,
-    "frontend/public/images/avatars/fashion-avatar-v2.png"
-  ),
-  "male-illustrated": path.join(
-    projectRoot,
-    "frontend/public/images/avatars/fashion-avatar-male.png"
-  )
-} as const;
 const tryOnUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
@@ -136,88 +124,6 @@ function isLocalTryOnQuotaBypass() {
     process.env.NODE_ENV,
     process.env.RESTYLE_DISABLE_TRYON_QUOTA
   );
-}
-
-async function validateAvatarImage(
-  data: Buffer,
-  contentType: string
-): Promise<{ error: string; data: Buffer; contentType: string }> {
-  let metadata: Metadata;
-  try {
-    metadata = await sharp(data).metadata();
-  } catch {
-    return {
-      error: "The full-body image must be a genuine JPG, PNG or WEBP image",
-      data,
-      contentType
-    };
-  }
-  const error = uploadedAvatarValidationError({
-    declaredMimeType: contentType,
-    detectedFormat: metadata.format,
-    size: data.length,
-    width: metadata.width,
-    height: metadata.height
-  });
-  return { error, data, contentType };
-}
-
-async function resolveTryOnAvatar(
-  req: AuthRequest,
-  source: AvatarSource
-): Promise<{ status: number; error: string; data?: Buffer; contentType?: string; identity?: string }> {
-  if (source === "preset") {
-    if (req.file || !isApprovedAvatarId(req.body.avatarId)) {
-      return { status: 400, error: "Choose an approved illustrated avatar" };
-    }
-    const data = await readFile(APPROVED_AVATARS[req.body.avatarId]);
-    const validated = await validateAvatarImage(data, "image/png");
-    return validated.error
-      ? { status: 400, error: validated.error }
-      : { status: 200, error: "", data, contentType: "image/png", identity: req.body.avatarId };
-  }
-
-  if (source === "personal") {
-    if (req.file || req.body.avatarId) {
-      return { status: 400, error: "The personal model must come from your saved account image" };
-    }
-    const user = await User.findById(req.userId).select("virtualModelImage");
-    if (!user) return { status: 404, error: "User account not found" };
-    if (!user.virtualModelImage?.data || !user.virtualModelImage.contentType) {
-      return { status: 404, error: "Your saved full-body image was not found" };
-    }
-    const validated = await validateAvatarImage(
-      user.virtualModelImage.data,
-      user.virtualModelImage.contentType
-    );
-    return validated.error
-      ? { status: 400, error: validated.error }
-      : {
-          status: 200,
-          error: "",
-          data: user.virtualModelImage.data,
-          contentType: user.virtualModelImage.contentType,
-          identity: createHash("sha256").update(user.virtualModelImage.data).digest("hex")
-        };
-  }
-
-  if (source === "upload") {
-    if (!req.file?.buffer || req.body.avatarId) {
-      return { status: 400, error: "Choose a full-body JPG, PNG or WEBP image" };
-    }
-    const validated = await validateAvatarImage(req.file.buffer, req.file.mimetype);
-    return validated.error
-      ? { status: 400, error: validated.error }
-      : {
-          status: 200,
-          error: "",
-          data: req.file.buffer,
-          contentType: req.file.mimetype,
-          identity: createHash("sha256").update(req.file.buffer).digest("hex")
-        };
-  }
-
-  return { status: 400, error: "Choose a valid avatar source" };
 }
 
 function tryOnSuccessResponse(input: {
@@ -940,7 +846,12 @@ router.post(
       }
 
       const avatarSource = req.body.avatarSource as AvatarSource;
-      const avatar = await resolveTryOnAvatar(req, avatarSource);
+      const avatar = await resolveTryOnAvatar({
+        source: avatarSource,
+        file: req.file,
+        avatarId: req.body.avatarId,
+        userId: req.userId
+      });
       if (avatar.error || !avatar.data || !avatar.contentType || !avatar.identity) {
         res.status(avatar.status).json({ success: false, message: avatar.error });
         return;
