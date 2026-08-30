@@ -13,6 +13,7 @@ import messageRoutes from "./routes/messageRoutes.ts";
 import restyleProjectRoutes from "./routes/restyleProjectRoutes.ts";
 import { errorHandler } from "./middleware/errorHandler.ts";
 import { apiRateLimit } from "./middleware/apiRateLimit.ts";
+import { notFoundHandler } from "./middleware/notFound.ts";
 import { getAllowedOrigins } from "./services/socketService.ts";
 
 const app = express();
@@ -46,6 +47,7 @@ app.use("/api/marketplace-favorites", marketplaceFavoriteRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/restyle-projects", restyleProjectRoutes);
 
+app.use(notFoundHandler);
 app.use(errorHandler);
 
 export default app;
