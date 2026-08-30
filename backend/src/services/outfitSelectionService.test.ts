@@ -3,8 +3,23 @@ import test from "node:test";
 
 import {
   hasSupportedWardrobeImage,
+  hasCompleteAnalyzedOutfitBase,
   selectNoCostOutfitItems
 } from "./outfitSelectionService.ts";
+
+test("requires a dress or both a top and bottom in analyzed wardrobe items", () => {
+  assert.equal(hasCompleteAnalyzedOutfitBase([
+    { isValid: true, detectedCategory: "Dress" }
+  ]), true);
+  assert.equal(hasCompleteAnalyzedOutfitBase([
+    { isValid: true, detectedCategory: "Top" },
+    { isValid: true, detectedCategory: "Bottom" }
+  ]), true);
+  assert.equal(hasCompleteAnalyzedOutfitBase([
+    { isValid: true, detectedCategory: "Top" },
+    { isValid: false, detectedCategory: "None" }
+  ]), false);
+});
 
 test("accepts only supported non-empty wardrobe images", () => {
   assert.equal(hasSupportedWardrobeImage({

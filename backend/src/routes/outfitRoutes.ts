@@ -44,6 +44,7 @@ import {
 } from "../services/geminiStylistValidationService.ts";
 import {
   createBalancedWardrobeShortlist,
+  hasCompleteAnalyzedOutfitBase,
   hasSupportedWardrobeImage,
   isDetectedCategory,
   normalizeProjectCategory,
@@ -426,14 +427,7 @@ router.post(
         return;
       }
 
-      const validAnalyses = aiSuggestion.analyzedItems.filter((analysis) =>
-        analysis.isValid && analysis.detectedCategory !== "None"
-      );
-      const hasCompleteBase = validAnalyses.some((analysis) => analysis.detectedCategory === "Dress") ||
-        (validAnalyses.some((analysis) => analysis.detectedCategory === "Top") &&
-          validAnalyses.some((analysis) => analysis.detectedCategory === "Bottom"));
-
-      if (!hasCompleteBase) {
+      if (!hasCompleteAnalyzedOutfitBase(aiSuggestion.analyzedItems)) {
         res.status(422).json({
           success: false,
           code: "WARDROBE_BASE_IMAGES_UNCLEAR",

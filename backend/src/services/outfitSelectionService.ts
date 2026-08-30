@@ -59,6 +59,20 @@ export interface OutfitCohesion {
   occasionCoordinates: boolean;
 }
 
+export function hasCompleteAnalyzedOutfitBase(analyses: Array<{
+  isValid: boolean;
+  detectedCategory: DetectedCategory | "None";
+}>) {
+  const validCategories = new Set(
+    analyses
+      .filter((analysis) => analysis.isValid && analysis.detectedCategory !== "None")
+      .map((analysis) => analysis.detectedCategory)
+  );
+
+  return validCategories.has("Dress") ||
+    (validCategories.has("Top") && validCategories.has("Bottom"));
+}
+
 export function outfitCohesionValidationError(cohesion: OutfitCohesion) {
   return cohesion.colorsCoordinate && cohesion.formalityCoordinates &&
     cohesion.silhouettesCoordinate && cohesion.occasionCoordinates
