@@ -2,10 +2,64 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  buildVerifiedCandidates,
   hasSupportedWardrobeImage,
   hasCompleteAnalyzedOutfitBase,
   selectNoCostOutfitItems
 } from "./outfitSelectionService.ts";
+
+test("builds verified candidates only from valid wardrobe analyses", () => {
+  const analyses = new Map([
+    ["owned", {
+      isValid: true,
+      detectedCategory: "Top" as const,
+      eventSuitable: true,
+      styleSuitable: true,
+      weatherSuitable: false
+    }],
+    ["invalid", {
+      isValid: false,
+      detectedCategory: "None" as const,
+      eventSuitable: false,
+      styleSuitable: false,
+      weatherSuitable: false
+    }],
+    ["missing", {
+      isValid: true,
+      detectedCategory: "Bottom" as const,
+      eventSuitable: true,
+      styleSuitable: true,
+      weatherSuitable: true
+    }]
+  ]);
+  const items = new Map([
+    ["owned", { image: { data: Buffer.from("image"), contentType: "image/png" } }]
+  ]);
+
+  const result = buildVerifiedCandidates(
+    [{ id: "owned" }, { id: "invalid" }, { id: "missing" }],
+    analyses,
+    items
+  );
+
+  assert.deepEqual(result.get("owned"), {
+    ownerVerified: true,
+    hasValidImage: true,
+    detectedCategory: "Top",
+    eventSuitable: true,
+    styleSuitable: true,
+    weatherSuitable: false
+  });
+  assert.equal(result.has("invalid"), false);
+  assert.deepEqual(result.get("missing"), {
+    ownerVerified: false,
+    hasValidImage: false,
+    detectedCategory: "Bottom",
+    eventSuitable: true,
+    styleSuitable: true,
+    weatherSuitable: true
+  });
+});
 
 test("requires a dress or both a top and bottom in analyzed wardrobe items", () => {
   assert.equal(hasCompleteAnalyzedOutfitBase([

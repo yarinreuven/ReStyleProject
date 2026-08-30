@@ -43,14 +43,14 @@ import {
 } from "../services/geminiStylistValidationService.ts";
 import {
   createBalancedWardrobeShortlist,
+  buildVerifiedCandidates,
   hasCompleteAnalyzedOutfitBase,
   hasSupportedWardrobeImage,
   normalizeProjectCategory,
   outfitCohesionValidationError,
   selectNoCostOutfitItems,
   selectedOutfitValidationError,
-  type DetectedCategory,
-  type VerifiedCandidate
+  type DetectedCategory
 } from "../services/outfitSelectionService.ts";
 import {
   existingTryOnAction,
@@ -410,21 +410,11 @@ router.post(
       const verifiedItemsById = new Map(
         verifiedItems.map((item) => [item._id.toString(), item])
       );
-      const verifiedCandidates = new Map<string, VerifiedCandidate>();
-
-      for (const { id } of shortlistedItems) {
-        const analysis = analysisById.get(id);
-        const item = verifiedItemsById.get(id);
-        if (!analysis || !analysis.isValid || analysis.detectedCategory === "None") continue;
-        verifiedCandidates.set(id, {
-          ownerVerified: Boolean(item),
-          hasValidImage: Boolean(item && hasSupportedWardrobeImage(item)),
-          detectedCategory: analysis.detectedCategory,
-          eventSuitable: analysis.eventSuitable,
-          styleSuitable: analysis.styleSuitable,
-          weatherSuitable: analysis.weatherSuitable
-        });
-      }
+      const verifiedCandidates = buildVerifiedCandidates(
+        shortlistedItems,
+        analysisById,
+        verifiedItemsById
+      );
 
       const validationError = selectedOutfitValidationError(
         aiSuggestion.selectedItems,

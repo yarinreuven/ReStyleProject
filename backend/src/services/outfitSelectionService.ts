@@ -52,6 +52,44 @@ export interface VerifiedCandidate {
   weatherSuitable: boolean;
 }
 
+interface VerifiedAnalysis {
+  isValid: boolean;
+  detectedCategory: DetectedCategory | "None";
+  eventSuitable: boolean;
+  styleSuitable: boolean;
+  weatherSuitable: boolean;
+}
+
+export function buildVerifiedCandidates<TItem extends {
+  image?: {
+    data?: { length: number } | null;
+    contentType?: string | null;
+  } | null;
+}>(
+  shortlistedItems: Array<{ id: string }>,
+  analysisById: Map<string, VerifiedAnalysis>,
+  verifiedItemsById: Map<string, TItem>
+) {
+  const candidates = new Map<string, VerifiedCandidate>();
+
+  for (const { id } of shortlistedItems) {
+    const analysis = analysisById.get(id);
+    const item = verifiedItemsById.get(id);
+    if (!analysis || !analysis.isValid || analysis.detectedCategory === "None") continue;
+
+    candidates.set(id, {
+      ownerVerified: Boolean(item),
+      hasValidImage: Boolean(item && hasSupportedWardrobeImage(item)),
+      detectedCategory: analysis.detectedCategory,
+      eventSuitable: analysis.eventSuitable,
+      styleSuitable: analysis.styleSuitable,
+      weatherSuitable: analysis.weatherSuitable
+    });
+  }
+
+  return candidates;
+}
+
 export interface OutfitCohesion {
   colorsCoordinate: boolean;
   formalityCoordinates: boolean;
