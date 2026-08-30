@@ -1,14 +1,11 @@
 import { memo } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { shallowEqual, useDispatch, useSelector } from "react-redux";
 
 import { useAuth } from "../context/AuthContext";
 import {
   addMarketplaceFavorite,
   removeMarketplaceFavorite,
-  selectIsMarketplaceItemPending,
-  selectIsMarketplaceItemSaved,
-  selectMarketplaceFavoritesLoadedForUserId,
-  selectMarketplaceFavoritesStatus
+  selectMarketplaceFavoriteButtonState
 } from "../store/marketplaceFavoritesSlice.js";
 
 function MarketplaceFavoriteButton({
@@ -20,15 +17,14 @@ function MarketplaceFavoriteButton({
   const { token, user } = useAuth();
   const itemId = item?._id || item?.id;
   const userId = String(user?._id || user?.id || "");
-  const savedInState = useSelector((state) =>
-    selectIsMarketplaceItemSaved(state, itemId)
-  );
-  const isPending = useSelector((state) =>
-    selectIsMarketplaceItemPending(state, itemId)
-  );
-  const favoritesStatus = useSelector(selectMarketplaceFavoritesStatus);
-  const loadedForUserId = useSelector(
-    selectMarketplaceFavoritesLoadedForUserId
+  const {
+    isSaved: savedInState,
+    isPending,
+    status: favoritesStatus,
+    loadedForUserId
+  } = useSelector(
+    (state) => selectMarketplaceFavoriteButtonState(state, itemId),
+    shallowEqual
   );
   const isSaved = loadedForUserId === userId && savedInState;
   const isDisabled = isPending || favoritesStatus === "loading";

@@ -1,15 +1,17 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import axios from "axios";
-import { API_BASE_URL } from "../config/api";
+import { API_BASE_URL } from "../config/api.js";
 
 const API_URL = `${API_BASE_URL}/marketplace-favorites`;
 
 const initialState = {
   items: [],
   savedItemIds: [],
+  savedItemIdLookup: {},
   status: "idle",
   error: null,
   pendingItemIds: [],
+  pendingItemIdLookup: {},
   loadedForUserId: null,
   activeFetchRequestId: null
 };
@@ -111,6 +113,9 @@ const marketplaceFavoritesSlice = createSlice({
 
         state.items = action.payload.items;
         state.savedItemIds = action.payload.items.map(getItemId).filter(Boolean);
+        state.savedItemIdLookup = Object.fromEntries(
+          state.savedItemIds.map((itemId) => [itemId, true])
+        );
         state.status = "succeeded";
         state.error = null;
         state.activeFetchRequestId = null;
@@ -129,6 +134,7 @@ const marketplaceFavoritesSlice = createSlice({
         if (itemId && !state.pendingItemIds.includes(itemId)) {
           state.pendingItemIds.push(itemId);
         }
+        if (itemId) state.pendingItemIdLookup[itemId] = true;
         state.error = null;
       })
       .addCase(addMarketplaceFavorite.fulfilled, (state, action) => {
@@ -137,15 +143,18 @@ const marketplaceFavoritesSlice = createSlice({
           state.items.push(item);
           state.savedItemIds.push(itemId);
         }
+        state.savedItemIdLookup[itemId] = true;
         state.pendingItemIds = state.pendingItemIds.filter(
           (id) => id !== itemId
         );
+        delete state.pendingItemIdLookup[itemId];
       })
       .addCase(addMarketplaceFavorite.rejected, (state, action) => {
         const itemId = action.payload?.itemId || getItemId(action.meta.arg.item);
         state.pendingItemIds = state.pendingItemIds.filter(
           (id) => id !== itemId
         );
+        delete state.pendingItemIdLookup[itemId];
         state.error = action.payload?.message ||
           "Could not save this marketplace item.";
       })
@@ -154,21 +163,25 @@ const marketplaceFavoritesSlice = createSlice({
         if (!state.pendingItemIds.includes(itemId)) {
           state.pendingItemIds.push(itemId);
         }
+        state.pendingItemIdLookup[itemId] = true;
         state.error = null;
       })
       .addCase(removeMarketplaceFavorite.fulfilled, (state, action) => {
         const itemId = action.payload;
         state.items = state.items.filter((item) => getItemId(item) !== itemId);
         state.savedItemIds = state.savedItemIds.filter((id) => id !== itemId);
+        delete state.savedItemIdLookup[itemId];
         state.pendingItemIds = state.pendingItemIds.filter(
           (id) => id !== itemId
         );
+        delete state.pendingItemIdLookup[itemId];
       })
       .addCase(removeMarketplaceFavorite.rejected, (state, action) => {
         const itemId = action.payload?.itemId || String(action.meta.arg.itemId);
         state.pendingItemIds = state.pendingItemIds.filter(
           (id) => id !== itemId
         );
+        delete state.pendingItemIdLookup[itemId];
         state.error = action.payload?.message ||
           "Could not remove this marketplace item.";
       });
@@ -186,8 +199,15 @@ export const selectMarketplaceFavoritesError = (state) =>
 export const selectMarketplaceFavoritesLoadedForUserId = (state) =>
   state.marketplaceFavorites.loadedForUserId;
 export const selectIsMarketplaceItemSaved = (state, itemId) =>
-  state.marketplaceFavorites.savedItemIds.includes(String(itemId));
+  Boolean(state.marketplaceFavorites.savedItemIdLookup[String(itemId)]);
 export const selectIsMarketplaceItemPending = (state, itemId) =>
-  state.marketplaceFavorites.pendingItemIds.includes(String(itemId));
+  Boolean(state.marketplaceFavorites.pendingItemIdLookup[String(itemId)]);
+
+export const selectMarketplaceFavoriteButtonState = (state, itemId) => ({
+  isSaved: selectIsMarketplaceItemSaved(state, itemId),
+  isPending: selectIsMarketplaceItemPending(state, itemId),
+  status: state.marketplaceFavorites.status,
+  loadedForUserId: state.marketplaceFavorites.loadedForUserId
+});
 
 export default marketplaceFavoritesSlice.reducer;
