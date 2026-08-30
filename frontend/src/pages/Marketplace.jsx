@@ -216,18 +216,18 @@ export default function Marketplace() {
     clearFilters();
   }
 
-  function openEditForm(item) {
+  const openEditForm = useCallback((item) => {
     setEditingListing(item);
     setListingFormOpen(true);
     setActionError("");
-  }
+  }, []);
 
   function closeListingForm() {
     setListingFormOpen(false);
     setEditingListing(null);
   }
 
-  async function changeAvailability(item) {
+  const changeAvailability = useCallback(async (item) => {
     const nextStatus = item.availabilityStatus === "active" ? "hidden" : "active";
 
     try {
@@ -245,9 +245,9 @@ export default function Marketplace() {
       }
       setActionError(error.response?.data?.message || "Could not update this listing.");
     }
-  }
+  }, [logout, requestConfig]);
 
-  async function deleteListing(item) {
+  const deleteListing = useCallback(async (item) => {
     const confirmed = window.confirm(
       `Remove “${item.title}” from Marketplace?`
     );
@@ -264,7 +264,21 @@ export default function Marketplace() {
       }
       setActionError(error.response?.data?.message || "Could not delete this listing.");
     }
-  }
+  }, [logout, requestConfig]);
+
+  const openItem = useCallback((itemId) => {
+    navigate(`/marketplace/items/${itemId}`);
+  }, [navigate]);
+
+  const openSeller = useCallback((sellerId) => {
+    navigate(`/marketplace/sellers/${sellerId}`);
+  }, [navigate]);
+
+  const ownerActions = useMemo(() => feedView === "mine" ? {
+    onEdit: openEditForm,
+    onAvailability: changeAvailability,
+    onDelete: deleteListing
+  } : null, [changeAvailability, deleteListing, feedView, openEditForm]);
 
   if (!user || !token) {
     return null;
@@ -523,13 +537,9 @@ export default function Marketplace() {
                 <MarketplaceItemCard
                   key={item.id}
                   item={item}
-                  onOpen={(itemId) => navigate(`/marketplace/items/${itemId}`)}
-                  onSellerOpen={(sellerId) => navigate(`/marketplace/sellers/${sellerId}`)}
-                  ownerActions={feedView === "mine" ? {
-                    onEdit: openEditForm,
-                    onAvailability: changeAvailability,
-                    onDelete: deleteListing
-                  } : null}
+                  onOpen={openItem}
+                  onSellerOpen={openSeller}
+                  ownerActions={ownerActions}
                 />
               ))}
             </div>

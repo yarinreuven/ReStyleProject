@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import MarketplaceItemCard from "../components/MarketplaceItemCard";
@@ -46,6 +46,14 @@ export default function MarketplaceSellerProfile() {
   const [blocking, setBlocking] = useState(false);
   const [contactError, setContactError] = useState("");
   const { user, token, logout } = useAuth();
+
+  const openItem = useCallback((itemId) => {
+    navigate(`/marketplace/items/${itemId}`);
+  }, [navigate]);
+
+  const openSeller = useCallback((sellerId) => {
+    navigate(`/marketplace/sellers/${sellerId}`);
+  }, [navigate]);
 
   useEffect(() => {
     if (!user || !token) navigate("/login", { replace: true });
@@ -244,7 +252,7 @@ export default function MarketplaceSellerProfile() {
             </div>
 
             {visibleItems.length > 0 ? <div className="market-masonry">
-              {visibleItems.map((item) => <MarketplaceItemCard key={item.id} item={item} onOpen={(itemId) => navigate(`/marketplace/items/${itemId}`)} onSellerOpen={(sellerId) => navigate(`/marketplace/sellers/${sellerId}`)} />)}
+              {visibleItems.map((item) => <MarketplaceItemCard key={item.id} item={item} onOpen={openItem} onSellerOpen={openSeller} />)}
             </div> : <div className="seller-profile-empty"><i className="fa-solid fa-shirt" /><h3>No matching active listings</h3><p>Try another listing type.</p></div>}
           </section>
         </>}

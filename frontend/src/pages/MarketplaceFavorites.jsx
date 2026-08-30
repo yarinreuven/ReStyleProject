@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
@@ -63,6 +63,14 @@ export default function MarketplaceFavorites() {
 
   const isLoading = isAuthLoading || status === "idle" || status === "loading" ||
     loadedForUserId !== userId;
+
+  const openItem = useCallback((itemId) => {
+    navigate(`/marketplace/items/${itemId}`);
+  }, [navigate]);
+
+  const openSeller = useCallback((sellerId) => {
+    navigate(`/marketplace/sellers/${sellerId}`);
+  }, [navigate]);
 
   useEffect(() => {
     function closeAccountMenu(event) {
@@ -189,8 +197,8 @@ export default function MarketplaceFavorites() {
                 <MarketplaceItemCard
                   key={item.id}
                   item={item}
-                  onOpen={(itemId) => navigate(`/marketplace/items/${itemId}`)}
-                  onSellerOpen={(sellerId) => navigate(`/marketplace/sellers/${sellerId}`)}
+                  onOpen={openItem}
+                  onSellerOpen={openSeller}
                 />
               ))}
             </div>

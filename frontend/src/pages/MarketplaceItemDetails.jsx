@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useNavigate, useParams } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -60,6 +60,14 @@ export default function MarketplaceItemDetails() {
   const { user, token, logout: logoutUser } = useAuth();
   const favoritesError = useSelector(selectMarketplaceFavoritesError);
   useMarketplaceFavoritesSync();
+
+  const openItem = useCallback((id) => {
+    navigate(`/marketplace/items/${id}`);
+  }, [navigate]);
+
+  const openSeller = useCallback((sellerId) => {
+    navigate(`/marketplace/sellers/${sellerId}`);
+  }, [navigate]);
 
   useEffect(() => {
     if (!user || !token) navigate("/login", { replace: true });
@@ -296,7 +304,7 @@ export default function MarketplaceItemDetails() {
             {relatedItems.length > 0 && <section className="market-detail-recommendations" aria-labelledby="recommendations-title">
               <p>More from the community</p><h2 id="recommendations-title">You may also like</h2>
               <div className="market-detail-recommendations-grid">
-                {relatedItems.map((related) => <MarketplaceItemCard key={related.id} item={related} onOpen={(id) => navigate(`/marketplace/items/${id}`)} onSellerOpen={(sellerId) => navigate(`/marketplace/sellers/${sellerId}`)} />)}
+                {relatedItems.map((related) => <MarketplaceItemCard key={related.id} item={related} onOpen={openItem} onSellerOpen={openSeller} />)}
               </div>
             </section>}
           </>
