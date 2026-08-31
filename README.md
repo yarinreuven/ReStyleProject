@@ -261,12 +261,12 @@ The 18-minute recording demonstrates the main user flows: authentication, wardro
 
 The production deployment follows the course requirements: the React client is hosted on Vercel, the Node.js API and Socket.IO server are hosted on Heroku, and MongoDB Atlas provides the managed database. Production secrets are configured only in the hosting providers and are never committed to the repository.
 
+- Live application: [https://restyle-project-three.vercel.app](https://restyle-project-three.vercel.app)
+- Live API: [https://restyle-yarin-api-52416f5a3be8.herokuapp.com/api/health](https://restyle-yarin-api-52416f5a3be8.herokuapp.com/api/health)
 - Client: Vercel production deployment of the Vite application
-- Server: Heroku deployment of the Express API and Socket.IO service
+- Server: Heroku Basic deployment of the Express API and Socket.IO service
 - Database: MongoDB Atlas
 - Configuration: `VITE_API_URL`, `FRONTEND_URL`, and all database and integration credentials are supplied through cloud environment variables
-
-The live URLs will be added here immediately after the hosting providers finish provisioning the services.
 
 ## Author
 
@@ -274,4 +274,4 @@ Yarin Reuven — full-stack development, product design, backend architecture, f
 
 ## Project status
 
-The application is feature-complete and prepared for final cloud deployment. Automated checks, documentation, screenshots, and the complete project demonstration are included in the repository.
+The application is feature-complete and deployed. Automated checks, documentation, screenshots, and the complete project demonstration are included in the repository.

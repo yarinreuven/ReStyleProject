@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 180" role="img" aria-labelledby="title description">
+  <title id="title">ReStyle</title>
+  <desc id="description">ReStyle wordmark in an elegant pink and purple gradient</desc>
+  <defs>
+    <linearGradient id="brand" x1="55" y1="35" x2="565" y2="150" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ef6f9b"/>
+      <stop offset="0.5" stop-color="#bb55a5"/>
+      <stop offset="1" stop-color="#7549b8"/>
+    </linearGradient>
+  </defs>
+  <text x="310" y="128" fill="url(#brand)" font-family="Georgia, 'Times New Roman', serif" font-size="116" font-weight="700" text-anchor="middle" letter-spacing="-7">ReStyle</text>
+</svg>
