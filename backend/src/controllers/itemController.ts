@@ -92,8 +92,18 @@ export async function updateFavorite(req: AuthRequest, res: Response, next: Next
 
 export async function addWornDate(req: AuthRequest, res: Response, next: NextFunction) {
   try {
-    const selectedDate = req.body.date ? new Date(`${req.body.date}T12:00:00`) : new Date();
-    if (Number.isNaN(selectedDate.getTime()) || selectedDate.getTime() > Date.now()) {
+    const localDateParts = new Intl.DateTimeFormat("en-US", {
+      timeZone: process.env.APP_TIME_ZONE || "Asia/Jerusalem",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).formatToParts(new Date());
+    const localDatePart = (type: "year" | "month" | "day") =>
+      localDateParts.find((part) => part.type === type)?.value || "";
+    const todayDateKey = `${localDatePart("year")}-${localDatePart("month")}-${localDatePart("day")}`;
+    const requestedDateKey = req.body.date || todayDateKey;
+    const selectedDate = new Date(`${requestedDateKey}T12:00:00`);
+    if (Number.isNaN(selectedDate.getTime()) || requestedDateKey > todayDateKey) {
       res.status(400).json({
         success: false,
         message: "Please choose a valid date that is not in the future"

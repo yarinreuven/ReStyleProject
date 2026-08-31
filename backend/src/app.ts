@@ -2,6 +2,8 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
+import path from "path";
+import { fileURLToPath } from "url";
 
 import authRoutes from "./routes/authRoutes.ts";
 import itemRoutes from "./routes/itemRoutes.ts";
@@ -17,6 +19,8 @@ import { notFoundHandler } from "./middleware/notFound.ts";
 import { getAllowedOrigins } from "./services/socketService.ts";
 
 const app = express();
+const currentDirectory = path.dirname(fileURLToPath(import.meta.url));
+const frontendDistPath = path.resolve(currentDirectory, "../../frontend/dist");
 
 app.use(helmet());
 app.use(cors({ origin: getAllowedOrigins(), credentials: true }));
@@ -24,7 +28,15 @@ app.use(express.json({ limit: "7mb" }));
 app.use(express.urlencoded({ extended: true, limit: "7mb" }));
 
 app.get("/", (req, res) => {
-  res.send("ReStyle API is running");
+  if (process.env.NODE_ENV !== "production") {
+    res.send("ReStyle API is running");
+    return;
+  }
+  res.sendFile(path.join(frontendDistPath, "index.html"));
+});
+
+app.get("/api/health", (_req, res) => {
+  res.json({ success: true, service: "ReStyle API" });
 });
 
 app.use("/api", apiRateLimit);
@@ -46,6 +58,19 @@ app.use("/api/marketplace", marketplaceRoutes);
 app.use("/api/marketplace-favorites", marketplaceFavoriteRoutes);
 app.use("/api/messages", messageRoutes);
 app.use("/api/restyle-projects", restyleProjectRoutes);
+
+if (process.env.NODE_ENV === "production") {
+  app.use(express.static(frontendDistPath));
+  app.use((req, res, next) => {
+    if (req.method !== "GET" || req.path.startsWith("/api")) {
+      next();
+      return;
+    }
+    res.sendFile(path.join(frontendDistPath, "index.html"), (error) => {
+      if (error) next(error);
+    });
+  });
+}
 
 app.use(notFoundHandler);
 app.use(errorHandler);

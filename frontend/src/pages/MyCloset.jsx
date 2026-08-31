@@ -94,7 +94,11 @@ const styles = [
 ];
 
 function todayKey() {
-  return new Date().toISOString().slice(0, 10);
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, "0");
+  const day = String(today.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
 
 function hasWearDate(item, dateKey) {
@@ -132,7 +136,7 @@ export default function MyCloset() {
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [wearItem, setWearItem] = useState(null);
   const [wearDate, setWearDate] = useState(
-    new Date().toISOString().slice(0, 10)
+    todayKey()
   );
   const [isSavingWear, setIsSavingWear] = useState(false);
   const [wearError, setWearError] = useState("");

@@ -139,6 +139,8 @@ Never commit real credentials. The repository includes safe example files at `ba
 | `PORT` | Backend HTTP port; the local example uses `3001` |
 | `JWT_SECRET` | Secret used to sign authentication tokens |
 | `FRONTEND_URL` | Allowed frontend origin and link base |
+| `LOG_LEVEL` | Server log verbosity, such as `info` in production |
+| `APP_TIME_ZONE` | Time zone used for wear-history dates; defaults to `Asia/Jerusalem` |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | Password-reset and account email delivery |
 | `EMAIL_FROM`, `SUPPORT_EMAIL` | Sender and public support addresses |
 | `GOOGLE_CLIENT_ID` | Google OAuth web client ID |
@@ -227,18 +229,45 @@ npm run build
 
 The MongoDB integration test is opt-in and requires a dedicated test database. Do not point it at development or production data.
 
+## Demo video
+
+[Watch the complete ReStyle project walkthrough](docs/demo/restyle-project-demo.mp4)
+
+The 18-minute recording demonstrates the main user flows: authentication, wardrobe management, outfit generation and virtual try-on, marketplace actions, messaging, ReStyle Studio, validation, and responsive UI states.
+
 ## Screenshots
 
-Screenshots of the final responsive application will be added before submission, after the remaining local review is complete.
+### My Closet
+
+![Personal wardrobe management in ReStyle](docs/screenshots/closet.png)
+
+### Outfit Builder
+
+![AI-assisted outfit builder](docs/screenshots/outfit-builder.png)
+
+### Marketplace
+
+![ReStyle community marketplace](docs/screenshots/marketplace.png)
+
+### ReStyle Studio
+
+![ReStyle Studio project selection](docs/screenshots/restyle-studio.png)
+
+### ReStyle project guide
+
+![Step-by-step garment redesign guide](docs/screenshots/restyle-guide.png)
 
 ## Deployment
 
-Cloud deployment is intentionally pending while local review and cleanup are in progress. Before final submission, this section will contain:
+The production deployment serves the built React application, Express API, and Socket.IO server from one Render web service, with MongoDB Atlas as the managed database. Using one origin keeps authentication cookies, API calls, and real-time connections consistent. Production secrets are configured only in Render and are never committed to the repository.
 
-- Live frontend URL
-- Live backend health URL
-- MongoDB Atlas configuration confirmation
-- Hosting environment-variable checklist
+- Application: Vite production build served by the Node.js/Express service
+- Database: MongoDB Atlas
+- Configuration: database, email, Google, Gemini, and PayPal credentials are supplied through cloud environment variables
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fyarinreuven%2FReStyleProject)
+
+The live URLs will be added here immediately after the hosting providers finish provisioning the services.
 
 ## Author
 
@@ -246,4 +275,4 @@ Yarin Reuven — full-stack development, product design, backend architecture, f
 
 ## Project status
 
-The application is under final pre-deployment review. Core functionality is implemented; documentation, deployment evidence, screenshots, and final demo preparation remain before course submission.
+The application is feature-complete and prepared for final cloud deployment. Automated checks, documentation, screenshots, and the complete project demonstration are included in the repository.

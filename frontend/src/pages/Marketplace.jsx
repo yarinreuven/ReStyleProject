@@ -5,6 +5,7 @@ import { useSelector } from "react-redux";
 import ProfileAvatar from "../components/ProfileAvatar";
 import MarketplaceItemCard from "../components/MarketplaceItemCard";
 import MarketplaceListingForm from "../components/MarketplaceListingForm";
+import ConfirmDialog from "../components/ConfirmDialog";
 import useClickOutside from "../hooks/useClickOutside";
 import useAuthorizationConfig from "../hooks/useAuthorizationConfig";
 import { useAuth } from "../context/AuthContext";
@@ -58,6 +59,8 @@ export default function Marketplace() {
   const [editingListing, setEditingListing] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [actionError, setActionError] = useState("");
+  const [listingPendingDelete, setListingPendingDelete] = useState(null);
+  const [isDeletingListing, setIsDeletingListing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
@@ -234,21 +237,21 @@ export default function Marketplace() {
   }, [logout, requestConfig]);
 
   const deleteListing = useCallback(async (item) => {
-    const confirmed = window.confirm(
-      `Remove “${item.title}” from Marketplace?`
-    );
-    if (!confirmed) return;
-
     try {
+      setIsDeletingListing(true);
       setActionError("");
       await axios.delete(`${API_URL}/${item.id}`, requestConfig);
+      setMarketplaceItems((current) => current.filter((listing) => listing.id !== item.id));
       setRefreshKey((key) => key + 1);
+      setListingPendingDelete(null);
     } catch (error) {
       if (error.response?.status === 401) {
         logout();
         return;
       }
       setActionError(error.response?.data?.message || "Could not delete this listing.");
+    } finally {
+      setIsDeletingListing(false);
     }
   }, [logout, requestConfig]);
 
@@ -263,8 +266,8 @@ export default function Marketplace() {
   const ownerActions = useMemo(() => feedView === "mine" ? {
     onEdit: openEditForm,
     onAvailability: changeAvailability,
-    onDelete: deleteListing
-  } : null, [changeAvailability, deleteListing, feedView, openEditForm]);
+    onDelete: setListingPendingDelete
+  } : null, [changeAvailability, feedView, openEditForm]);
 
   if (!user || !token) {
     return null;
@@ -553,6 +556,16 @@ export default function Marketplace() {
           onPublished={handlePublished}
         />
       )}
+      <ConfirmDialog
+        open={Boolean(listingPendingDelete)}
+        title="Delete this listing?"
+        description={`“${listingPendingDelete?.title || "This item"}” and its Marketplace photos will be deleted from Marketplace. The original item will remain in My Closet.`}
+        confirmLabel="Delete listing"
+        icon="fa-trash-can"
+        busy={isDeletingListing}
+        onCancel={() => setListingPendingDelete(null)}
+        onConfirm={() => deleteListing(listingPendingDelete)}
+      />
     </div>
   );
 }

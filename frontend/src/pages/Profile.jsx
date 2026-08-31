@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import ProfileAvatar from "../components/ProfileAvatar";
+import ConfirmDialog from "../components/ConfirmDialog";
 import useAuthorizationConfig from "../hooks/useAuthorizationConfig";
 import { useAuth } from "../context/AuthContext";
 import { API_BASE_URL } from "../config/api";
@@ -17,6 +18,7 @@ export default function Profile() {
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!user || !token) {
@@ -77,10 +79,6 @@ export default function Profile() {
   }
 
   async function removeImage() {
-    if (!window.confirm("Remove your profile picture?")) {
-      return;
-    }
-
     try {
       setIsSaving(true);
       setError("");
@@ -93,6 +91,7 @@ export default function Profile() {
         profileImageUpdatedAt: Date.now()
       });
       setMessage("Profile picture removed.");
+      setRemoveDialogOpen(false);
     } catch (requestError) {
       if (requestError.response?.status === 401) {
         logout();
@@ -165,7 +164,7 @@ export default function Profile() {
               type="button"
               className="remove-photo-btn"
               disabled={isSaving}
-              onClick={removeImage}
+              onClick={() => setRemoveDialogOpen(true)}
             >
               Remove Picture
             </button>
@@ -177,6 +176,16 @@ export default function Profile() {
         {error && <p className="profile-error">{error}</p>}
 
       </section>
+      <ConfirmDialog
+        open={removeDialogOpen}
+        title="Remove your profile picture?"
+        description="Your account will return to the default profile avatar. You can upload a new picture at any time."
+        confirmLabel="Remove picture"
+        icon="fa-image"
+        busy={isSaving}
+        onCancel={() => setRemoveDialogOpen(false)}
+        onConfirm={removeImage}
+      />
     </main>
   );
 }

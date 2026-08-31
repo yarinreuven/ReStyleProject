@@ -32,9 +32,15 @@ export function resolveAllowedOrigins(
 }
 
 export function getFrontendUrl() {
-  return resolveFrontendUrl(process.env.FRONTEND_URL, process.env.NODE_ENV);
+  const renderUrl = process.env.RENDER_EXTERNAL_HOSTNAME
+    ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}`
+    : undefined;
+  return resolveFrontendUrl(process.env.FRONTEND_URL || renderUrl, process.env.NODE_ENV);
 }
 
 export function getAllowedOrigins() {
-  return resolveAllowedOrigins(process.env.FRONTEND_URL, process.env.NODE_ENV);
+  const renderUrl = process.env.RENDER_EXTERNAL_HOSTNAME
+    ? `https://${process.env.RENDER_EXTERNAL_HOSTNAME}`
+    : undefined;
+  return resolveAllowedOrigins(process.env.FRONTEND_URL || renderUrl, process.env.NODE_ENV);
 }

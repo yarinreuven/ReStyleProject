@@ -484,23 +484,6 @@ export default function OutfitBuilder() {
         Re<span>Style</span>
       </div>
 
-      <aside className="try-on-quota-status" aria-live="polite">
-        {isQuotaLoading ? (
-          <span>Loading try-on allowance…</span>
-        ) : quota ? (
-          <>
-            <i className="fa-solid fa-wand-magic-sparkles" aria-hidden="true" />
-            <strong>{quota.freeTryOnsRemaining} of 3 free try-ons remaining</strong>
-            {quota.tryOnCredits > 0 && <span>{quota.tryOnCredits} purchased credits</span>}
-            {quota.freeTryOnsRemaining === 0 && quota.tryOnCredits === 0 && (
-              <button type="button" onClick={() => setIsPlansOpen(true)}>View plans</button>
-            )}
-          </>
-        ) : (
-          <button type="button" onClick={loadQuotaStatus}>Reload allowance</button>
-        )}
-      </aside>
-
       <section className={`stylist-window${isPreview ? " preview-mode" : ""}`}>
         {!isPreview ? (
           <form className="stylist-form" onSubmit={submit}>
@@ -744,9 +727,13 @@ export default function OutfitBuilder() {
 
             {quota && (
               <div className="try-on-quota-result">
-                <p>{quota.freeTryOnsRemaining} of 3 free try-ons remaining</p>
-                {quota.tryOnCredits > 0 && (
-                  <small>Purchased try-on credits: {quota.tryOnCredits}</small>
+                <i className="fa-solid fa-wand-magic-sparkles" aria-hidden="true" />
+                <div>
+                  <strong>{quota.tryOnCredits} credits remaining</strong>
+                  <span>{quota.freeTryOnsRemaining} of 3 free try-ons remaining</span>
+                </div>
+                {quota.freeTryOnsRemaining === 0 && quota.tryOnCredits === 0 && (
+                  <button type="button" onClick={() => setIsPlansOpen(true)}>View plans</button>
                 )}
               </div>
             )}

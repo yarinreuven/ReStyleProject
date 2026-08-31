@@ -907,33 +907,49 @@ textarea {
   text-align: center;
 }
 
-.try-on-quota-status {
-  width: fit-content;
-  max-width: calc(100% - 32px);
-  display: flex;
-  align-items: center;
+.try-on-quota-result {
+  width: min(560px, calc(100% - 24px));
+  flex-direction: row;
   justify-content: center;
-  gap: 9px;
-  margin: 10px auto 18px;
-  padding: 10px 16px;
-  border: 1px solid rgba(184, 82, 112, 0.2);
-  border-radius: 999px;
-  color: #7e4356;
-  background: rgba(255, 250, 251, 0.9);
-  box-shadow: 0 8px 24px rgba(126, 67, 86, 0.08);
-  font-size: 13px;
+  gap: 16px;
+  margin: 22px auto 28px;
+  padding: 20px 26px;
+  border: 1px solid rgba(184, 82, 112, 0.22);
+  border-radius: 22px;
+  background: linear-gradient(135deg, #fff9fa, #f9e9ee);
+  box-shadow: 0 14px 32px rgba(126, 67, 86, 0.1);
 }
 
-.try-on-quota-status i { color: #bd5c78; }
-.try-on-quota-status span { color: #886f77; }
-.try-on-quota-status button {
-  padding: 6px 11px;
+.try-on-quota-result > i {
+  color: #bd5c78;
+  font-size: 26px;
+}
+
+.try-on-quota-result > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+
+.try-on-quota-result strong {
+  color: #783f52;
+  font-size: 21px;
+}
+
+.try-on-quota-result span {
+  color: #8b7179;
+  font-size: 14px;
+}
+
+.try-on-quota-result button {
+  padding: 9px 15px;
   border: 0;
   border-radius: 999px;
   color: #fff;
   background: #b55370;
   cursor: pointer;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .try-on-actions p,

@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import MarketplaceItemCard from "../components/MarketplaceItemCard";
 import MarketplaceSellerAvatar from "../components/MarketplaceSellerAvatar";
 import ProfileAvatar from "../components/ProfileAvatar";
+import ConfirmDialog from "../components/ConfirmDialog";
 import useClickOutside from "../hooks/useClickOutside";
 import useAuthorizationConfig from "../hooks/useAuthorizationConfig";
 import { useAuth } from "../context/AuthContext";
@@ -43,6 +44,7 @@ export default function MarketplaceSellerProfile() {
   const [status, setStatus] = useState("loading");
   const [contacting, setContacting] = useState(false);
   const [blocking, setBlocking] = useState(false);
+  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
   const [contactError, setContactError] = useState("");
   const { user, token, logout } = useAuth();
   const requestConfig = useAuthorizationConfig(token);
@@ -126,7 +128,6 @@ export default function MarketplaceSellerProfile() {
   }
 
   async function blockSeller() {
-    if (!window.confirm("Block this user? Neither of you will be able to view the other's profile or send messages.")) return;
     try {
       setBlocking(true);
       setContactError("");
@@ -138,6 +139,7 @@ export default function MarketplaceSellerProfile() {
       setSeller(null);
       setItems([]);
       setStatus("blocked-by-me");
+      setBlockDialogOpen(false);
     } catch (error) {
       if (error.response?.status === 401) {
         logout();
@@ -225,7 +227,7 @@ export default function MarketplaceSellerProfile() {
               ) : (
                 <>
                   <button type="button" onClick={contactSeller} disabled={contacting || blocking}><i className="fa-regular fa-comment-dots" /> {contacting ? "Opening conversation..." : "Contact seller"}</button>
-                  <button className="seller-block-button" type="button" onClick={blockSeller} disabled={contacting || blocking}><i className="fa-solid fa-user-slash" /> {blocking ? "Blocking..." : "Block user"}</button>
+                  <button className="seller-block-button" type="button" onClick={() => setBlockDialogOpen(true)} disabled={contacting || blocking}><i className="fa-solid fa-user-slash" /> Block user</button>
                 </>
               )}
               {contactError && <p role="alert">{contactError}</p>}
@@ -246,6 +248,16 @@ export default function MarketplaceSellerProfile() {
           </section>
         </>}
       </main>
+      <ConfirmDialog
+        open={blockDialogOpen}
+        title={`Block ${seller?.name || "this user"}?`}
+        description="Neither of you will be able to view the other's profile or send messages. You can manage blocked users later in Settings."
+        confirmLabel="Block user"
+        icon="fa-user-slash"
+        busy={blocking}
+        onCancel={() => setBlockDialogOpen(false)}
+        onConfirm={blockSeller}
+      />
     </div>
   );
 }

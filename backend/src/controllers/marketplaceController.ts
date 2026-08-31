@@ -2,6 +2,7 @@ import type { NextFunction, Response } from "express";
 
 import type { AuthRequest } from "../middleware/auth.ts";
 import Item from "../models/Item.ts";
+import MarketplaceFavorite from "../models/MarketplaceFavorite.ts";
 import User from "../models/User.ts";
 import {
   checkWardrobeImage,
@@ -296,11 +297,20 @@ export async function removeMarketplaceItem(req: AuthRequest, res: Response, nex
       res.status(404).json({ success: false, message: "Item not found" });
       return;
     }
+    item.listingType = null;
+    item.price = null;
+    item.rentalPricePerDay = null;
+    item.size = null;
+    item.condition = null;
+    item.brand = null;
+    item.description = null;
     item.availabilityStatus = "hidden";
+    item.set("marketplaceImages", []);
     await item.save();
+    await MarketplaceFavorite.deleteMany({ item: item._id });
     res.json({
       success: true,
-      message: "Listing removed from the marketplace"
+      message: "Listing deleted from Marketplace; the item remains in your closet"
     });
   } catch (error) {
     next(error);
