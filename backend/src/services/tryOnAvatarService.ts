@@ -5,6 +5,7 @@ import path from "node:path";
 import sharp, { type Metadata } from "sharp";
 
 import User from "../models/User.ts";
+import { getFrontendUrl } from "./frontendConfigService.ts";
 import {
   isApprovedAvatarId,
   uploadedAvatarValidationError,
@@ -13,15 +14,59 @@ import {
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 const APPROVED_AVATARS = {
-  "female-illustrated": path.join(
-    projectRoot,
-    "frontend/public/images/avatars/fashion-avatar-v2.png"
-  ),
-  "male-illustrated": path.join(
-    projectRoot,
-    "frontend/public/images/avatars/fashion-avatar-male.png"
-  )
+  "female-illustrated": {
+    localPath: path.join(projectRoot, "frontend/public/images/avatars/fashion-avatar-v2.png"),
+    publicPath: "/images/avatars/fashion-avatar-v2.png"
+  },
+  "male-illustrated": {
+    localPath: path.join(projectRoot, "frontend/public/images/avatars/fashion-avatar-male.png"),
+    publicPath: "/images/avatars/fashion-avatar-male.png"
+  }
 } as const;
+const PRESET_AVATAR_MAX_BYTES = 5 * 1024 * 1024;
+const presetAvatarCache = new Map<keyof typeof APPROVED_AVATARS, Buffer>();
+
+function isMissingFileError(error: unknown) {
+  return error instanceof Error && "code" in error && error.code === "ENOENT";
+}
+
+export function presetAvatarUrl(
+  avatarId: keyof typeof APPROVED_AVATARS,
+  frontendUrl = getFrontendUrl()
+) {
+  return `${frontendUrl.replace(/\/$/, "")}${APPROVED_AVATARS[avatarId].publicPath}`;
+}
+
+async function loadPresetAvatar(avatarId: keyof typeof APPROVED_AVATARS) {
+  const cached = presetAvatarCache.get(avatarId);
+  if (cached) return cached;
+
+  const avatar = APPROVED_AVATARS[avatarId];
+  try {
+    const localData = await readFile(avatar.localPath);
+    presetAvatarCache.set(avatarId, localData);
+    return localData;
+  } catch (error) {
+    if (!isMissingFileError(error)) throw error;
+  }
+
+  const response = await fetch(presetAvatarUrl(avatarId), {
+    signal: AbortSignal.timeout(15_000)
+  });
+  if (!response.ok) {
+    throw new Error(`Preset avatar request failed (${response.status})`);
+  }
+  const declaredLength = Number(response.headers.get("content-length") || 0);
+  if (declaredLength > PRESET_AVATAR_MAX_BYTES) {
+    throw new Error("Preset avatar is too large");
+  }
+  const remoteData = Buffer.from(await response.arrayBuffer());
+  if (!remoteData.length || remoteData.length > PRESET_AVATAR_MAX_BYTES) {
+    throw new Error("Preset avatar has an invalid size");
+  }
+  presetAvatarCache.set(avatarId, remoteData);
+  return remoteData;
+}
 
 interface UploadedAvatarFile {
   buffer: Buffer;
@@ -120,7 +165,15 @@ export async function resolveTryOnAvatar(input: {
     if (input.file || !isApprovedAvatarId(input.avatarId)) {
       return { status: 400, error: "Choose an approved illustrated avatar" };
     }
-    const data = await readFile(APPROVED_AVATARS[input.avatarId]);
+    let data: Buffer;
+    try {
+      data = await loadPresetAvatar(input.avatarId);
+    } catch {
+      return {
+        status: 503,
+        error: "The built-in digital model is temporarily unavailable. Please try again shortly"
+      };
+    }
     const validated = await validateAvatarImage(data, "image/png");
     return validated.error
       ? { status: 400, error: validated.error }

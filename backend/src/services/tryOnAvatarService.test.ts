@@ -3,10 +3,22 @@ import test from "node:test";
 import sharp from "sharp";
 
 import {
+  presetAvatarUrl,
   preparePersonalModelValidationParts,
   resolveTryOnAvatar,
   validateAvatarImage
 } from "./tryOnAvatarService.ts";
+
+test("builds the deployed preset avatar URL from the configured frontend", () => {
+  assert.equal(
+    presetAvatarUrl("female-illustrated", "https://restyle.example/"),
+    "https://restyle.example/images/avatars/fashion-avatar-v2.png"
+  );
+  assert.equal(
+    presetAvatarUrl("male-illustrated", "https://restyle.example"),
+    "https://restyle.example/images/avatars/fashion-avatar-male.png"
+  );
+});
 
 test("prepares a personal model photo as JPEG for Gemini validation", async () => {
   const source = await sharp({
