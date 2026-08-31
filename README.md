@@ -259,13 +259,12 @@ The 18-minute recording demonstrates the main user flows: authentication, wardro
 
 ## Deployment
 
-The production deployment serves the built React application, Express API, and Socket.IO server from one Render web service, with MongoDB Atlas as the managed database. Using one origin keeps authentication cookies, API calls, and real-time connections consistent. Production secrets are configured only in Render and are never committed to the repository.
+The production deployment follows the course requirements: the React client is hosted on Vercel, the Node.js API and Socket.IO server are hosted on Heroku, and MongoDB Atlas provides the managed database. Production secrets are configured only in the hosting providers and are never committed to the repository.
 
-- Application: Vite production build served by the Node.js/Express service
+- Client: Vercel production deployment of the Vite application
+- Server: Heroku deployment of the Express API and Socket.IO service
 - Database: MongoDB Atlas
-- Configuration: database, email, Google, Gemini, and PayPal credentials are supplied through cloud environment variables
-
-[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https%3A%2F%2Fgithub.com%2Fyarinreuven%2FReStyleProject)
+- Configuration: `VITE_API_URL`, `FRONTEND_URL`, and all database and integration credentials are supplied through cloud environment variables
 
 The live URLs will be added here immediately after the hosting providers finish provisioning the services.
 
