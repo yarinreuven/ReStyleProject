@@ -3,10 +3,24 @@ import test from "node:test";
 
 import {
   buildVerifiedCandidates,
+  createBalancedWardrobeShortlist,
   hasSupportedWardrobeImage,
   hasCompleteAnalyzedOutfitBase,
   selectNoCostOutfitItems
 } from "./outfitSelectionService.ts";
+
+test("rotates the shortlist away from pieces used in recent looks", () => {
+  const candidates = [
+    { id: "recent-top", category: "Tops", favorite: true, wearCount: 0, recentSelectionCount: 3 },
+    { id: "fresh-top", category: "Tops", favorite: false, wearCount: 2, recentSelectionCount: 0 },
+    { id: "recent-bottom", category: "Bottoms", favorite: true, wearCount: 0, recentSelectionCount: 2 },
+    { id: "fresh-bottom", category: "Bottoms", favorite: false, wearCount: 3, recentSelectionCount: 0 }
+  ];
+
+  const result = createBalancedWardrobeShortlist(candidates, 2);
+
+  assert.deepEqual(result.map(({ id }) => id), ["fresh-top", "fresh-bottom"]);
+});
 
 test("builds verified candidates only from valid wardrobe analyses", () => {
   const analyses = new Map([

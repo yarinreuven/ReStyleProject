@@ -35,6 +35,7 @@ export interface ShortlistCandidate {
   favorite: boolean;
   wearCount: number;
   lastWornAt?: Date | null;
+  recentSelectionCount?: number;
 }
 
 export interface SelectedOutfitItem {
@@ -169,7 +170,11 @@ export function selectNoCostOutfitItems<T extends { category: string }>(items: T
 }
 
 function shortlistPriority(left: ShortlistCandidate, right: ShortlistCandidate) {
-  if (left.favorite !== right.favorite) return left.favorite ? -1 : 1;
+  const leftRecentSelections = left.recentSelectionCount || 0;
+  const rightRecentSelections = right.recentSelectionCount || 0;
+  if (leftRecentSelections !== rightRecentSelections) {
+    return leftRecentSelections - rightRecentSelections;
+  }
   if (left.wearCount !== right.wearCount) return left.wearCount - right.wearCount;
 
   const leftWornAt = left.lastWornAt ? new Date(left.lastWornAt).getTime() : 0;

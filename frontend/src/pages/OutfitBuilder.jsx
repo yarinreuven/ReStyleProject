@@ -49,7 +49,7 @@ export default function OutfitBuilder() {
   const [customEvent, setCustomEvent] = useState("");
   const [style, setStyle] = useState("Elegant");
   const [weather, setWeather] = useState("Mild");
-  const [preferFavorites, setPreferFavorites] = useState(true);
+  const [preferFavorites, setPreferFavorites] = useState(false);
   const [isPreview, setIsPreview] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [outfit, setOutfit] = useState(null);

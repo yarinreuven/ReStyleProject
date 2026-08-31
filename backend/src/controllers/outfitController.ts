@@ -195,6 +195,18 @@ export async function generateOutfit(
         return;
       }
 
+      const recentSelections = await OutfitSelection.find({ user: req.userId })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .select("items.item");
+      const recentSelectionCounts = new Map<string, number>();
+      for (const recentSelection of recentSelections) {
+        for (const selectedItem of recentSelection.items) {
+          const itemId = selectedItem.item.toString();
+          recentSelectionCounts.set(itemId, (recentSelectionCounts.get(itemId) || 0) + 1);
+        }
+      }
+
       const shortlistedItems = createBalancedWardrobeShortlist(
         eligibleImageItems.map((item) => ({
           item,
@@ -202,7 +214,8 @@ export async function generateOutfit(
           category: item.category,
           favorite: item.favorite,
           wearCount: item.wearCount,
-          lastWornAt: item.lastWornAt
+          lastWornAt: item.lastWornAt,
+          recentSelectionCount: recentSelectionCounts.get(item._id.toString()) || 0
         })),
         GEMINI_STYLIST_MAX_ITEMS
       );
@@ -219,6 +232,7 @@ export async function generateOutfit(
         favorite: item.favorite,
         wearCount: item.wearCount,
         lastWornAt: item.lastWornAt,
+        recentSelectionCount: recentSelectionCounts.get(id) || 0,
         brand: item.brand,
         size: item.size,
         condition: item.condition,
